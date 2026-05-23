@@ -1,0 +1,18 @@
+# Noir build artifacts
+circuits/*/target/
+tests/hash_compat/noir/target/
+
+# Rust build artifacts
+pipeline/merkle_builder/target/
+tests/hash_compat/rust/target/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Claude Code local settings (project-specific permissions)
+.claude/settings.local.json
+
+# IDE
+.vscode/

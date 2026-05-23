@@ -1,0 +1,12 @@
+[package]
+name = "hash_compat"
+version = "0.1.0"
+edition = "2021"
+
+# Both crates are from the same noir monorepo workspace at this exact tag.
+# Cargo resolves workspace-level deps (ark-bn254, ark-ff, etc.) from the
+# workspace root Cargo.toml, so the concrete FieldElement type used by
+# poseidon2_permutation and the one we construct via acir are identical.
+[dependencies]
+bn254_blackbox_solver = { git = "https://github.com/noir-lang/noir", tag = "v1.0.0-beta.20" }
+acir = { git = "https://github.com/noir-lang/noir", tag = "v1.0.0-beta.20" }
