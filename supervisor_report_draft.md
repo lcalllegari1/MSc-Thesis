@@ -8,19 +8,34 @@
 
 This report documents the first phase of the thesis: the design, implementation, and
 benchmarking of flat zero-knowledge proof circuits for the Travelling Salesman Problem
-(TSP). The work addresses a central question in applied ZKP research:
+(TSP). The work was originally framed around a single research question:
 
-> **At what problem size N does a hierarchical (decomposed) ZKP circuit become cheaper
-> than a flat (monolithic) one, and what governs the crossover?**
+> *"At what problem size N does a hierarchical (decomposed) ZKP circuit become cheaper
+> than a flat (monolithic) one, and what governs the crossover?"*
 
-Answering this requires first characterising the flat baseline precisely — its cost
-structure, empirical scaling, and the trade-offs between design variants. That is what
-this phase delivers.
+Detailed gate-count analysis during the planning of the hierarchical circuit (Section 8)
+revealed that this framing pre-supposes a single dimension of "cheaper" that does not
+exist in practice. Hierarchical decomposition affects total gate count, parallel
+wall-clock time, per-prover memory, and verifier-side privacy in genuinely independent
+ways — no single hierarchical variant Pareto-dominates the flat baseline. The thesis is
+therefore reframed around the broader question:
 
-A secondary thread, motivated by parallel work on heuristic TSP solvers, frames the
-same decomposition question in two complementary roles: *finding* a solution
-(optimisation) and *verifying* one (zero-knowledge proof). The cross-domain comparison
-is deferred to a later phase but motivates several design choices made here.
+> **How do hierarchical ZKP designs for TSP trade off total cost, parallel proving time,
+> per-prover memory, and verifier-side privacy against the flat baseline, and what is the
+> structural reason these axes do not collapse into a single crossover point?**
+
+The flat baseline characterisation in this report is unchanged. It establishes a sharp
+crossover at N ≈ 175 between matrix-public (`flat_full`) and matrix-committed
+(`flat_merkle`) variants. Hierarchical variants will be presented in the next phase as
+points on a privacy / cost / parallelism frontier rather than as competitors to be
+ranked on a single axis.
+
+A secondary thread, motivated by parallel work on heuristic TSP solvers, examines the
+same decomposition question in two complementary roles — *finding* a solution
+(optimisation) and *verifying* one (zero-knowledge proof). Section 7 develops a
+structural dualism between these two contexts that explains why hierarchical
+decomposition behaves so differently across them, and why the multi-axis framing of the
+ZK side is intrinsic rather than incidental.
 
 ---
 
@@ -1060,45 +1075,188 @@ in flat-full. For any use case involving repeated verification (multiple verifie
 auditing at scale), this asymmetry makes the Merkle variant strictly preferable above
 N ≈ 50, well before the circuit-size crossover at N ≈ 175.
 
+**Finding 6 — Hierarchical Merkle does not reduce total gate count *(analytical result, planning phase)*.**
+Gate-count analysis of the hierarchical Merkle design (K segment sub-circuits plus a
+glue circuit) shows the total cost is `(N + K) × DEPTH × 87 + O(N)` — strictly larger
+than flat_merkle's `N × DEPTH × 87 + O(N)`. The K boundary Merkle proofs and the O(N)
+partition check in the glue exactly absorb any per-segment saving. The dominant Merkle
+hashing work is invariant under decomposition: every cycle edge requires one Merkle
+proof regardless of how the cycle is partitioned. At N = 500, K = 4 the overhead is
+approximately 1.5%. The structural reason this finding holds is developed in Section 7.
+
+**Finding 7 — Hierarchical flat_full saves gates by trading privacy *(analytical result, planning phase)*.**
+The flat_full variant's dominant cost is N² public-input encoding (~7.25 gates per
+matrix entry). Splitting flat_full hierarchically with K segments, each taking its
+M × M sub-matrix as public input, reduces total public-input cost from O(N²) to
+O(N²/K). At N = 500 this crosses below flat_merkle at K ≥ 3 and continues to fall
+linearly with K. The currency paid is verifier-side disclosure of the partition (which
+M nodes belong to which segment) and of the per-segment sub-matrices — privacy that
+flat_merkle preserves. Hierarchical flat_full and flat_merkle therefore occupy distinct
+points on a privacy ↔ cost frontier and neither dominates the other.
+
+**Finding 8 — The genuine hierarchical wins are parallel wall-clock time and per-prover
+memory, not total work.**
+Although hierarchical Merkle does not reduce total gates (Finding 6), the K sub-proofs
+are independent and can be generated in parallel. With K parallel workers, wall-clock
+proving time scales as `proving_time(N/K) + glue` — approximately K-fold speedup.
+Per-prover peak memory scales as `memory(N/K)` — a ~K-fold reduction per process. At
+sufficiently large N, single-machine memory exhaustion is the binding constraint, and
+the hierarchical design is not "faster" but rather "the only feasible design." This
+reframes hierarchical ZK from an optimisation strategy to a scaling strategy: the
+benefit is enabling proofs that would otherwise be impossible, not making feasible
+proofs cheaper.
+
+**Finding 9 — In-circuit Fiat-Shamir restores partition privacy at ~5% gate overhead *(analytical result, planning phase)*.**
+A hierarchical Merkle variant using a grand-product partition argument combined with
+in-circuit Fiat-Shamir (challenge `X` derived from a hash chain over the cycle, jointly
+enforced by the K sub-circuits and the glue) reduces verifier-side bit-leakage from
+~N·log K (full partition disclosure of Variant A) to ~2K·log N (only segment endpoints
+plus Field-valued aggregates). The sub-circuit pays approximately M additional Poseidon2
+calls for the hash-chain binding, which is `~1/DEPTH` of the existing internal Merkle
+cost — ~5.5% sub-circuit overhead at N=500. The glue partition check simultaneously
+drops from O(N) sort to O(K) multiplications. Soundness rests on standard Fiat-Shamir
+and Schwartz-Zippel arguments (~`2^-254` collision probability). This becomes a third
+design point — Variant A++ — sitting strictly between Variants A and B on the
+privacy ↔ cost frontier.
+
 ---
 
-## 7. Cross-Domain Perspective: Optimisation and Verification
+## 7. Cross-Domain Perspective: A Structural Dualism
 
 This thesis sits at the intersection of two computational tasks on the same problem
 class. A parallel project studied hierarchical (clustered) heuristic solvers for TSP,
 where the same decomposition question arises: at what N does splitting the problem into
-k clusters of size N/k outperform solving the full N-node instance?
+K clusters of N/K nodes each outperform solving the full N-node instance?
 
-The structural analogy is close. Both studies involve a flat approach (monolithic
-circuit or single-pass solver) and a hierarchical approach (segmented circuit or
-clustered solver), both exhibit a crossover governed by the relative cost of solving
-sub-problems versus combining results, and both can be characterised by empirical
-benchmarks across a range of N.
+The structural analogy looks tight at first glance — both contexts split a global
+problem into local pieces and combine the results. But closer analysis reveals an
+asymmetry that runs in opposite directions:
 
-The key asymmetry, and the reason the comparison is interesting rather than merely
-parallel, concerns the nature of the trade-off in each domain.
+> **Hierarchical decomposition adds a structural constraint in optimisation and weakens
+> a soundness constraint in zero-knowledge proving. Same operation, opposite direction
+> in constraint space, opposite effect on cost.**
 
-In **heuristic optimisation**, decomposition trades solution quality for speed. A
-clustered solver ignores inter-cluster edge costs during intra-cluster optimisation,
-producing tours that are faster to compute but potentially worse in cost. The crossover
-is entangled with an approximation ratio: the two regimes are not directly comparable on
-the same objective.
+This dualism is the central conceptual finding of the thesis's planning phase. It
+explains why Findings 6–8 hold and why the experimental programme is reframed around a
+multi-axis frontier rather than a single crossover.
 
-In **ZKP verification**, decomposition preserves exact soundness. A hierarchical circuit
-splits the proof into k segment proofs and a stitching circuit that verifies endpoint
-connectivity and full node coverage. The soundness guarantee is identical to the flat
-circuit — there is no quality degradation. The only cost is the stitching overhead,
-which is O(k) and small relative to the sub-circuit cost.
+### 7.1 Optimisation: decomposition adds a constraint, shrinks search
 
-This means hierarchical decomposition is a cleaner strategy in the verification context
-than in the optimisation context. The ZKP crossover is a purely computational threshold;
-the optimisation crossover requires a joint decision about acceptable solution quality.
+In heuristic optimisation, splitting an N-node TSP into K clusters of N/K nodes each
+imposes the constraint *"the tour respects this partition"*. Adding the constraint
+shrinks the search space from N! orderings (over all permutations of N nodes) to
+roughly K · ((N/K)!) · K! orderings (over the K intra-cluster orderings and the K
+inter-cluster orderings of cluster representatives). For K = √N this collapses the
+search by a super-polynomial factor.
 
-The empirical results from the heuristic study — crossover N, quality degradation curves,
-cluster size sensitivity — will be presented alongside the ZKP results in a combined
-chapter once the hierarchical ZKP circuit is benchmarked. The comparison will address
-whether the two crossover points coincide, and what the combined pipeline (solve +
-prove) looks like when both decompositions are applied simultaneously.
+The added constraint is *paid for* by losing access to tours that violate it — the
+approximation error of clustered TSP. Speedup and quality loss are two sides of the
+same added constraint.
+
+### 7.2 ZK proving: decomposition weakens a constraint, forces glue restoration
+
+In zero-knowledge proving, splitting the N-node Hamiltonian-cycle proof into K segment
+proofs weakens the constraint *"every node visited exactly once globally"* to K weaker
+constraints *"every node visited exactly once within this segment"*. The weakened
+form is unsound: a cheating prover under K independent segment proofs could place node
+v in two different segments and pass every local check.
+
+To restore soundness, a global partition check must be added in the glue circuit — sort
+the K · M = N segment node outputs and assert they equal `{0,…,N-1}`. This restoration
+costs O(N) gates, which precisely cancels the per-segment saving from verifying smaller
+permutations. Add K boundary Merkle proofs for the segment-connecting edges, and the
+hierarchical Merkle design has the same total gate count as flat Merkle plus a small
+overhead — exactly Finding 6.
+
+The contrast is structural:
+
+| | Optimisation | ZK proving |
+|---|---|---|
+| Cost lives in | Searching a combinatorial space | Re-checking a fixed witness |
+| What decomposition does | Adds a constraint, shrinks search space | Weakens a constraint, forces restoration in glue |
+| Cost effect | Cheaper (search pruned) | Same or worse (work merely relocated) |
+| Currency paid | Solution quality (approximation error) | Verifier privacy (segment partition disclosed) |
+
+### 7.3 Why the dualism exists
+
+The two domains pay different bills. Optimisation cost is dominated by *searching* over
+orderings; ZK cost is dominated by *re-checking* a single witness already known to the
+prover. Hierarchical decomposition is a search-pruning trick, and search is precisely
+what ZK does not do. This is fundamentally a manifestation of the NP asymmetry between
+*finding* and *checking* — the relationship that defines the complexity class itself.
+
+Several corollaries follow:
+
+- **Approximation has no ZK analogue.** Heuristic optimisation can trade quality for
+  speed because a near-optimal tour is still useful. ZK has no equivalent — a partially
+  verified cycle is simply unverified. Hierarchical's quality/speed trade-off does not
+  port to ZK.
+
+- **Constraints have flipped sign across the two domains.** Adding a constraint in
+  optimisation makes the problem cheaper (smaller search space); adding a constraint in
+  ZK makes the proof more expensive (more assertions). The word "constraint" denotes
+  opposing economic forces in the two contexts.
+
+- **Hierarchical ZK works well only for locally-factoring problems.** Circuit-SAT
+  factors locally (each gate is independently checkable), and recursive proof systems
+  over circuit-SAT (Halo, Nova, ProtoStar) work well precisely because the global
+  property *is* the conjunction of local properties. Hamiltonian-cycle is the opposite
+  extreme — the constraint "visit every node exactly once" is intrinsically global and
+  refuses to factor. TSP is therefore a worst-case problem class for hierarchical ZK,
+  which is itself a useful framing for this thesis.
+
+- **The ZK verifier cannot assist the prover.** In optimisation, "guess-and-check" can
+  speed search because the checker accepts or rejects with useful feedback. The ZK
+  verifier can only output {accept, reject} after a complete proof is generated; it
+  cannot iteratively guide the prover. The asymmetric guess/check dynamic that powers
+  metaheuristics has no ZK analogue.
+
+### 7.4 Implications for the experimental programme
+
+The structural dualism dictates the shape of the next phase. The naive question — "at
+what N does hierarchical beat flat?" — pre-supposes that hierarchical is uniformly
+better and we need only locate the crossover. The dualism shows this pre-supposition is
+unfounded: hierarchical Merkle cannot beat flat Merkle on total gate count, and
+hierarchical flat_full can beat it only by surrendering verifier-side privacy. The
+genuine benefits live in dimensions the original framing did not measure — parallel
+wall-clock time and per-prover memory.
+
+The hierarchical experimental programme is therefore framed as mapping a frontier in
+(total gate count, parallel proving time, per-prover memory, verifier privacy) space,
+not as locating a crossover on a single axis. Three variants are planned (see Section 8):
+
+- **Variant A** — Merkle baseline with sorted segment node sets publicly exposed. Simple
+  partition check via sort; verifier learns the partition.
+- **Variant A++** — Merkle with a grand-product partition check and in-circuit
+  Fiat-Shamir (challenge bound to a hash-chain commitment of the global cycle, jointly
+  enforced by the K sub-circuits and the glue). Hides interior nodes; verifier learns
+  only segment endpoints and Field-valued aggregates. ~5.5% sub-circuit overhead vs A;
+  glue partition drops from O(N) to O(K). (See Finding 9.)
+- **Variant B** — flat_full with public per-segment sub-matrices. Lowest total gates of
+  the three for K ≥ 3, paid for in full partition + sub-matrix disclosure.
+
+Each occupies a distinct point on the privacy ↔ cost frontier with a clear structural
+reason for its position.
+
+### 7.5 Folding schemes as a future direction
+
+Recent proof systems (Nova, ProtoStar, SuperNova) are explicitly designed to address
+the hierarchical / recursive setting. They fold K instances into one with a
+constant-cost folding step, sidestepping the per-recursion verifier overhead that
+limits naive recursive SNARKs. The gate-count analysis in this thesis becomes the
+UltraHonk baseline that any folding-scheme implementation would need to beat for TSP.
+Implementing a folding-scheme variant is out of scope for this thesis but is the
+natural continuation: it would test whether the dualism is intrinsic to the problem
+class or a property of the proof system in use.
+
+### 7.6 Combined-pipeline synthesis
+
+The empirical results from the heuristic optimisation study — crossover N, quality
+degradation curves, cluster size sensitivity — will be presented alongside the ZKP
+frontier in a final chapter. The dualism makes a sharp prediction: the two crossover
+behaviours differ in direction, not just in magnitude. Joint empirical measurement
+tests this prediction and characterises the combined solve-then-prove pipeline when
+both decompositions are applied simultaneously.
 
 ---
 
@@ -1109,25 +1267,84 @@ Run benchmarks for flat_full_invperm and flat_full_presence to complete the perm
 overhead analysis. These are implemented and correctness-tested; the benchmarks take one
 afternoon of machine time.
 
-**Hierarchical ZKP circuit design.**
-The hierarchical circuit splits the N-node Hamiltonian cycle into k segments of s = N/k
-nodes each. Each segment is proved independently as a Hamiltonian path from a known
-start node to a known end node, with cost ≤ T_i. A lightweight stitching circuit then
-asserts: (a) the end node of segment i equals the start node of segment i+1 for all i,
-and (b) the k start nodes together form a permutation of {0, s, 2s, …, (k-1)s} — i.e.,
-the partition is valid and complete.
+**Three hierarchical variants, framed by the dualism.**
+The hierarchical phase implements three variants chosen to span the privacy ↔ cost
+frontier identified in Section 7. All three share the same architecture — K segment
+sub-circuits plus a glue circuit — and differ in (a) how the cost matrix is exposed and
+(b) how the global partition is enforced.
 
-The central design question is the stitching circuit's cost and how it scales with k.
-If stitching is O(k) (a small RAM-based permutation check on k items), the total
-hierarchical cost is k × C(N/k) + O(k), where C(m) is the flat circuit cost for m nodes.
-The crossover with flat_merkle_presence occurs when this expression is less than C(N).
+- *Variant A — Hierarchical Merkle, sorted nodes public* (`hierarchical_segment` +
+  `hierarchical_glue`). The simple baseline: each sub-circuit publishes its sorted
+  segment node set; the glue performs a global sort-based partition check on the
+  concatenated K × M = N node outputs. Total gate count structurally invariant under K
+  (Finding 6); per-process memory and parallel wall-clock both scale as N/K
+  (Finding 8). Benchmarks target memory-per-process and parallel wall-clock as primary
+  metrics, with total gate count as a control measurement. Verifier learns the
+  partition.
 
-**Experimental programme.**
-Implement and benchmark the hierarchical circuit for a range of (N, k) pairs. Plot the
-hierarchical cost surface against the flat baseline. Identify the empirical crossover
-and compare it to the analytical prediction derived from the flat cost models established
-here.
+- *Variant A++ — Hierarchical Merkle, grand product + in-circuit Fiat-Shamir*
+  (`hierarchical_segment_fs` + `hierarchical_glue_fs`). Refines Variant A by replacing
+  the O(N) sort-based partition check with a grand-product multiset-equality argument.
+  The challenge `X` for the grand product is derived from a Poseidon2 hash chain over
+  the global cycle (`c = h_N` where `h_{j+1} = Poseidon2(h_j, cycle[j])`,
+  `X = Poseidon2(c)`); the binding is enforced jointly by the K sub-circuits (each
+  proving its segment is the corresponding slice of the chain) and by the glue
+  (asserting chain stitching and chain terminal equals `c`). Sub-circuit overhead is
+  approximately M Poseidon2 calls (~5.5% at N=500); glue partition cost drops from
+  O(N) sort to O(K) multiplications. Soundness rests on standard Fiat-Shamir /
+  Schwartz-Zippel arguments (Finding 9). Verifier learns only segment endpoints plus
+  Field-valued aggregates; interior nodes hidden.
+
+- *Variant B — Hierarchical flat_full, sub-matrices public* (sub-circuit takes its
+  M × M sub-matrix as public input, glue handles boundary edges via Merkle). Trades
+  partition disclosure for total gate-count reduction of O(N²) → O(N²/K) (Finding 7).
+  Benchmarks target total gate count, with privacy loss quantified as the bit-content
+  of the disclosed partition and sub-matrices.
+
+Each variant follows the same five-stage implementation path: sub-circuit design,
+glue-circuit design, pipeline split, correctness tests, and gate-count sanity check
+before full benchmarks. Variants A and A++ share most pipeline infrastructure (the
+hash-chain precomputation is the only A++-specific addition off-circuit). Estimated
+effort: ~1 work-week per variant plus a third week for combined benchmarks and
+frontier-figure preparation; the three-variant total is roughly 2.5–3 work-weeks of
+implementation given the shared architecture.
+
+**Sub-circuit and glue design (shared structure across all three variants).**
+The sub-circuit proves a Hamiltonian *path* through M = N/K nodes from a private
+segment of the cycle, publishing (start node, end node, partial cost) to the glue
+along with a per-variant partition-check witness — sorted node set (A), grand-product
+value + hash-chain endpoints (A++), or the M × M sub-matrix as public input (B). The
+glue verifies endpoint connectivity across segments, performs the per-variant global
+partition check, verifies K boundary Merkle proofs against the shared cost-matrix
+Merkle root (A and A++) or via direct sub-matrix lookups (B), and asserts the summed
+cost satisfies the public threshold.
+
+For Variants A and A++, the sorted node set / Field-valued aggregates are exposed
+rather than the segment in cycle order, so the in-segment visit ordering remains
+private. For Variant A++ specifically, in-circuit Fiat-Shamir binds the per-segment
+witnesses to the global cycle without requiring multi-round prover-verifier
+interaction.
+
+**Frontier mapping rather than crossover localisation.**
+The experimental programme reports each variant as a point in
+(total gate count, parallel proving time, per-prover memory, verifier privacy) space
+across N ∈ {50, 100, 200, 500} and K ∈ {2, 4, 8}. The deliverable is a frontier figure
+showing which variant Pareto-dominates which others in which regions, with the
+structural reason for each dominance traced back to the dualism in Section 7.
 
 **Cross-domain synthesis.**
-Integrate the heuristic optimisation results with the ZKP benchmarks to produce the
-combined pipeline analysis described in Section 6.
+The heuristic optimisation results from the parallel TSP-clustering project will be
+integrated in a final chapter. The dualism in Section 7 frames the joint analysis: the
+two domains' crossover behaviours are predicted to differ in direction, not just in
+magnitude. Joint empirical measurement tests this prediction and characterises the
+combined solve-then-prove pipeline.
+
+**Folding schemes as future work.**
+The UltraHonk-based hierarchical gate counts established here serve as the baseline
+that recent folding-scheme designs (Nova, ProtoStar) would need to beat. A
+folding-scheme implementation is beyond the scope of this thesis but is the natural
+continuation: it would test whether the dualism is intrinsic to the problem class or a
+property of the proof system in use. Variant A++'s in-circuit Fiat-Shamir construction
+is essentially a non-recursive instantiation of the same pattern that recursive SNARKs
+use internally for cross-proof challenge derivation, and provides an operational point
+of reference for what folding schemes would need to improve upon.
