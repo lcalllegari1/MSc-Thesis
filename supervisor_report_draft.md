@@ -8,34 +8,91 @@
 
 This report documents the first phase of the thesis: the design, implementation, and
 benchmarking of flat zero-knowledge proof circuits for the Travelling Salesman Problem
-(TSP). The work was originally framed around a single research question:
+(TSP), together with the structural analysis that motivated a reframing of the original
+research question.
+
+### 1.1 Original framing and what we found instead
+
+The work was originally framed around a single research question:
 
 > *"At what problem size N does a hierarchical (decomposed) ZKP circuit become cheaper
 > than a flat (monolithic) one, and what governs the crossover?"*
 
 Detailed gate-count analysis during the planning of the hierarchical circuit (Section 8)
-revealed that this framing pre-supposes a single dimension of "cheaper" that does not
-exist in practice. Hierarchical decomposition affects total gate count, parallel
-wall-clock time, per-prover memory, and verifier-side privacy in genuinely independent
-ways — no single hierarchical variant Pareto-dominates the flat baseline. The thesis is
-therefore reframed around the broader question:
+showed that this framing pre-supposes a single dimension of "cheaper" that does not
+exist for this problem. Hierarchical decomposition has no algorithmic-speedup analogue
+in ZK proving for TSP — at best it relocates work, at worst it adds glue work
+proportional to N — and any actual gate-count saving requires disclosing structural
+information about the cycle. There is no crossover to locate, because hierarchical and
+flat are not proving the same statement once the privacy semantics are made precise.
 
-> **How do hierarchical ZKP designs for TSP trade off total cost, parallel proving time,
-> per-prover memory, and verifier-side privacy against the flat baseline, and what is the
-> structural reason these axes do not collapse into a single crossover point?**
+What we found instead is that **the variants we initially compared on cost are in fact
+proving different statements about the same underlying TSP instance**. Flat Merkle proves
+"a Hamiltonian cycle with cost ≤ T exists." Hierarchical Merkle (Variant A, Section 8)
+proves "a Hamiltonian cycle with cost ≤ T exists *that respects this disclosed
+partition*." These are not different optimisations of the same proof; they are two
+distinct cryptographic statements, each natural for a different use case.
+
+### 1.2 The reframed thesis
+
+> **Zero-knowledge proofs for TSP are best understood as a *family* of cryptographic
+> statements, distinguished by what part of the input (cost matrix, partition, segment
+> endpoints, per-segment costs) is private vs public to the verifier. Each variant in
+> this thesis is the natural proof design for a specific point in that family. The
+> structural reason no single variant universally dominates is a dualism between
+> optimisation and ZK proving: hierarchical decomposition imposes a constraint in
+> optimisation (good — search shrinks) and weakens a constraint in ZK (bad — soundness
+> must be restored by O(N) glue work). The NP asymmetry between *finding* and *checking*
+> holds, but the way the two respond to decomposition is itself asymmetric: classical
+> decomposition gives optimisation an algorithmic speedup; in ZK it gives only
+> embarrassingly-parallel speedup, and only at the cost of partition disclosure.**
 
 The flat baseline characterisation in this report is unchanged. It establishes a sharp
 crossover at N ≈ 175 between matrix-public (`flat_full`) and matrix-committed
-(`flat_merkle`) variants. Hierarchical variants will be presented in the next phase as
-points on a privacy / cost / parallelism frontier rather than as competitors to be
-ranked on a single axis.
+(`flat_merkle`) variants — a meaningful comparison because both prove the same
+statement. The hierarchical variants will be presented in the next phase not as
+competitors against flat_merkle on a single axis but as the natural proof designs for
+distinct use-case regimes (Section 7).
+
+### 1.3 Contributions in this reframed form
+
+1. **Empirical characterisation of the flat baseline.** Five circuit variants
+   (`flat_full_*` × 4 permutation strategies, plus `flat_merkle_presence`) benchmarked
+   to N = 500. Exact circuit-size models, the `~87 gates/Poseidon2-call` finding
+   (Section 4.3), and the N ≈ 175 flat_full ↔ flat_merkle crossover (Section 5).
+
+2. **A negative result with structural explanation.** Hierarchical Merkle decomposition
+   does **not** reduce total gate count over flat Merkle for TSP. The cancellation is
+   not accidental — it follows from the fact that the global "visit every node once"
+   constraint must be restored in the glue, exactly cancelling per-segment savings. The
+   explanation is the dualism developed in Section 7.
+
+3. **A variant-as-statement reframe.** Three hierarchical variants (A, A++, B) are
+   characterised by the *statement* each proves, not by their relative cost. The
+   reframe makes the privacy/cost trade-offs explicit rather than implicit, and matches
+   each variant to a distinct class of real-world use cases (Section 7.7 and Section 8).
+
+4. **A frontier-mapping methodology** for ZKP design-space exploration over a single
+   problem class. The frontier figure replaces the originally-planned single crossover
+   figure and is the principal deliverable of the next phase.
 
 A secondary thread, motivated by parallel work on heuristic TSP solvers, examines the
 same decomposition question in two complementary roles — *finding* a solution
-(optimisation) and *verifying* one (zero-knowledge proof). Section 7 develops a
+(optimisation) and *verifying* one (zero-knowledge proof). Section 7 develops the
 structural dualism between these two contexts that explains why hierarchical
-decomposition behaves so differently across them, and why the multi-axis framing of the
-ZK side is intrinsic rather than incidental.
+decomposition behaves so differently across them, and why the variant-as-statement
+framing of the ZK side is intrinsic rather than incidental.
+
+### 1.4 What this thesis does not claim
+
+To pre-empt overclaiming: this thesis does **not** claim to violate NP asymmetry or to
+prove ZK checking is harder than finding. NP asymmetry holds in the standard sense
+(verification of any ZK proof is polynomial-time, often sublinear or constant). What the
+thesis shows is the more specific structural fact that *hierarchical decomposition*, a
+technique that exploits NP asymmetry in classical optimisation by pruning the search
+space, does not transfer to ZK proving for problems with non-local constraints. This is
+a refinement of how NP asymmetry interacts with proof-system design, not a
+counterexample to it.
 
 ---
 
@@ -73,10 +130,36 @@ pre-established commitment rather than the raw data.
 
 A key subtlety: for the Merkle commitment to provide a meaningful guarantee, the
 verifier must have independently computed or received the root from a trusted source.
-If the prover supplies the root themselves, they could choose a matrix convenient for
-their claimed cycle. In the intended deployment, the root is fixed by an external
-authority (the company that owns the graph), and the prover works against that fixed
-commitment.
+If the prover supplies the root themselves with no external binding, they could choose
+a matrix convenient for their claimed cycle. The commitment only makes sense when there
+is a mechanism that binds the root to a real-world fact the prover cannot retroactively
+change.
+
+This thesis takes no position on which mechanism is most appropriate — that is an
+application-level choice. The following are the standard candidates, each providing the
+binding from a different direction:
+
+| Trust mechanism | How it binds the commitment | Example use |
+|---|---|---|
+| **Authority signature** | A trusted third party (regulator, certifier) signs the root | Logistics regulator signs the operator's quarterly cost matrix; the operator then proves SLA compliance against the signed root throughout the quarter. |
+| **Trusted oracle** | A neutral data provider publishes signed roots over reference data | A city-data provider publishes a signed Merkle root of pairwise travel times monthly. Any party proves route properties against the oracle's data without disclosing routes. |
+| **Cross-attestation** | Multiple stakeholders co-commit | Two organisations sharing a logistics network sign the joint root; either can prove their leg meets agreed bounds without revealing the network to outsiders. |
+| **Public timestamping** | The root is anchored to an append-only public ledger before any proofs are produced | Operator publishes the root on a transparency log or blockchain at time T₀; proofs produced later are bound to that pre-committed matrix. |
+| **Decommitment-on-dispute** | The matrix is opened to a court/arbitrator if a dispute arises | The root is the binding artifact for ordinary operation; the underlying matrix is disclosed only under legal process. |
+
+The same mechanisms apply to the hierarchical variants discussed in Section 7 and
+Section 8. In all cases the cryptographic commitment is doing one job (ensuring the
+prover cannot change the matrix between commitment and proof); the trust anchor is
+doing a separate job (ensuring the committed matrix corresponds to something real).
+A proof system that omits the trust-anchor side is not zero-knowledge proving — it is
+the prover declaring whatever they like.
+
+A further subtlety, relevant to the public-matrix regime: when the verifier already
+knows the matrix (e.g., a public road network), the Merkle root is no longer a privacy
+mechanism; it is an *integrity* mechanism. The verifier hashes the public matrix
+themselves and checks the root matches, preventing the prover from sneakily using a
+different matrix in the proof. The commitment is still doing real work — it is just not
+doing privacy work.
 
 ### 2.3 Why threshold, not optimality
 
@@ -1094,17 +1177,20 @@ M nodes belong to which segment) and of the per-segment sub-matrices — privacy
 flat_merkle preserves. Hierarchical flat_full and flat_merkle therefore occupy distinct
 points on a privacy ↔ cost frontier and neither dominates the other.
 
-**Finding 8 — The genuine hierarchical wins are parallel wall-clock time and per-prover
-memory, not total work.**
+**Finding 8 — Hierarchical decomposition gives embarrassingly-parallel speedup, not
+algorithmic speedup.**
 Although hierarchical Merkle does not reduce total gates (Finding 6), the K sub-proofs
 are independent and can be generated in parallel. With K parallel workers, wall-clock
 proving time scales as `proving_time(N/K) + glue` — approximately K-fold speedup.
-Per-prover peak memory scales as `memory(N/K)` — a ~K-fold reduction per process. At
-sufficiently large N, single-machine memory exhaustion is the binding constraint, and
-the hierarchical design is not "faster" but rather "the only feasible design." This
-reframes hierarchical ZK from an optimisation strategy to a scaling strategy: the
-benefit is enabling proofs that would otherwise be impossible, not making feasible
-proofs cheaper.
+Per-prover peak memory scales as `memory(N/K)` — a ~K-fold reduction per process.
+Crucially, the total work summed across the K workers is *the same* as (or slightly
+greater than) a single flat_merkle proof — the parallelism is embarrassingly parallel,
+not algorithmic. This distinction matters for the cross-domain comparison with
+optimisation: classical hierarchical TSP heuristics provide algorithmic speedup (the
+search space genuinely shrinks); hierarchical ZK does not. The benefit is enabling
+proofs that would otherwise exhaust a single machine's memory, not making feasible
+proofs cheaper in absolute work. This is the operational restatement of the dualism
+developed in Section 7.
 
 **Finding 9 — In-circuit Fiat-Shamir restores partition privacy at ~5% gate overhead *(analytical result, planning phase)*.**
 A hierarchical Merkle variant using a grand-product partition argument combined with
@@ -1118,6 +1204,42 @@ drops from O(N) sort to O(K) multiplications. Soundness rests on standard Fiat-S
 and Schwartz-Zippel arguments (~`2^-254` collision probability). This becomes a third
 design point — Variant A++ — sitting strictly between Variants A and B on the
 privacy ↔ cost frontier.
+
+**Finding 10 — Hierarchical variants are not optimisations of flat_merkle; they prove
+different statements *(reframe finding, planning phase)*.**
+The crossover framing — "at what N does hierarchical beat flat?" — implicitly assumes
+hierarchical and flat are alternative proof designs for the same statement. They are
+not. Flat Merkle proves "I know a Hamiltonian cycle with cost ≤ T against the committed
+matrix." Variant A proves "I know a Hamiltonian cycle with cost ≤ T against the
+committed matrix that respects this disclosed partition." Variant A++ proves "I know a
+Hamiltonian cycle with cost ≤ T against the committed matrix that decomposes into K
+segments of M nodes each, with the per-segment cost contributions disclosed but the
+segments themselves hidden." Variant B proves "... that respects this disclosed
+partition, with these disclosed M×M sub-matrices." Each is a strictly more specific
+statement than flat_merkle, with extra structure exposed to the verifier. The privacy
+loss is therefore not a bug to be minimised; it is the *content* of the statement being
+proved. The variant-as-statement reframe makes the privacy/cost trade-off explicit and
+matches each variant to a class of use cases (Finding 11, Section 7.7).
+
+**Finding 11 — Each variant has a natural use-case class, and no variant is universally
+best.**
+The variant-as-statement reframe yields a clean mapping between variants and real-world
+scenarios. The full mapping is developed in Section 7.7; the headline pairings:
+
+- **flat_merkle** — generic baseline; logistics SLA auditing or ESG reporting where
+  the route is the only secret and the partition is not part of the audit.
+- **Variant A** — multi-team / multi-region accountability where the partition itself
+  is an operational artifact (delivery zones, team assignments). Disclosure is
+  intentional. Parallelism and per-prover memory reduction are operational wins.
+- **Variant A++** — same scaling benefits as A but with the partition hidden from the
+  verifier. Appropriate when the K-fold decomposition is operationally meaningful but
+  the specific partition reveals competitive information.
+- **Variant B** — public-matrix scenarios (smart-city fleet routing on OSM data, public
+  benchmarks) where matrix privacy is irrelevant and total prover cost is the binding
+  constraint.
+
+The "no universally best" property is a *consequence* of the variant-as-statement
+reframe (Finding 10): variants proving different statements cannot be totally ordered.
 
 ---
 
@@ -1177,15 +1299,41 @@ The contrast is structural:
 | Cost effect | Cheaper (search pruned) | Same or worse (work merely relocated) |
 | Currency paid | Solution quality (approximation error) | Verifier privacy (segment partition disclosed) |
 
-### 7.3 Why the dualism exists
+### 7.3 Why the dualism exists: NP asymmetry under decomposition
 
 The two domains pay different bills. Optimisation cost is dominated by *searching* over
 orderings; ZK cost is dominated by *re-checking* a single witness already known to the
 prover. Hierarchical decomposition is a search-pruning trick, and search is precisely
-what ZK does not do. This is fundamentally a manifestation of the NP asymmetry between
-*finding* and *checking* — the relationship that defines the complexity class itself.
+what ZK does not do.
 
-Several corollaries follow:
+The deeper reason is a refinement of the NP asymmetry between *finding* and *checking*.
+The standard statement of NP asymmetry — finding is (believed to be) exponentially
+hard, checking is polynomial — holds in both classical and ZK settings. What is *not*
+preserved across the two settings is the way each side responds to decomposition:
+
+> **Hierarchical decomposition exploits NP asymmetry by trading verification work for a
+> dramatic reduction in search work. In classical optimisation this trade is a strict
+> win, because reducing exponential search by a polynomial verification overhead is
+> always worth it. In ZK proving, the trade has nothing to redeem on the search side —
+> the prover already has the witness — so the verification overhead is paid without any
+> compensating saving. The asymmetry persists; the strategy that exploits it does not
+> transfer.**
+
+This is not the same as claiming "ZK checking is harder than ZK finding." Verification
+remains cheap; what changes is that hierarchical decomposition is no longer a *useful*
+strategy in the ZK setting because the search-side savings it produces have no analogue
+when the prover is generating a proof from a known witness rather than searching for
+one. Decomposition becomes pure overhead in ZK (Finding 6) unless it is also used to
+disclose structure to the verifier (Finding 7) or to enable parallel work-sharing
+(Finding 8) — neither of which is an algorithmic improvement.
+
+Several corollaries follow from this refined view:
+
+- **Algorithmic vs embarrassingly-parallel speedup.** Classical hierarchical TSP gives
+  *algorithmic* speedup: total work decreases super-polynomially as K grows. Hierarchical
+  ZK gives only *embarrassingly-parallel* speedup: total work stays roughly constant,
+  but it can be distributed across K machines (Finding 8). The two are different things
+  and conflating them is the source of much practitioner confusion about ZK scaling.
 
 - **Approximation has no ZK analogue.** Heuristic optimisation can trade quality for
   speed because a near-optimal tour is still useful. ZK has no equivalent — a partially
@@ -1211,6 +1359,12 @@ Several corollaries follow:
   cannot iteratively guide the prover. The asymmetric guess/check dynamic that powers
   metaheuristics has no ZK analogue.
 
+- **A predictive heuristic for proof-system design.** Given a new problem class, ask
+  first: *does this problem factor locally?* If yes, hierarchical/recursive ZK is a
+  good fit and folding schemes will pay off. If no, hierarchical ZK is at best a
+  scaling strategy (memory, wall-clock) and never an algorithmic improvement; the
+  search-side wins of classical decomposition will not appear.
+
 ### 7.4 Implications for the experimental programme
 
 The structural dualism dictates the shape of the next phase. The naive question — "at
@@ -1219,11 +1373,13 @@ better and we need only locate the crossover. The dualism shows this pre-supposi
 unfounded: hierarchical Merkle cannot beat flat Merkle on total gate count, and
 hierarchical flat_full can beat it only by surrendering verifier-side privacy. The
 genuine benefits live in dimensions the original framing did not measure — parallel
-wall-clock time and per-prover memory.
+wall-clock time and per-prover memory — and the privacy losses, properly recognised,
+are not bugs but content of a stricter statement (Finding 10).
 
 The hierarchical experimental programme is therefore framed as mapping a frontier in
 (total gate count, parallel proving time, per-prover memory, verifier privacy) space,
-not as locating a crossover on a single axis. Three variants are planned (see Section 8):
+not as locating a crossover on a single axis. Three variants are planned (see
+Section 8):
 
 - **Variant A** — Merkle baseline with sorted segment node sets publicly exposed. Simple
   partition check via sort; verifier learns the partition.
@@ -1236,7 +1392,8 @@ not as locating a crossover on a single axis. Three variants are planned (see Se
   the three for K ≥ 3, paid for in full partition + sub-matrix disclosure.
 
 Each occupies a distinct point on the privacy ↔ cost frontier with a clear structural
-reason for its position.
+reason for its position, and each is the natural design for a distinct use-case class
+(Section 7.7).
 
 ### 7.5 Folding schemes as a future direction
 
@@ -1258,6 +1415,98 @@ behaviours differ in direction, not just in magnitude. Joint empirical measureme
 tests this prediction and characterises the combined solve-then-prove pipeline when
 both decompositions are applied simultaneously.
 
+### 7.7 Privacy analysis and variant-as-statement mapping
+
+This subsection formalises the variant-as-statement reframe (Finding 10) by stating
+each variant's cryptographic claim precisely, quantifying what the verifier learns, and
+identifying the natural use-case class for each. The presentation here uses Variant A
+as the worked example; A++ and B follow the same template with the per-variant
+differences indicated.
+
+**Each variant's statement, stated precisely.**
+
+| Variant | Statement proved |
+|---|---|
+| flat_merkle | "∃ Hamiltonian cycle on N nodes with cost ≤ T against the matrix committed by `root`." |
+| **A** | "∃ Hamiltonian cycle on N nodes with cost ≤ T against the matrix committed by `root`, **that respects the disclosed partition (segment_0, …, segment_{K-1}) and visits each segment in cycle order start_i → … → end_i with internal cost sum partial_cost_i**." |
+| **A++** | "∃ Hamiltonian cycle on N nodes with cost ≤ T against the matrix committed by `root`, **that decomposes into K segments of M nodes with disclosed endpoints (start_i, end_i) and disclosed per-segment cost sums partial_cost_i**, the segments themselves bound by the disclosed Field-valued aggregates (P_i, h_in_i, h_out_i)." |
+| **B** | "∃ Hamiltonian cycle on N nodes with cost ≤ T against `root` for boundary edges and against the disclosed M×M sub-matrices (M_0, …, M_{K-1}) for internal edges, that respects the disclosed partition and segment endpoints with disclosed per-segment cost sums." |
+
+The columns "what the verifier learns beyond cost ≤ T" and "what stays private" follow
+directly:
+
+| Variant | Verifier learns | Verifier does not learn |
+|---|---|---|
+| flat_merkle | Nothing about the cycle | Cycle, individual costs, partition |
+| **A** | Partition (which nodes ∈ which segment), K endpoints (start, end), K segment-cost sums | Interior order within each segment, individual edge costs, boundary edge costs |
+| **A++** | K endpoint pairs, K segment-cost sums, K Field-valued aggregates (no information-theoretic content about node membership) | Partition, interior order, individual edge costs, boundary costs |
+| **B** | Partition, K M×M sub-matrices, K endpoints, K segment-cost sums | Interior order within each segment, individual boundary costs |
+
+**Quantitative privacy bound for Variant A (worked).** Take N = 8, K = 2, M = 4 — the
+example used in the implementation walkthrough (Section 8). The verifier observes:
+
+- segment 0 = {0, 2, 3, 5}, start=0, end=2, partial_cost=30
+- segment 1 = {1, 4, 6, 7}, start=7, end=6, partial_cost=34
+- threshold = 100
+
+The cycle is then known to be of the form `0 → ? → ? → 2 → 7 → ? → ? → 6 → 0`
+where each `? → ?` pair is some permutation of two interior nodes. Number of candidates
+remaining: (M-2)!^K = 2!² = 4. Total cycles on N=8 = (N-1)! = 5040. Information leaked:
+log₂(5040 / 4) ≈ 10.3 bits.
+
+For larger N this scales as `log₂((N-1)!) − K·log₂((M-2)!)`. At N=480, K=4: ~800 bits
+leaked out of ~4000 bits of total cycle entropy — roughly 20% of the cycle's entropy.
+The candidate set ((118!)^4 ≈ 10^800) remains unenumerable, so Variant A does *not*
+reduce the cycle to a brute-force-checkable shortlist for large N. But the structural
+information leaked (partition + macro skeleton) can be substantial in absolute terms.
+
+**Threat-model dependence.** Whether Variant A's leakage is acceptable depends on
+whether the verifier has independent access to the cost matrix.
+
+- *Matrix private to the prover.* The verifier holds only the Merkle root (the trust
+  in which is established by the mechanisms in Section 2.2). The matrix entries are
+  hidden, so even with the partition and endpoints known the verifier cannot compute
+  candidate cycle costs and cannot filter candidates further. Leakage is purely
+  structural (partition + macro skeleton). For logistics SLA auditing or ESG
+  reporting against proprietary cost data, this is the operative regime and Variant A
+  is appropriate.
+
+- *Matrix public to the verifier.* The verifier can in principle compute the cost of
+  each remaining candidate cycle and filter against the partial_costs. For small N this
+  may uniquely identify the cycle. For large N the candidate count remains too large to
+  enumerate. Variant A is still useful (it provides cryptographic certainty in a search
+  space too large to inspect), but its privacy is materially weaker than under the
+  matrix-private regime.
+
+The matrix-public regime is the one where Variant A++ pays for itself: by hiding the
+partition behind a multiset commitment, A++ removes the filtering vector that "matrix
+public + Variant A" provides to the verifier.
+
+**Natural use-case mapping.** The variant-as-statement framing yields a clean mapping
+between variants and applications. None of these is hypothetical — each corresponds to
+an existing real-world TSP-with-privacy setting:
+
+| Variant | Natural use cases | Why this variant |
+|---|---|---|
+| flat_merkle | Logistics SLA audit (matrix private, verifier sees only root); generic "private cycle on private graph" | Maximum privacy; only the existence statement is needed. |
+| **A** | Multi-team SLA accountability; cross-org cost-sharing; regulated zoning where the partition is operational; ESG reporting by region | Partition disclosure is *operationally required*. The per-segment partial_costs are accountability artifacts. The K-fold parallelism story is real because the segments correspond to operational units that can prove independently. |
+| **A++** | Same operational scenarios as A but where the specific partition is competitively sensitive (e.g., delivery route grouping reveals customer-cluster structure); maximum-privacy hierarchical option | Recovers most of flat_merkle's privacy while keeping A's parallelism and per-prover memory benefits. Costs ~5.5% more gates in the sub-circuit. |
+| **B** | Smart-city fleet routing on public road networks; verification against TSPLIB instances; non-sensitive matrix with binding gate-cost constraint | Matrix is public anyway, so disclosing sub-matrices costs nothing extra in privacy and saves substantially in gates (Finding 7). |
+| (folding — future) | Same use cases as A++ but with verifier-side overhead the binding constraint | Out of scope; the UltraHonk-based baseline in this thesis is what folding-scheme designs would need to beat. |
+
+**Connecting back to the dualism.** Each variant's position on the frontier is a direct
+consequence of how it negotiates the dualism. A pays for parallelism with partition
+disclosure (the cleanest exchange, but the largest disclosure). A++ recovers partition
+privacy by paying additional Poseidon2 calls (the dualism still applies, but the
+disclosure-vs-cost ratio is more favourable). B sacrifices matrix privacy in exchange
+for gate-count reduction (a different axis of the same trade). None of the three escapes
+the dualism — they navigate it differently.
+
+This is also where the case for *not* implementing folding schemes in this thesis is
+strongest: folding would change the verifier-side overhead, not the dualism. The
+Pareto-frontier among non-folding designs would shift but its shape (the variant-as-
+statement structure) would persist.
+
 ---
 
 ## 8. Next Steps
@@ -1267,11 +1516,34 @@ Run benchmarks for flat_full_invperm and flat_full_presence to complete the perm
 overhead analysis. These are implemented and correctness-tested; the benchmarks take one
 afternoon of machine time.
 
+**Architectural commitments common to all three variants (settled during planning).**
+
+- **Independent sub-proofs + glue, not recursive composition.** Each variant produces
+  K+1 independent UltraHonk proofs (K sub-proofs, 1 glue). The verifier runs
+  `bb verify` K+1 times and *additionally* checks that the public-input fields the
+  proofs claim to share actually agree (the same `root` across all proofs, the glue's
+  `all_sorted_nodes` equals the concatenation of sub-proofs' `sorted_nodes`, glue's
+  `starts/ends/partial_costs` agree with the per-sub-proof publications). This binding
+  via shared public inputs replaces what would otherwise be in-circuit recursive
+  verification of sub-proofs inside the glue. The verifier-side cost is O(N) trivial
+  equality checks, negligible compared to proof verification itself. Recursive
+  composition is deferred to future work alongside folding schemes (Section 7.5).
+- **Instance sizes divisible by `lcm(K)`.** Benchmarks use N ∈ {48, 96, 192, 480} so all
+  values of K under test (2, 4, 8) yield integer M = N/K. N=480 is the comparison
+  anchor against the existing flat_merkle benchmarks at N=500 (~4% size mismatch).
+- **K starts at 2 hardcoded for correctness, then is parameterised compile-time.**
+  Initial implementation hardcodes K=2 for the first working end-to-end run; the
+  generalisation to compile-time K is done immediately after.
+- **Glue is shared between Variants A and B.** Both use the same sort-based partition
+  check and K boundary Merkle proofs. Variant A++ has its own glue
+  (`hierarchical_glue_fs`) implementing the grand-product check.
+- **Sub-circuits publish sorted node sets (Variants A and B), not the cycle-order
+  segment.** This preserves in-segment visit-order privacy at no extra cost.
+
 **Three hierarchical variants, framed by the dualism.**
 The hierarchical phase implements three variants chosen to span the privacy ↔ cost
-frontier identified in Section 7. All three share the same architecture — K segment
-sub-circuits plus a glue circuit — and differ in (a) how the cost matrix is exposed and
-(b) how the global partition is enforced.
+frontier identified in Section 7. All three share the architecture above and differ in
+(a) how the cost matrix is exposed and (b) how the global partition is enforced.
 
 - *Variant A — Hierarchical Merkle, sorted nodes public* (`hierarchical_segment` +
   `hierarchical_glue`). The simple baseline: each sub-circuit publishes its sorted
@@ -1324,6 +1596,85 @@ rather than the segment in cycle order, so the in-segment visit ordering remains
 private. For Variant A++ specifically, in-circuit Fiat-Shamir binds the per-segment
 witnesses to the global cycle without requiring multi-round prover-verifier
 interaction.
+
+**Worked example: Variant A at N = 8, K = 2, M = 4, DEPTH = 6.**
+
+To make the sub-circuit / glue interfaces concrete, consider the cycle
+`0 → 5 → 3 → 2 → 7 → 4 → 1 → 6 → 0` with edge costs:
+
+| Edge | Cost | Role |
+|---|---|---|
+| 0→5 | 10 | seg 0 internal |
+| 5→3 | 12 | seg 0 internal |
+| 3→2 | 8  | seg 0 internal |
+| 2→7 | 15 | **boundary** (between segments) |
+| 7→4 | 11 | seg 1 internal |
+| 4→1 | 9  | seg 1 internal |
+| 1→6 | 14 | seg 1 internal |
+| 6→0 | 13 | **boundary** (closes the cycle) |
+
+Total cost 92, threshold 100.
+
+*Sub-circuit 0 (segment 0, cycle indices 0..3):*
+
+| Field | Value | Visibility |
+|---|---|---|
+| `cycle_segment` | [0, 5, 3, 2] | private |
+| `sorted_nodes` | [0, 2, 3, 5] | public |
+| `start_node` | 0 | public |
+| `end_node` | 2 | public |
+| `edge_costs` | [10, 12, 8] | private |
+| `partial_cost` | 30 | public |
+
+The constraints (per the five-group structure) check that the cycle_segment values lie
+in [0, N), that `sort([0,5,3,2]) == [0,2,3,5]`, that start=0=cycle_segment[0] and
+end=2=cycle_segment[M-1], that Merkle proofs for leaves at indices 0·8+5=5, 5·8+3=43,
+3·8+2=26 with leaf values 10, 12, 8 hash up to `root`, and that 10+12+8 = 30.
+
+*Sub-circuit 1 (segment 1, cycle indices 4..7):*
+
+| Field | Value | Visibility |
+|---|---|---|
+| `cycle_segment` | [7, 4, 1, 6] | private |
+| `sorted_nodes` | [1, 4, 6, 7] | public |
+| `start_node` | 7 | public |
+| `end_node` | 6 | public |
+| `edge_costs` | [11, 9, 14] | private |
+| `partial_cost` | 34 | public |
+
+Merkle proofs for leaves at indices 7·8+4=60, 4·8+1=33, 1·8+6=14 with values 11, 9, 14.
+
+*Glue:*
+
+| Field | Value | Visibility |
+|---|---|---|
+| `all_sorted_nodes` | [0, 2, 3, 5, 1, 4, 6, 7] | public |
+| `starts` | [0, 7] | public |
+| `ends` | [2, 6] | public |
+| `partial_costs` | [30, 34] | public |
+| `boundary_costs` | [15, 13] | private |
+| `threshold` | 100 | public |
+
+The glue's partition check sorts `all_sorted_nodes` and asserts equality with
+[0,1,2,3,4,5,6,7]. It verifies the boundary Merkle proofs at leaves 2·8+7=23 (value 15)
+and 6·8+0=48 (value 13). It asserts 30+34+15+13 = 92 ≤ 100.
+
+*Verifier-side cross-checks (after `bb verify` succeeds on all three proofs):* all
+three proofs declare the same `root`; glue.all_sorted_nodes[0..4] equals
+sub_0.sorted_nodes; glue.all_sorted_nodes[4..8] equals sub_1.sorted_nodes; the starts,
+ends, and partial_costs publications all agree. These checks are O(N) trivial equality
+comparisons.
+
+*What is privately preserved.* The verifier does not learn the interior order within
+each segment — sub_0 could in principle have visited {3, 5} as 0→3→5→2 or 0→5→3→2; both
+are consistent with the public outputs. The verifier also does not learn any individual
+edge cost (only sums), nor the boundary edge costs.
+
+*What is publicly exposed.* The verifier learns the partition ({0,2,3,5} | {1,4,6,7}),
+the endpoints of each segment (0→2 and 7→6 as the two segments' start→end), the
+boundary edges (2→7 and 6→0), and the per-segment cost sums. This is exactly the
+"variant A statement" stated in Section 7.7: a partition-respecting Hamiltonian cycle
+with per-segment cost accountability.
 
 **Frontier mapping rather than crossover localisation.**
 The experimental programme reports each variant as a point in

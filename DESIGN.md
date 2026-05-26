@@ -123,16 +123,91 @@ Instance sizes: n ∈ {5, 8, 10, 12, 15, 20, 25, 30, 40, 50, 75, 100}
 
 ---
 
-## 8. Hierarchical Approach (future)
+## 8. Hierarchical Approach — Three Variants on a Privacy ↔ Cost Frontier
 
-Deferred. Will be designed after the flat circuit is complete and benchmarked.
-The expected design: split the n-node cycle into k segments of size s = n/k,
-prove each segment independently, combine via a lightweight stitching circuit.
-See top-level README for the crossover-point research question.
+**Reframed 2026-05-26.** The original "find the crossover" framing was abandoned during
+hierarchical planning when gate-count analysis showed there is no crossover to find:
+the variants do not prove the same statement, so they cannot be compared on a single
+cost axis. The implementation programme is now three hierarchical variants that span
+the privacy / cost frontier, each the natural design for a distinct use-case class.
+
+### Each variant proves a different statement
+
+| Variant | Statement |
+|---|---|
+| flat_merkle | "∃ Hamiltonian cycle on N nodes, cost ≤ T, against committed root" |
+| **A** — Merkle, sorted nodes public | "...that respects this disclosed partition" |
+| **A++** — Merkle, grand product + in-circuit Fiat-Shamir | "...that decomposes into K segments with disclosed endpoints, segments themselves hidden" |
+| **B** — flat_full, sub-matrix public | "...with disclosed M×M sub-matrices and disclosed partition" |
+
+A and A++ keep the cost matrix private (committed via Merkle root). B exposes
+per-segment sub-matrices. None of the three Pareto-dominates the others; each occupies
+a distinct point on the (gates, parallelism, memory, privacy) frontier.
+
+### Architecture common to all three variants
+
+- **Sub-circuit + glue, independent proofs (not recursive).** Each variant produces K+1
+  independent UltraHonk proofs. The verifier runs `bb verify` K+1 times and additionally
+  checks that the public-input fields the proofs claim to share actually agree (same
+  root, glue's `all_sorted_nodes` = concat of sub-proofs' `sorted_nodes`, etc.).
+  Verifier-side cost is O(N) trivial equality, negligible.
+- **K starts at 2 hardcoded** for the first end-to-end run; parameterised as
+  compile-time global immediately after.
+- **N divisible by lcm(K) under test.** Benchmarks use N ∈ {48, 96, 192, 480} for
+  K ∈ {2, 4, 8}. N=480 is the comparison anchor against flat_merkle's N=500 (~4% off).
+- **Glue shared between A and B**, with sort-based partition + K boundary Merkle proofs.
+  A++ has its own glue with grand-product partition check.
+
+### Sub-circuit interface (shared by A and B, extended by A++)
+
+```
+Public inputs:
+  root          : Field
+  sorted_nodes  : [u32; M]   // segment node set, sorted ascending (A and B)
+  start_node    : u32
+  end_node      : u32
+  partial_cost  : u64
+  -- A++ adds: (P_i, h_in_i, h_out_i, c, X) and removes sorted_nodes
+```
+
+### Glue interface (Variant A and B)
+
+```
+Public inputs:
+  root                 : Field
+  threshold            : u64
+  all_sorted_nodes     : [u32; N]    // concat of K sub-proofs' sorted_nodes
+  starts               : [u32; K]
+  ends                 : [u32; K]
+  partial_costs        : [u64; K]
+Private witness:
+  boundary_costs       : [u64; K]
+  boundary_siblings    : [Field; K*DEPTH]
+  boundary_path_bits   : [bool;  K*DEPTH]
+```
+
+A++'s glue replaces `all_sorted_nodes` with `(P_is[K], h_ins[K], h_outs[K], c, X,
+expected_product)` and the sort-based partition check with the grand-product check.
+
+### The structural reason no single variant universally dominates
+
+Hierarchical decomposition adds a constraint in optimisation (good — search shrinks)
+and weakens a constraint in ZK (bad — soundness must be restored by O(N) glue work).
+The NP asymmetry between finding and checking holds, but the strategy that exploits it
+in classical optimisation (trading verification overhead for search-space pruning)
+does not transfer to ZK because there is no search to prune. Decomposition in ZK
+becomes pure overhead unless it is used to disclose structure to the verifier (Variant
+A, B) or to enable parallel work-sharing (all three) — neither of which is an
+algorithmic improvement.
+
+See `supervisor_report_draft.md` §7 for the full dualism argument and §7.7 for the
+variant-to-use-case mapping.
 
 ---
 
 ## Progress
+
+### Flat baseline (complete)
 
 - [x] Instance generation (Python): `pipeline/instance_gen.py`
 - [x] Visualization: `pipeline/visualize.py`
@@ -143,4 +218,25 @@ See top-level README for the crossover-point research question.
 - [x] Flat circuit — Flat-Full, Perm-Presence
 - [x] Benchmarking harness: `pipeline/run.py`
 - [x] Flat circuit — Flat-Merkle, Perm-Presence
-- [ ] Hierarchical circuit
+- [x] Hash compatibility test: `tests/hash_compat/`
+- [x] Git repo initialised
+- [x] Thesis reframing (2026-05-23, sharpened 2026-05-26) + supervisor report updated
+
+### Pending baseline housekeeping
+
+- [ ] Benchmarks for flat_full_invperm and flat_full_presence to N=500
+- [ ] Figures generated from `results/500.csv` via `analyze_complexity.py`
+
+### Hierarchical implementation programme
+
+- [ ] Variant A — Merkle, sorted nodes public (sub-circuit + glue + pipeline + tests + benchmarks)
+- [ ] Variant A++ — Merkle, grand product + in-circuit Fiat-Shamir
+- [ ] Variant B — flat_full, sub-matrix public
+- [ ] Frontier figure: (total gates, parallel wall-clock, per-prover memory, privacy bits) for all variants
+- [ ] Integration with clustered TSP solver (B-side, partitioned routing) for combined-pipeline analysis
+
+### Future / out of scope
+
+- Folding-scheme variant (Nova/ProtoStar) — the natural continuation
+- True recursive composition of K+1 proofs into one (verifier-side overhead reduction)
+- Hash commitment for sorted node sets (alternative to A++ for partition hiding)
