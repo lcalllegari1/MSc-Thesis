@@ -1,5 +1,5 @@
 # TSP ZKP Project — Session Summary
-## Last updated: 2026-05-26
+## Last updated: 2026-05-27
 
 ---
 
@@ -150,6 +150,37 @@ The variants we initially compared on cost are in fact proving different stateme
 - **Variant A**: multi-team / multi-region accountability where the partition is operational (delivery zones, team assignments). Per-segment partial_costs are accountability artifacts. Disclosure is intentional.
 - **Variant A++**: same scaling benefits as A but partition hidden. For competitively sensitive partitions.
 - **Variant B**: public-matrix scenarios (smart-city fleet routing on OSM, public benchmarks) where matrix privacy is irrelevant and total prover cost binds.
+
+### Finding 12 (added 2026-05-27): `peak_mb` is per-prover maximum, not total concurrent RAM
+
+`aggregate_hier.py` computes `peak_mb = max(...)` over K+1 workers — the single heaviest prover process peak, not the sum. At N=480:
+
+| K | Sub peak | Glue peak | Reported peak | Bottleneck |
+|---|---|---|---|---|
+| 2 | ~551 MB | ~159 MB | ~551 MB | sub-circuit |
+| 4 | ~285 MB | ~159 MB | ~285 MB | sub-circuit |
+| 8 | ~152 MB | ~159 MB | ~159 MB | **glue** |
+
+At K≥8 (N=480), the glue becomes the heaviest single worker because its G2 partition check sorts `all_sorted_nodes[N]` — N elements regardless of K. This is an **O(N) memory floor** that prevents further reduction even as K grows. Variant A++ replaces O(N) sort with O(K) grand product; its glue memory floor should be substantially lower.
+
+Correct thesis claim: "sub-circuit per-prover peak scales as flat_merkle/K; glue is an O(N) memory floor; at K≥8 (N=480) the glue becomes the bottleneck prover, so reported peak stops decreasing with K."
+
+### Finding 13 (added 2026-05-27): Total single-machine concurrent RAM exceeds flat for all K
+
+Total RAM across all K+1 concurrent workers ≈ K×sub_peak + glue_peak. At N=480:
+- K=2: ~1262 MB vs flat_merkle ~1078 MB (+17%)
+- K=4: ~1299 MB vs flat_merkle (+20%)
+- K=8: ~1375 MB vs flat_merkle (+28%)
+
+Total concurrent RAM grows with K on a single machine. The memory benefit of hierarchical requires distributed infrastructure (each prover on separate hardware). Same structural issue as prove time. Thesis must separate two mental models:
+1. **Per-prover / distributed**: sub-circuit peak ≈ flat/K; Variant A glue O(N) floor ≈ 159 MB constant
+2. **Single-machine total**: always exceeds flat; not the valid comparison mode for the memory benefit claim
+
+### Finding 14 (added 2026-05-27): Single-machine `prove_s` is contended; K× speedup requires isolation to confirm
+
+`bb prove` is multi-threaded. K+1 concurrent prover processes share available CPU threads, each obtaining approximately 1/(K+1) of capacity. This contention overhead grows superlinearly with K. Observed benchmark: hierarchical prove_s > flat_merkle for all K at N=480, which is expected and does not falsify the K× speedup claim.
+
+The K× speedup claim is theoretical — estimated from circuit_size ratios (sub_size ≈ flat/K → isolated prove_s ≈ flat/K) — and not directly measured. An isolation benchmark (run one sub-circuit through full prove pipeline without parallel siblings) is needed to empirically validate it. This is the immediate next step after the full benchmark sweep.
 
 ---
 
@@ -518,13 +549,20 @@ circuits/flat_full_sort/src/main.nr             ✓
 circuits/flat_full_invperm/src/main.nr          ✓
 circuits/flat_full_presence/src/main.nr         ✓
 circuits/flat_merkle_presence/src/main.nr       ✓ (N=500, DEPTH=18 as of last compile)
+circuits/hierarchical_segment/src/main.nr       ✓ (Variant A sub, 2026-05-27)
+circuits/hierarchical_glue/src/main.nr          ✓ (Variant A glue, 2026-05-27)
 pipeline/analyze_complexity.py                  ✓ updated (merkle support, crossover figure)
-pipeline/merkle_builder/src/main.rs             ✓ (Rust Merkle tree builder)
+pipeline/merkle_builder/src/main.rs             ✓ extended with --hierarchical K mode (2026-05-27)
+pipeline/verify_hier.py                         ✓ Variant A K+1 bb verify + cross-checks (2026-05-27)
+pipeline/run_hier.py                            ✓ Variant A benchmark harness w/ K shadow dirs (2026-05-27)
 results/500.csv                                 ✓ (pairwise, sort, merkle; N=5..500; 5 runs each)
+results/hier_a.csv                              ✗ (run_hier.py ready; sweep is user-triggered)
 tests/hash_compat/                              ✓ (Rust+Noir cross-validation, full pass)
+tests/correctness/test_hierarchical_a.py        ✓ 6 tests pass (2026-05-27)
 supervisor_report_draft.md                      ✓ (1295 lines; updated 2026-05-23)
-HOWTO.md                                        ✓
-DESIGN.md                                       ✓
+VARIANT_A_IMPLEMENTATION.md                     ✓ (followed during 2026-05-27 implementation)
+HOWTO.md                                        ✓ Variant A workflow added (2026-05-27)
+DESIGN.md                                       ✓ Variant A marked done (2026-05-27)
 .gitignore                                      ✓ (2026-05-23)
 .git/                                           ✓ (2026-05-23, main branch, 1 initial commit, 65 files)
 ```
@@ -546,10 +584,16 @@ DESIGN.md                                       ✓
 [x] Hash compatibility test: tests/hash_compat/
 [x] Git repo initialised (2026-05-23, initial commit b4c2c29)
 [x] Thesis reframing + supervisor report update (2026-05-23)
+[x] Hierarchical circuit — Variant A (Merkle, sorted nodes public — baseline) (2026-05-27)
+    [x] hierarchical_segment + hierarchical_glue circuits
+    [x] merkle_builder --hierarchical K mode
+    [x] verify_hier.py (K+1 bb verify + 4 cross-checks)
+    [x] run_hier.py (K-shadow parallel benchmark harness)
+    [x] test_hierarchical_a.py (6 tests: valid + 4 negatives + N=48 K=4 sanity)
 [ ] full permutation variant benchmarks (invperm, presence to N=500)
 [ ] analyze_complexity.py figures generated from results/500.csv
 [ ] Discuss reframing with supervisor
-[ ] Hierarchical circuit — Variant A (Merkle, sorted nodes public — baseline)
+[ ] Variant A full benchmark sweep into results/hier_a.csv (harness ready, user-triggered)
 [ ] Hierarchical circuit — Variant A++ (Merkle, grand product + in-circuit Fiat-Shamir)
 [ ] Hierarchical circuit — Variant B (flat_full, gate-saving, partition-disclosing)
 [ ] Frontier figure: (gates, parallel wall-clock, per-prover memory, privacy) across all three variants
@@ -564,6 +608,7 @@ DESIGN.md                                       ✓
 1. **Generate figures**: run `analyze_complexity.py` on `results/500.csv` with `--merkle-csv results/500.csv` flag.
 2. **Benchmark flat_full_invperm and flat_full_presence to N=500** to fill the permutation overhead comparison.
 3. **Discuss reframing with supervisor**. Possibly send updated `supervisor_report_draft.md` along with a short note (a template email draft was sketched this session — see chat history for the structure: lead with finding, propose reframe, scope the new plan, ask for sign-off).
+4. **Isolation benchmark** (1 day): run a single sub-circuit through the full prove pipeline (`nargo execute` + `bb prove` + `bb verify`) without parallel siblings. Measure prove_s and peak_mb for one sub at N=480 across K ∈ {2,4,8}. This empirically validates the theoretical K× speedup estimated from circuit_size ratios and is required before the thesis can claim the speedup is real rather than inferred. Compare against flat_merkle prove_s at N=480.
 
 ### Hierarchical implementation — Variant A (Merkle, sorted nodes public — baseline)
 
@@ -619,6 +664,10 @@ DESIGN.md                                       ✓
 - **The dualism**: hierarchical decomposition *adds* a constraint in optimisation (shrinks search space → cheaper) and *weakens* a constraint in ZK (forces glue restoration → same or worse). Same operation, opposite sign in constraint space. Root cause: NP asymmetry between finding and checking.
 - **Sub-circuit publishes `sorted_nodes`, not the ordered `cycle_segment`** — preserves in-segment visit order privacy at zero extra cost (the sort-based perm check produces a sorted array as byproduct).
 - **TSP is a worst-case problem class for hierarchical ZK** — the global constraint "visit every node exactly once" intrinsically does not factor locally. Circuit-SAT and other locally-factoring problems are where recursive/folding proof systems shine.
+- **UltraHonk commits public inputs in the Fiat-Shamir transcript** — `bb verify` rejects any tampering of the `public_inputs` file post-hoc. The Variant A cross-check defends against a *different* attack: two independently-valid proof sets (sharing the same Merkle root) mixed together, e.g. sub-proofs from cycle A + glue proof from cycle B. Each `bb verify` accepts; only the verifier's `glue.starts[i] == sub_i.start_node` check catches the inconsistency. This sharpens the plan's original test-2 scenario (2026-05-27).
+- **Nargo walks up looking for the outermost `Nargo.toml`** when resolving project root — shadow dirs placed *inside* the project tree (e.g. `circuits/hierarchical_segment/.runs/sub_i/`) get treated as a sub-project of the parent and `nargo execute` writes to the parent's `target/`, causing K parallel workers to race. Solution: host shadows outside the tree (e.g. `/tmp/hier_a_shadows/`) (2026-05-27).
+- **Compiled `target/<name>.json` embeds absolute paths** to source files in its `file_map` field — copying a `.json` to a new dir and running `nargo execute` makes nargo follow the embedded paths back to the original project. Each shadow must `nargo compile` from its own copied `src/` (~0.2s amortized per cell). VKs are bytecode-derived and survive cross-shadow reuse (2026-05-27).
+- **Variant A sub-circuit doesn't need a strict-ascending check** on `sorted_nodes` — per-segment distinctness is enforced *transitively* by the glue's `sort(all_sorted_nodes) == [0..N-1]`. A duplicate inside one segment surfaces as a duplicate in the concatenation and is caught there. Saves M-1 comparison gates per sub-proof at zero soundness cost (`HIERARCHICAL_EXPLAINED.md` §8.2.G2).
 - **Variant A++ uses in-circuit Fiat-Shamir** via a hash chain over the cycle (`c = h_N` where `h_{j+1} = Poseidon2(h_j, cycle[j])`, `X = Poseidon2(c)`). The chain is enforced jointly: sub-circuits assert `h_out_i = chain(h_in_i, segment)`, glue asserts `h_outs[i] == h_ins[i+1]` and `h_outs[K-1] == c`. This binds `X` to the cycle unforgeably without requiring multi-round prover-verifier interaction.
 - **Variant A++ has a sequential prelude** for hash-chain precomputation (N native Poseidon2 calls), but this is ~100µs at N=500 — negligible vs proving time. K-fold parallelism benefit is preserved after the prelude.
 - **Naive fixed-X grand product is unsound** — if the prover knows `X` before committing to segments, they can search for fake partitions whose product matches at that specific `X`. Soundness requires `X` derived AFTER prover commits, hence the in-circuit Fiat-Shamir construction in A++.
@@ -628,7 +677,68 @@ DESIGN.md                                       ✓
 - **Verifier-side cross-checks bind the K+1 independent proofs** (2026-05-26) — `bb verify` only confirms one proof is internally consistent with its declared public inputs. Without verifier-side equality checks across proofs (same root, glue's all_sorted_nodes = concat of sub-proofs' sorted_nodes, starts/ends/partial_costs agree), a malicious prover could produce K+1 individually-valid proofs about K+1 different universes. The cross-checks are O(N) trivial equality at the verifier and are non-optional.
 - **Commitment requires an external trust anchor** (2026-05-26) — a Merkle commitment with no real-world binding is useless: the prover can commit to whatever fictitious matrix makes their proof trivial. Standard anchors: authority signature, trusted oracle, cross-attestation, public timestamping, decommitment-on-dispute. The cryptographic commitment does one job (binding the prover across proofs); the trust anchor does a separate job (binding the matrix to reality).
 - **Matrix-private vs matrix-public regimes are different problems** (2026-05-26) — matrix-private: Merkle root provides privacy AND integrity. Matrix-public: Merkle root provides integrity only (still useful — prevents the prover from using a different matrix). Variant A is appropriate for matrix-private; A++ is appropriate when matrix is public AND partition is sensitive; B is appropriate when matrix is public AND partition non-sensitive.
+- **`peak_mb` is per-prover max, not total concurrent RAM** (2026-05-27) — `aggregate_hier.py` line: `peak_mb = max(float(r["peak_mb"]) for r in all_rows)`. Total single-machine RAM = K×sub_peak + glue_peak, always exceeds flat_merkle for all K. The memory benefit (sub-circuit peak ≈ flat/K) is only realised in a distributed model where each prover runs on separate hardware. Thesis must state this explicitly.
+- **Glue has an O(N) memory floor regardless of K** (2026-05-27) — the glue's G2 sort over `all_sorted_nodes[N]` loads N elements whether K=2 or K=8. At N=480, K=8: glue peak ≈ 159 MB, sub peak ≈ 152 MB — glue becomes the bottleneck and the reported `peak_mb` stops decreasing. Variant A++ fixes this by replacing O(N) sort with O(K) grand product; measure its glue peak explicitly.
+- **prove_s benchmarks reflect single-machine CPU contention, not isolated prover performance** (2026-05-27) — K+1 concurrent `bb prove` processes each get ~1/(K+1) of available threads. Observed prove_s > flat for all K is expected and consistent with the K× speedup being real in a distributed setting. Run isolation benchmark (single sub-circuit, no siblings) to empirically validate the theoretical K× estimate from circuit_size ratios.
 
+---
+
+## Session Findings — 2026-05-27
+
+*Distilled findings from the 2026-05-27 session (benchmark interpretation, thesis framing, related work, future work, writing guidance). Raw transcript not retained.*
+
+### Benchmark interpretation
+
+The full Variant A benchmark sweep (`results/hier_a.csv`) was completed and analyzed. The key interpretive finding is that the benchmarks measure single-machine contended performance, whereas the thesis claims are about distributed per-prover performance. Both are valid metrics but must be clearly labelled.
+
+**Prove time:** `prove_s` in the CSV is single-machine contended wall-clock (K+1 processes sharing all CPU threads). It shows hierarchical worse than flat_merkle for all K at N=480. The theoretical K× speedup per sub-prover (estimated from circuit_size ratios: sub/flat ≈ 1/K) is not directly measured. An isolation benchmark is pending.
+
+**Memory:** `peak_mb` = max single worker (see Finding 12). The glue's O(N) memory floor becomes the reported peak at K≥8, N=480 (glue 159 MB > sub 152 MB). Total single-machine RAM exceeds flat for all K (see Finding 13).
+
+**Table of three mental models (all metrics):**
+
+| Model | prove_s | peak_mb |
+|---|---|---|
+| Single-machine contended (CSV) | K+1 processes sharing 1 machine; worse than flat | max(K subs, glue); glue floor O(N) |
+| Per-prover isolated (theoretical) | ≈ flat/K; not yet measured | ≈ flat/K per sub; glue floor O(N) constant |
+| Total system (sum) | ≈ flat (same total work; embarrassingly parallel) | K×sub + glue; exceeds flat |
+
+### Thesis framing
+
+**Thesis sufficiency:** The work is defensible as MSc-level because:
+- 7 circuits implemented from scratch in an unfamiliar domain (Noir, Barretenberg, UltraHonk)
+- Honest negative result with a structural explanation (dualism between optimisation and ZK constraint space)
+- The dualism principle is known in the ZK literature (it motivates Nova/folding), but the TSP-specific empirical quantification and the frontier framing — showing each variant as the natural proof design for a distinct statement — are original contributions
+- Must cite Nova's motivation section (Kothapalli–Setty–Tzialla 2021), which describes the same principle abstractly; the thesis provides the concrete instantiation
+
+**Refined research question:**
+> This thesis investigates the design space of zero-knowledge proofs for knowledge of a bounded-cost Hamiltonian cycle, characterising how hierarchical proof constructions trade privacy disclosure (partition, endpoints, per-segment costs) against proving efficiency (circuit size, per-prover time, per-prover memory), and identifies the structural reason no single design universally dominates — a dualism between optimisation and ZK constraint space arising from the non-local nature of the Hamiltonian-cycle constraint.
+
+### Related work structure
+
+Three-ring model (each ring is a class of citable related work):
+1. **Same problem, different approach** — prior ZKP constructions for graph problems (graph colouring, Hamiltonian cycle existence). Used as baselines and as motivation for why TSP is harder (the cost bound makes it a search problem, not just an existential statement).
+2. **Same approach, different problem** — hierarchical proof systems: Nova (Kothapalli 2021), SuperNova, ProtoStar, and folding-based decomposition. These motivate the frontier framing — they are the correct tool for locally-factoring problems; TSP is the negative-example complement.
+3. **Pieces of our approach** — Poseidon2 (Grassi et al.), UltraHonk (Aztec), Merkle commitments in ZK, grand-product multiset arguments (Bayer–Groth, Gabizon–Williamson), Fiat-Shamir in IVC. Each piece has a canonical citation; the thesis shows how to assemble them for this specific application.
+
+### Future work framing principles
+
+Future work should sound structurally motivated, not lazy:
+- **Framing that works:** "X requires Y infrastructure; establishing Y is a thesis-sized project in itself and shares dependencies with Z field. The design space explored here is the natural precursor."
+- **Framing that sounds lazy:** "We could also benchmark X" or "Future work includes implementing Y."
+- **The three strongest future work items** (in descending order of payoff vs effort):
+  1. Folding-scheme variant (Nova/ProtoStar): replaces K+1 independent proofs with one accumulated proof; directly tests whether dualism is intrinsic to TSP or an artefact of UltraHonk's proof structure. High payoff, requires new arithmetisation.
+  2. Isolation benchmark (next week): run one sub-circuit without parallel siblings to empirically validate the K× speedup claim. Low effort, directly strengthens a central claim.
+  3. Variant A++ implementation: completes the privacy/cost frontier; tests whether grand-product + Fiat-Shamir eliminates the O(N) glue memory floor as predicted.
+
+### Writing guidance (captured 2026-05-27)
+
+- **Argument architecture:** structure each chapter as: claim → model → derivation → measurement → agreement/discrepancy. Never state a number without the derivation that predicts it.
+- **Derive, don't just cite:** for gate count crossovers, the Poseidon2 cost correction (264→87), the memory floor, write out the arithmetic explicitly. These short derivations are the thesis's original intellectual content.
+- **First principles on the dualism:** don't say "hierarchical ZK is harder." Derive it: decomposition weakens the global distinctness constraint, which must be restored by O(N) glue work; this restoration cost exactly cancels any per-segment saving; QED no total-gate benefit.
+- **Precision about proof systems:** UltraHonk is a *proof of knowledge* (extracts witness); it is a *SNARK argument* (computational soundness, not information-theoretic). Say "argument" not "proof" when the distinction matters.
+- **What to leave as a black box:** the UltraHonk internals (SRS, commitment scheme, polynomial IOP) can be cited-and-used without full derivation. The ZK-relevant circuit-level properties (gate count, proof size, verification time) are what the thesis measures; the internal mechanism is standard and citable.
+- **Negative results need the same rigour as positive ones:** "we measured X and found Y > flat" is not a negative result; "we measured X, predicted Y from circuit_size ratios, found Y_measured >> Y_predicted due to mechanism Z" is.
 
 ---
 

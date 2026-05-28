@@ -572,6 +572,10 @@ python tests/correctness/test_flat_full_presence.py
 # Run all soundness tests for flat_merkle_presence
 # (builds the Rust merkle_builder automatically on first run)
 python tests/correctness/test_flat_merkle_presence.py
+
+# Run all soundness tests for Variant A (hierarchical, sub + glue)
+# (patches circuit globals + recompiles per test; merkle_builder built on first run)
+python tests/correctness/test_hierarchical_a.py
 ```
 
 All test suites for `flat_full_*` cover the same invalid-witness categories:
@@ -718,16 +722,365 @@ python pipeline/run.py \
 
 ---
 
+## Variant A workflow — `circuits/hierarchical_segment` + `circuits/hierarchical_glue`
+
+Variant A is the first hierarchical design (Merkle commitment, partition
+public).  Instead of one circuit covering the whole N-node cycle, it splits
+into:
+
+- **K sub-proofs** of `circuits/hierarchical_segment` — one per segment.
+  Each proves a Hamiltonian path of M = N/K nodes inside its segment, with
+  internal edge costs Merkle-bound to the same root.
+- **1 glue proof** of `circuits/hierarchical_glue` — proves the K segments
+  partition `{0..N-1}`, verifies the K boundary edges' Merkle proofs, and
+  enforces the total-cost threshold.
+
+The K+1 proofs are independent UltraHonk proofs.  The verifier runs
+`bb verify` K+1 times and then `pipeline/verify_hier.py`, which parses each
+proof's `public_inputs` dump and runs four cross-checks that bind the proofs
+to a single instance.  See `HIERARCHICAL_EXPLAINED.md` §8 for the theory and
+`VARIANT_A_IMPLEMENTATION.md` for the implementation plan that was followed.
+
+### Prerequisites
+
+```bash
+# Build the Rust merkle_builder (shared with flat_merkle_presence).
+cargo build --release --manifest-path pipeline/merkle_builder/Cargo.toml
+```
+
+Both sub and glue circuits depend on the same Poseidon2 library
+(`poseidon v0.3.0`) used by `flat_merkle_presence` and cross-validated by
+`tests/hash_compat/`.
+
+### Compile-time globals
+
+| Circuit | Globals | Patched per |
+|---|---|---|
+| `hierarchical_segment` | `N`, `M`, `DEPTH` | `(N, K)` cell (M = N/K, DEPTH = ⌈log₂(N²)⌉) |
+| `hierarchical_glue` | `N`, `K`, `DEPTH` | `(N, K)` cell |
+
+`run_hier.py` patches all of these and recompiles automatically.  For a
+manual run, use `sed` (shown below).
+
+### Single end-to-end run on the §8.9 reference instance (N=8, K=2)
+
+This walkthrough proves the documented cycle `0 → 5 → 3 → 2 → 7 → 4 → 1 → 6
+→ 0` (total cost 92, threshold 100).  See `HIERARCHICAL_EXPLAINED.md` §8.9 for
+the expected per-segment public values.
+
+```bash
+# 1. Patch circuit globals (defaults to N=8, K=2 in the repo but be explicit).
+sed -i 's/^global N: u32 = .*/global N: u32 = 8;/' \
+    circuits/hierarchical_segment/src/main.nr
+sed -i 's/^global M: u32 = .*/global M: u32 = 4;/' \
+    circuits/hierarchical_segment/src/main.nr
+sed -i 's/^global DEPTH: u32 = .*/global DEPTH: u32 = 6;/' \
+    circuits/hierarchical_segment/src/main.nr
+
+sed -i 's/^global N: u32 = .*/global N: u32 = 8;/'  \
+    circuits/hierarchical_glue/src/main.nr
+sed -i 's/^global K: u32 = .*/global K: u32 = 2;/'  \
+    circuits/hierarchical_glue/src/main.nr
+sed -i 's/^global DEPTH: u32 = .*/global DEPTH: u32 = 6;/' \
+    circuits/hierarchical_glue/src/main.nr
+
+# 2. Compile both circuits and write verification keys (once per (N, K)).
+( cd circuits/hierarchical_segment && nargo compile \
+    && bb write_vk -b target/hierarchical_segment.json -o target/vk )
+( cd circuits/hierarchical_glue && nargo compile \
+    && bb write_vk -b target/hierarchical_glue.json -o target/vk )
+
+# 3. Build the reference instance's K+1 Prover.tomls into /tmp/hier_ref.
+python - <<'EOF'
+import json, subprocess
+N = 8
+flat = [0] * (N * N)
+for f, t, c in [(0,5,10),(5,3,12),(3,2,8),(2,7,15),
+                (7,4,11),(4,1,9),(1,6,14),(6,0,13)]:
+    flat[f * N + t] = c
+payload = json.dumps({
+    "n": N, "flat_matrix": flat,
+    "cycle": [0, 5, 3, 2, 7, 4, 1, 6],
+    "threshold": 100, "cost": 92,
+})
+subprocess.run(
+    ["pipeline/merkle_builder/target/release/merkle_builder",
+     "--hierarchical", "2", "--out-dir", "/tmp/hier_ref"],
+    input=payload, text=True, check=True,
+)
+EOF
+
+# 4. Prove sub_0  (segment [0, 5, 3, 2]).
+cp /tmp/hier_ref/sub_0/Prover.toml circuits/hierarchical_segment/Prover.toml
+( cd circuits/hierarchical_segment \
+  && nargo execute \
+  && bb prove -b target/hierarchical_segment.json \
+              -w target/hierarchical_segment.gz \
+              -k target/vk/vk -o target/proof_sub0 )
+
+# 5. Prove sub_1  (segment [7, 4, 1, 6]).
+cp /tmp/hier_ref/sub_1/Prover.toml circuits/hierarchical_segment/Prover.toml
+( cd circuits/hierarchical_segment \
+  && nargo execute \
+  && bb prove -b target/hierarchical_segment.json \
+              -w target/hierarchical_segment.gz \
+              -k target/vk/vk -o target/proof_sub1 )
+
+# 6. Prove glue.
+cp /tmp/hier_ref/glue/Prover.toml circuits/hierarchical_glue/Prover.toml
+( cd circuits/hierarchical_glue \
+  && nargo execute \
+  && bb prove -b target/hierarchical_glue.json \
+              -w target/hierarchical_glue.gz \
+              -k target/vk/vk -o target/proof_glue )
+
+# 7. Stage the K+1 proofs into a single directory layout that verify_hier.py
+#    expects:  <dir>/{sub_0, sub_1, glue}/{proof, public_inputs}.
+mkdir -p /tmp/hier_ref_proofs/sub_0 /tmp/hier_ref_proofs/sub_1 /tmp/hier_ref_proofs/glue
+cp circuits/hierarchical_segment/target/proof_sub0/{proof,public_inputs} /tmp/hier_ref_proofs/sub_0/
+cp circuits/hierarchical_segment/target/proof_sub1/{proof,public_inputs} /tmp/hier_ref_proofs/sub_1/
+cp circuits/hierarchical_glue/target/proof_glue/{proof,public_inputs}    /tmp/hier_ref_proofs/glue/
+
+# 8. Run K+1 bb verify + 4 cross-checks in one go.
+python pipeline/verify_hier.py \
+  --proof-dir /tmp/hier_ref_proofs \
+  --n 8 --k 2 \
+  --sub-vk  circuits/hierarchical_segment/target/vk/vk \
+  --glue-vk circuits/hierarchical_glue/target/vk/vk
+```
+
+Expected output ends with `ACCEPTED`: all three `bb verify` calls succeed,
+and the cross-checks (same root, `all_sorted_nodes` chunks match each sub's
+`sorted_nodes`, `starts/ends/partial_costs` match) all pass.
+
+The same end-to-end flow (plus 4 negative tests and an N=48 K=4 sanity
+check) runs automatically via:
+
+```bash
+python tests/correctness/test_hierarchical_a.py
+```
+
+### Building Prover.tomls for an arbitrary instance
+
+```bash
+# Generate instance + solve cycle as usual.
+python pipeline/instance_gen.py -n 48 --out data/instance.json --dat data/matrix.dat
+python pipeline/solver.py --json data/instance.json --out data/path.json
+
+# Then feed the resulting matrix and cycle to merkle_builder --hierarchical.
+python - <<'EOF'
+import json, math, subprocess
+inst = json.load(open("data/instance.json"))
+path = json.load(open("data/path.json"))
+n = len(path)
+flat = [inst["matrix"][i][j] for i in range(n) for j in range(n)]
+cost = sum(inst["matrix"][path[i]][path[(i+1) % n]] for i in range(n))
+payload = json.dumps({
+    "n": n, "flat_matrix": flat, "cycle": path,
+    "threshold": math.ceil(cost * 1.1), "cost": cost,
+})
+subprocess.run(
+    ["pipeline/merkle_builder/target/release/merkle_builder",
+     "--hierarchical", "4", "--out-dir", "/tmp/hier_n48_k4"],
+    input=payload, text=True, check=True,
+)
+EOF
+
+# /tmp/hier_n48_k4/{sub_0..sub_3, glue}/Prover.toml are now ready.
+# Patch circuit globals for (N=48, K=4, M=12, DEPTH=12), compile, and proceed
+# as in the reference walkthrough — or just use run_hier.py below.
+```
+
+### Soundness tests
+
+```bash
+python tests/correctness/test_hierarchical_a.py
+```
+
+Covers six cases:
+
+1. **VALID** — reference instance N=8 K=2: K+1 proofs all generate and
+   verify_hier.py accepts.
+2. **INVALID — segment overlap** (hierarchical-unique): cheating cycle puts
+   node 3 in both segments.  Glue G2 partition check rejects during
+   `nargo execute`.
+3. **INVALID — cross-check mismatch** (hierarchical-unique): mix sub-proofs
+   from one valid cycle with the glue proof from a different valid cycle
+   through the same matrix.  Each `bb verify` accepts; the
+   `glue.starts[1] != sub_1.start_node` cross-check fires in verify_hier.py.
+4. **INVALID — cost binding** (inherited from flat_merkle): sub G5 catches
+   `sum(edge_costs) != partial_cost`.
+5. **INVALID — boundary Merkle** (inherited from flat_merkle): glue G3
+   catches a tampered boundary cost (hash chain ≠ root).
+6. **VALID — N=48 K=4** sanity check: confirms the (N, K)-patching machinery
+   works for non-toy sizes (witness only, no full proving).
+
+### Benchmark sweep — `pipeline/run_hier.py`
+
+```bash
+python pipeline/run_hier.py \
+  --ns 48 96 192 480 \
+  --ks 2 4 8 \
+  --runs 3 \
+  --out results/hier_a.csv
+```
+
+Options mirror `run.py`:
+
+- `--ns`   Space-separated list of N values (required).  Each must be
+  divisible by every K under test; cells with `N % K != 0` are skipped.
+- `--ks`   Space-separated list of K values (required).
+- `--runs` Independent runs per (N, K) cell (default: 3).
+- `--out`  Output CSV path (required); appended to.
+- `--seed` Base seed (default: 42); per-run seed = `seed + N*1000 + K*100 + run_idx`.
+
+What it does per `(N, K)` cell:
+
+1. Patches `N, M, K, DEPTH` in both circuits' `src/main.nr` and recompiles.
+   Writes a fresh VK for each.  Records `circuit_size`, `acir_opcodes`,
+   `compile_s` per circuit.
+2. Materialises K shadow directories under `/tmp/hier_a_shadows/sub_i/`,
+   each a self-contained nargo project (copied `Nargo.toml + src/`, plus
+   a freshly-compiled `target/`).  Shadows live outside the project tree
+   because nargo walks up looking for the outermost `Nargo.toml` and would
+   otherwise treat `circuits/hierarchical_segment/.runs/sub_i/` as a child
+   of the parent project and write into the parent's `target/`.
+3. Per run: generates a TSP instance, solves it, calls
+   `merkle_builder --hierarchical K` to produce K+1 Prover.tomls, then
+   spawns K+1 parallel `nargo execute && bb prove` workers (one per
+   sub-circuit shadow plus one in the glue dir).  Records each worker's
+   own wall-clock `witness_s` and `prove_s` (under K+1-way CPU contention).
+4. After all proves complete, runs `bb verify` serially per circuit
+   (clean per-circuit verify time) and then `verify_hier.py` to validate
+   the cross-checks.  Emits K+1 CSV rows with `circuit` column set to
+   `sub_0..sub_{K-1}` / `glue`.
+
+CSV columns:
+
+```
+variant n k m run circuit circuit_size acir_opcodes compile_s
+witness_s prove_s verify_s proof_bytes peak_mb verify_hier_s xchecks_ok
+```
+
+Downstream aggregation is handled by `pipeline/aggregate_hier.py` — see
+the next section.
+
+### Aggregating raw `hier_a.csv` for plotting
+
+`run_hier.py` writes K+1 rows per cell — one per circuit (`sub_0..sub_{K-1}`
+/ `glue`).  `pipeline/aggregate_hier.py` collapses those into one row per
+`(N, K, run)` cell with the same schema as `run.py`'s flat output, so the
+existing `pipeline/plot.py` can ingest it directly.
+
+```bash
+# Parallel wall-clock projection (max prove_s across the K+1 circuits per cell):
+python pipeline/aggregate_hier.py \
+    --in   results/hier_a.csv \
+    --out  results/hier_a_parallel.csv \
+    --mode parallel
+
+# Or total CPU work (sum prove_s across the K+1 circuits):
+python pipeline/aggregate_hier.py \
+    --in   results/hier_a.csv \
+    --out  results/hier_a_total.csv \
+    --mode total
+```
+
+**Aggregation rules used:**
+
+| Output column | Per cell aggregation |
+|---|---|
+| `circuit_size` | `K * sub.circuit_size + glue.circuit_size` (total gates across all K+1 circuits) |
+| `acir_opcodes` | same |
+| `compile_s` | `sub.compile_s + glue.compile_s` (one sub compile + one glue compile per cell) |
+| `witness_s` | `max` (parallel) or `sum` (total) across the K+1 rows |
+| `prove_s` | `max` (parallel) or `sum` (total) across the K+1 rows |
+| `verify_s` | `sum(verify_s)` + `verify_hier_s` (serial K+1 `bb verify` + cross-checks) |
+| `proof_bytes` | `sum` (the K+1 proofs delivered to the verifier) |
+| `peak_mb` | `max` (max single-prover memory) |
+
+Variant column defaults to `hier_a_k{K}` (one variant per K).  Pass
+`--mode-in-name` to disambiguate as `hier_a_k{K}_{mode}` if you want both
+parallel and total plotted in the same figure.
+
+### Plotting flat + hierarchical results in one figure
+
+`pipeline/plot.py` now accepts multiple `--csv` inputs.  Pass the flat
+baseline CSV first, then any number of aggregated hier CSVs:
+
+```bash
+# Aggregate first
+python pipeline/aggregate_hier.py \
+    --in   results/hier_a.csv \
+    --out  results/hier_a_parallel.csv \
+    --mode parallel
+
+# Then plot together with the existing flat baseline
+python pipeline/plot.py \
+    --csv results/500.csv results/hier_a_parallel.csv \
+    --out plots/flat_vs_hier_a
+```
+
+Produces `plots/flat_vs_hier_a_linear.png` and `plots/flat_vs_hier_a_loglog.png`,
+each with one line per variant (flat_full_pairwise, flat_full_sort, ...,
+hier_a_k2, hier_a_k4, hier_a_k8) and per-variant slope annotations on the
+log-log panels.
+
+Comparing apples to apples:
+
+- The **proof_bytes** panel will show hier well above flat — that's expected,
+  since the verifier receives K+1 separate proofs (~14.6 KB × (K+1)).
+- The **prove_s** panel under `--mode parallel` is the wall-clock of the
+  K+1-way parallel run on a single machine — which is CPU-contended.  Each
+  prover gets ~1/(K+1) of available threads, so observed prove_s is worse
+  than flat for all K.  The theoretical K× speedup (estimated from
+  circuit_size ratios) requires isolated hardware per prover and is not
+  directly measured by this benchmark.  Run an isolation experiment (one
+  sub-circuit, no siblings) to confirm.
+- The **peak_mb** panel uses max across K+1 provers, so it measures the
+  largest single prover's footprint.  Note: the glue circuit sorts
+  `all_sorted_nodes[N]` (N elements regardless of K), creating an O(N)
+  memory floor.  At K≥8, N=480 the glue (~159 MB) exceeds the sub-circuit
+  (~152 MB) and becomes the reported peak.  Total single-machine RAM (not
+  shown) = K×sub_peak + glue_peak and exceeds flat for all K.
+
+### Common issues (hierarchical-specific)
+
+**Shadow workers fail with "Failed to open file: target/hierarchical_segment.gz"**
+A previous shadow was placed inside the project tree (`circuits/.../...`)
+instead of `/tmp/`.  Nargo's project-root resolution walks up to the outer
+`Nargo.toml`, so executions inside the project tree write to the main
+`target/`.  Confirm `SHADOW_ROOT` in `pipeline/run_hier.py` points to
+`/tmp/hier_a_shadows` (it does by default).
+
+**`merkle_builder` exits with "N must be divisible by K"**
+N and K must satisfy `N % K == 0` so each segment has the same M = N/K.
+The recommended N values 48, 96, 192, 480 are divisible by all of {2, 4, 8}.
+
+**`verify_hier.py` reports "root mismatch"**
+The K+1 proofs come from different matrices (i.e., different merkle_builder
+invocations).  Make sure all K+1 Prover.tomls came from the *same*
+`merkle_builder --hierarchical` call.
+
+**`verify_hier.py` reports a starts/ends/partial_costs mismatch**
+The sub-circuit and glue Prover.tomls don't refer to the same instance —
+most likely the glue was rebuilt with a different cycle while one of the
+sub-circuit proofs was kept from an older run.
+
+---
+
 ## Variants
 
-| Directory | Matrix input | Permutation check | Complexity |
+| Directory | Matrix input | Permutation check | Status |
 |---|---|---|---|
 | `flat_full_pairwise` | Full N^2 public inputs | Pairwise O(N^2) | done |
 | `flat_full_sort` | Full N^2 public inputs | Sort-based ~3N constrained | done |
 | `flat_full_invperm` | Full N^2 public inputs | Inv-perm witness 2N constrained | done |
 | `flat_full_presence` | Full N^2 public inputs | Presence mark array ~4N constrained | done |
 | `flat_merkle_presence` | Poseidon2 Merkle root | Presence mark array ~4N + N*DEPTH hashes | done |
-| `hierarchical` | TBD | TBD | future |
+| `hierarchical_segment` + `hierarchical_glue` | Poseidon2 Merkle root | Per-segment `sort_via` + global partition check | done (Variant A) |
+| Variant A++ (Merkle, grand product + FS) | Poseidon2 Merkle root | Grand product with in-circuit Fiat-Shamir | future |
+| Variant B (flat-full, sub-matrix public) | K disclosed M×M sub-matrices | Per-segment ROM lookup | future |
 
 ---
 

@@ -229,55 +229,328 @@ fn write_prover_toml(
     Ok(())
 }
 
+// ── Hierarchical Prover.toml writers (Variant A) ──────────────────────────────
+
+/// Write Prover.toml for circuits/hierarchical_segment for one segment.
+///
+/// Field order matches the function signature in
+/// circuits/hierarchical_segment/src/main.nr (private first, then public).
+/// Noir matches by name not position, but consistent ordering keeps the file
+/// readable and matches the public-input dump order used by verify_hier.py.
+fn write_sub_prover_toml(
+    out_path: &PathBuf,
+    seg_idx: usize,
+    cycle_segment: &[usize],
+    edge_costs: &[u64],
+    siblings_flat: &[FieldElement],
+    path_bits_flat: &[bool],
+    sorted_nodes: &[usize],
+    start_node: usize,
+    end_node: usize,
+    partial_cost: u64,
+    root: FieldElement,
+) -> io::Result<()> {
+    use std::fmt::Write as FmtWrite;
+    let mut out = String::new();
+
+    writeln!(out, "# hierarchical_segment Prover.toml -- segment {}", seg_idx).unwrap();
+    writeln!(out, "# Variant A sub-circuit. Public: sorted_nodes, start_node, end_node, partial_cost, root.").unwrap();
+    writeln!(out).unwrap();
+
+    // ── cycle_segment (private) ──────────────────────────────────────────────
+    writeln!(out, "# Private witness: segment node visit order (M entries)").unwrap();
+    let seg_str = cycle_segment.iter().map(|v| format!("\"{}\"", v)).collect::<Vec<_>>().join(", ");
+    writeln!(out, "cycle_segment = [{}]\n", seg_str).unwrap();
+
+    // ── edge_costs (private) ──────────────────────────────────────────────────
+    writeln!(out, "# Private witness: M-1 internal edge costs").unwrap();
+    writeln!(out, "# edge_costs[i] = cost_matrix[cycle_segment[i]][cycle_segment[i+1]]").unwrap();
+    let costs_str = edge_costs.iter().map(|v| format!("\"{}\"", v)).collect::<Vec<_>>().join(", ");
+    writeln!(out, "edge_costs = [{}]\n", costs_str).unwrap();
+
+    // ── siblings (private) ────────────────────────────────────────────────────
+    writeln!(out, "# Private witness: Poseidon2 Merkle siblings, flat row-major over (M-1) edge proofs").unwrap();
+    let sibs_str = siblings_flat.iter().map(|f| format!("\"0x{}\"", f.to_hex())).collect::<Vec<_>>().join(", ");
+    writeln!(out, "siblings = [{}]\n", sibs_str).unwrap();
+
+    // ── path_bits (private) ───────────────────────────────────────────────────
+    writeln!(out, "# Private witness: LSB-first leaf-index encoding, flat row-major").unwrap();
+    let bits_str = path_bits_flat.iter().map(|b| if *b { "true" } else { "false" }).collect::<Vec<_>>().join(", ");
+    writeln!(out, "path_bits = [{}]\n", bits_str).unwrap();
+
+    // ── sorted_nodes (public) ─────────────────────────────────────────────────
+    writeln!(out, "# Public input: segment node set, sorted ascending (M entries)").unwrap();
+    let sn_str = sorted_nodes.iter().map(|v| format!("\"{}\"", v)).collect::<Vec<_>>().join(", ");
+    writeln!(out, "sorted_nodes = [{}]\n", sn_str).unwrap();
+
+    // ── start_node / end_node (public) ────────────────────────────────────────
+    writeln!(out, "# Public input: segment endpoints in cycle order").unwrap();
+    writeln!(out, "start_node = \"{}\"", start_node).unwrap();
+    writeln!(out, "end_node = \"{}\"\n", end_node).unwrap();
+
+    // ── partial_cost (public) ─────────────────────────────────────────────────
+    writeln!(out, "# Public input: sum of the M-1 internal edge costs").unwrap();
+    writeln!(out, "partial_cost = \"{}\"\n", partial_cost).unwrap();
+
+    // ── root (public) ─────────────────────────────────────────────────────────
+    writeln!(out, "# Public input: Poseidon2 Merkle root of the N*N cost matrix").unwrap();
+    writeln!(out, "root = \"0x{}\"", root.to_hex()).unwrap();
+
+    if let Some(parent) = out_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(out_path, out)?;
+    Ok(())
+}
+
+/// Write Prover.toml for circuits/hierarchical_glue.
+fn write_glue_prover_toml(
+    out_path: &PathBuf,
+    boundary_costs: &[u64],
+    boundary_siblings: &[FieldElement],
+    boundary_path_bits: &[bool],
+    all_sorted_nodes: &[usize],
+    starts: &[usize],
+    ends: &[usize],
+    partial_costs: &[u64],
+    threshold: u64,
+    cost: u64,
+    root: FieldElement,
+) -> io::Result<()> {
+    use std::fmt::Write as FmtWrite;
+    let mut out = String::new();
+
+    writeln!(out, "# hierarchical_glue Prover.toml").unwrap();
+    writeln!(out, "# Variant A glue. Public: all_sorted_nodes, starts, ends, partial_costs, threshold, root.").unwrap();
+    writeln!(out).unwrap();
+
+    // ── boundary_costs (private) ──────────────────────────────────────────────
+    writeln!(out, "# Private witness: K boundary-edge costs").unwrap();
+    writeln!(out, "# boundary_costs[i] = cost_matrix[ends[i]][starts[(i+1) % K]]").unwrap();
+    let bc_str = boundary_costs.iter().map(|v| format!("\"{}\"", v)).collect::<Vec<_>>().join(", ");
+    writeln!(out, "boundary_costs = [{}]\n", bc_str).unwrap();
+
+    // ── boundary_siblings (private) ───────────────────────────────────────────
+    writeln!(out, "# Private witness: Poseidon2 Merkle siblings for the K boundary-edge proofs").unwrap();
+    let sibs_str = boundary_siblings.iter().map(|f| format!("\"0x{}\"", f.to_hex())).collect::<Vec<_>>().join(", ");
+    writeln!(out, "boundary_siblings = [{}]\n", sibs_str).unwrap();
+
+    // ── boundary_path_bits (private) ──────────────────────────────────────────
+    writeln!(out, "# Private witness: LSB-first leaf-index encoding for boundary-edge proofs").unwrap();
+    let bits_str = boundary_path_bits.iter().map(|b| if *b { "true" } else { "false" }).collect::<Vec<_>>().join(", ");
+    writeln!(out, "boundary_path_bits = [{}]\n", bits_str).unwrap();
+
+    // ── all_sorted_nodes (public) ─────────────────────────────────────────────
+    writeln!(out, "# Public input: concatenation of K sub-proofs' sorted_nodes arrays").unwrap();
+    writeln!(out, "# (length N, not yet globally sorted; glue G2 sorts in-circuit)").unwrap();
+    let asn_str = all_sorted_nodes.iter().map(|v| format!("\"{}\"", v)).collect::<Vec<_>>().join(", ");
+    writeln!(out, "all_sorted_nodes = [{}]\n", asn_str).unwrap();
+
+    // ── starts (public) ──────────────────────────────────────────────────────
+    writeln!(out, "# Public input: per-segment start nodes (K entries)").unwrap();
+    let s_str = starts.iter().map(|v| format!("\"{}\"", v)).collect::<Vec<_>>().join(", ");
+    writeln!(out, "starts = [{}]\n", s_str).unwrap();
+
+    // ── ends (public) ────────────────────────────────────────────────────────
+    writeln!(out, "# Public input: per-segment end nodes (K entries)").unwrap();
+    let e_str = ends.iter().map(|v| format!("\"{}\"", v)).collect::<Vec<_>>().join(", ");
+    writeln!(out, "ends = [{}]\n", e_str).unwrap();
+
+    // ── partial_costs (public) ───────────────────────────────────────────────
+    writeln!(out, "# Public input: per-segment internal cost sums").unwrap();
+    let pc_str = partial_costs.iter().map(|v| format!("\"{}\"", v)).collect::<Vec<_>>().join(", ");
+    writeln!(out, "partial_costs = [{}]\n", pc_str).unwrap();
+
+    // ── threshold (public) ───────────────────────────────────────────────────
+    writeln!(out, "# Public input: cycle cost upper bound").unwrap();
+    writeln!(out, "# (actual cost = {}, threshold = {})", cost, threshold).unwrap();
+    writeln!(out, "threshold = \"{}\"\n", threshold).unwrap();
+
+    // ── root (public) ────────────────────────────────────────────────────────
+    writeln!(out, "# Public input: Poseidon2 Merkle root of the N*N cost matrix").unwrap();
+    writeln!(out, "root = \"0x{}\"", root.to_hex()).unwrap();
+
+    if let Some(parent) = out_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(out_path, out)?;
+    Ok(())
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-fn main() {
-    // ── Parse --out flag ──────────────────────────────────────────────────────
-    let args: Vec<String> = std::env::args().collect();
-    let out_idx = args
-        .iter()
-        .position(|a| a == "--out")
-        .unwrap_or_else(|| {
-            eprintln!("Usage: merkle_builder --out <Prover.toml path>");
-            std::process::exit(1);
-        });
-    let out_path = PathBuf::from(
-        args.get(out_idx + 1).unwrap_or_else(|| {
-            eprintln!("Error: --out flag requires an argument");
-            std::process::exit(1);
-        }),
+fn parse_named_arg(args: &[String], name: &str) -> Option<String> {
+    args.iter()
+        .position(|a| a == name)
+        .and_then(|i| args.get(i + 1).cloned())
+}
+
+fn run_flat(args: &[String], input: Input) {
+    let out_path = PathBuf::from(parse_named_arg(args, "--out").unwrap_or_else(|| {
+        eprintln!("Usage (flat): merkle_builder --out <Prover.toml path>");
+        std::process::exit(1);
+    }));
+
+    let n = input.n;
+    let tree = MerkleTree::build(&input.flat_matrix);
+    let root = tree.root();
+    let depth = tree.depth;
+
+    let mut edge_costs: Vec<u64> = Vec::with_capacity(n);
+    let mut siblings_flat: Vec<FieldElement> = Vec::with_capacity(n * depth as usize);
+    let mut path_bits_flat: Vec<bool> = Vec::with_capacity(n * depth as usize);
+
+    for i in 0..n {
+        let from = input.cycle[i];
+        let to = input.cycle[(i + 1) % n];
+        let leaf_idx = from * n + to;
+        edge_costs.push(input.flat_matrix[leaf_idx]);
+        let (sibs, bits) = tree.proof(leaf_idx);
+        siblings_flat.extend_from_slice(&sibs);
+        path_bits_flat.extend_from_slice(&bits);
+    }
+
+    write_prover_toml(
+        &out_path, n, depth,
+        &input.cycle, &edge_costs, &siblings_flat, &path_bits_flat,
+        root, input.threshold, input.cost,
+    )
+    .unwrap_or_else(|e| {
+        eprintln!("Error writing {}: {}", out_path.display(), e);
+        std::process::exit(1);
+    });
+
+    eprintln!(
+        "merkle_builder [flat]: N={} DEPTH={} root=0x{} -> {}",
+        n, depth, &root.to_hex()[..8], out_path.display()
     );
+}
 
-    // ── Read input JSON from stdin ────────────────────────────────────────────
-    let mut json_buf = String::new();
-    io::stdin()
-        .read_to_string(&mut json_buf)
+fn run_hierarchical(args: &[String], input: Input, k: usize) {
+    let out_dir = PathBuf::from(parse_named_arg(args, "--out-dir").unwrap_or_else(|| {
+        eprintln!("Usage (hierarchical): merkle_builder --hierarchical K --out-dir <dir>");
+        std::process::exit(1);
+    }));
+
+    let n = input.n;
+    if k < 2 {
+        eprintln!("Error: --hierarchical K requires K >= 2 (got {})", k);
+        std::process::exit(1);
+    }
+    if n % k != 0 {
+        eprintln!("Error: N={} must be divisible by K={} (got remainder {})", n, k, n % k);
+        std::process::exit(1);
+    }
+    let m = n / k;
+
+    let tree = MerkleTree::build(&input.flat_matrix);
+    let root = tree.root();
+    let depth = tree.depth;
+
+    // Per-segment outputs.
+    let mut all_sorted_nodes: Vec<usize> = Vec::with_capacity(n);
+    let mut starts: Vec<usize>            = Vec::with_capacity(k);
+    let mut ends: Vec<usize>              = Vec::with_capacity(k);
+    let mut partial_costs: Vec<u64>       = Vec::with_capacity(k);
+
+    for seg in 0..k {
+        // cycle_segment = cycle[seg*M .. (seg+1)*M]
+        let cycle_segment: Vec<usize> = input.cycle[seg * m..(seg + 1) * m].to_vec();
+        let start_node = cycle_segment[0];
+        let end_node   = cycle_segment[m - 1];
+
+        // Internal edges: M-1 per segment.
+        let mut seg_edge_costs: Vec<u64> = Vec::with_capacity(m - 1);
+        let mut seg_sibs: Vec<FieldElement> = Vec::with_capacity((m - 1) * depth as usize);
+        let mut seg_bits: Vec<bool>         = Vec::with_capacity((m - 1) * depth as usize);
+        for j in 0..(m - 1) {
+            let from = cycle_segment[j];
+            let to   = cycle_segment[j + 1];
+            let leaf_idx = from * n + to;
+            seg_edge_costs.push(input.flat_matrix[leaf_idx]);
+            let (sibs, bits) = tree.proof(leaf_idx);
+            seg_sibs.extend_from_slice(&sibs);
+            seg_bits.extend_from_slice(&bits);
+        }
+        let partial_cost: u64 = seg_edge_costs.iter().sum();
+
+        // sorted_nodes = sorted(cycle_segment) ascending.
+        let mut sorted_nodes = cycle_segment.clone();
+        sorted_nodes.sort_unstable();
+
+        // Stash for the glue file.
+        all_sorted_nodes.extend_from_slice(&sorted_nodes);
+        starts.push(start_node);
+        ends.push(end_node);
+        partial_costs.push(partial_cost);
+
+        // Write sub_<seg>/Prover.toml.
+        let sub_path = out_dir.join(format!("sub_{}", seg)).join("Prover.toml");
+        write_sub_prover_toml(
+            &sub_path, seg,
+            &cycle_segment, &seg_edge_costs, &seg_sibs, &seg_bits,
+            &sorted_nodes, start_node, end_node, partial_cost, root,
+        )
         .unwrap_or_else(|e| {
-            eprintln!("Error reading stdin: {}", e);
+            eprintln!("Error writing {}: {}", sub_path.display(), e);
             std::process::exit(1);
         });
+    }
 
+    // Glue: K boundary edges ends[i] -> starts[(i+1) % K].
+    let mut boundary_costs: Vec<u64>         = Vec::with_capacity(k);
+    let mut boundary_sibs:  Vec<FieldElement> = Vec::with_capacity(k * depth as usize);
+    let mut boundary_bits:  Vec<bool>         = Vec::with_capacity(k * depth as usize);
+    for i in 0..k {
+        let from = ends[i];
+        let to   = starts[(i + 1) % k];
+        let leaf_idx = from * n + to;
+        boundary_costs.push(input.flat_matrix[leaf_idx]);
+        let (sibs, bits) = tree.proof(leaf_idx);
+        boundary_sibs.extend_from_slice(&sibs);
+        boundary_bits.extend_from_slice(&bits);
+    }
+
+    let glue_path = out_dir.join("glue").join("Prover.toml");
+    write_glue_prover_toml(
+        &glue_path,
+        &boundary_costs, &boundary_sibs, &boundary_bits,
+        &all_sorted_nodes, &starts, &ends, &partial_costs,
+        input.threshold, input.cost, root,
+    )
+    .unwrap_or_else(|e| {
+        eprintln!("Error writing {}: {}", glue_path.display(), e);
+        std::process::exit(1);
+    });
+
+    eprintln!(
+        "merkle_builder [hier K={}]: N={} M={} DEPTH={} root=0x{} -> {}/{{sub_0..sub_{},glue}}/Prover.toml",
+        k, n, m, depth, &root.to_hex()[..8], out_dir.display(), k - 1
+    );
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+
+    // ── Read input JSON from stdin (shared by both modes) ────────────────────
+    let mut json_buf = String::new();
+    io::stdin().read_to_string(&mut json_buf).unwrap_or_else(|e| {
+        eprintln!("Error reading stdin: {}", e);
+        std::process::exit(1);
+    });
     let input: Input = serde_json::from_str(&json_buf).unwrap_or_else(|e| {
         eprintln!("Error parsing input JSON: {}", e);
         std::process::exit(1);
     });
 
-    // ── Validate ──────────────────────────────────────────────────────────────
+    // ── Validate (shared) ────────────────────────────────────────────────────
     let n = input.n;
     if input.flat_matrix.len() != n * n {
-        eprintln!(
-            "Error: flat_matrix length {} != n*n={}",
-            input.flat_matrix.len(),
-            n * n
-        );
+        eprintln!("Error: flat_matrix length {} != n*n={}", input.flat_matrix.len(), n * n);
         std::process::exit(1);
     }
     if input.cycle.len() != n {
-        eprintln!(
-            "Error: cycle length {} != n={}",
-            input.cycle.len(),
-            n
-        );
+        eprintln!("Error: cycle length {} != n={}", input.cycle.len(), n);
         std::process::exit(1);
     }
     for (i, &v) in input.cycle.iter().enumerate() {
@@ -287,53 +560,16 @@ fn main() {
         }
     }
 
-    // ── Build Merkle tree over the N^2 cost matrix ────────────────────────────
-    let tree = MerkleTree::build(&input.flat_matrix);
-    let root = tree.root();
-    let depth = tree.depth;
-
-    // ── Compute per-edge costs and Merkle proofs ──────────────────────────────
-    let mut edge_costs: Vec<u64> = Vec::with_capacity(n);
-    let mut siblings_flat: Vec<FieldElement> = Vec::with_capacity(n * depth as usize);
-    let mut path_bits_flat: Vec<bool> = Vec::with_capacity(n * depth as usize);
-
-    for i in 0..n {
-        let from = input.cycle[i];
-        let to = input.cycle[(i + 1) % n];
-        let leaf_idx = from * n + to;
-
-        edge_costs.push(input.flat_matrix[leaf_idx]);
-
-        let (sibs, bits) = tree.proof(leaf_idx);
-        siblings_flat.extend_from_slice(&sibs);
-        path_bits_flat.extend_from_slice(&bits);
+    // ── Dispatch on --hierarchical K ─────────────────────────────────────────
+    if let Some(k_str) = parse_named_arg(&args, "--hierarchical") {
+        let k: usize = k_str.parse().unwrap_or_else(|_| {
+            eprintln!("Error: --hierarchical expects a positive integer K (got {:?})", k_str);
+            std::process::exit(1);
+        });
+        run_hierarchical(&args, input, k);
+    } else {
+        run_flat(&args, input);
     }
-
-    // ── Write Prover.toml ─────────────────────────────────────────────────────
-    write_prover_toml(
-        &out_path,
-        n,
-        depth,
-        &input.cycle,
-        &edge_costs,
-        &siblings_flat,
-        &path_bits_flat,
-        root,
-        input.threshold,
-        input.cost,
-    )
-    .unwrap_or_else(|e| {
-        eprintln!("Error writing {}: {}", out_path.display(), e);
-        std::process::exit(1);
-    });
-
-    eprintln!(
-        "merkle_builder: N={} DEPTH={} root=0x{} -> {}",
-        n,
-        depth,
-        &root.to_hex()[..8],
-        out_path.display()
-    );
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────────

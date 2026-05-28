@@ -203,6 +203,49 @@ algorithmic improvement.
 See `supervisor_report_draft.md` §7 for the full dualism argument and §7.7 for the
 variant-to-use-case mapping.
 
+### Benchmark interpretation (added 2026-05-27)
+
+The Variant A full benchmark sweep completed. Two metrics require careful interpretation
+before citing in the thesis.
+
+**`prove_s` — single-machine contended, not isolated per-prover:**
+`bb prove` is multi-threaded; K+1 concurrent processes each obtain ~1/(K+1) of available
+threads. Observed prove_s > flat_merkle for all K at N=480 is expected and consistent
+with the K× speedup being real under a distributed (dedicated-hardware) model. The K×
+speedup is estimated from circuit_size ratios:
+  sub_size ≈ flat_merkle_size / K  →  isolated prove_s ≈ flat_merkle_prove_s / K
+This estimate is not yet directly measured. Pending: isolation benchmark (run one sub-
+circuit without parallel siblings).
+
+**`peak_mb` — per-prover maximum, not total concurrent RAM:**
+`aggregate_hier.py` computes `peak_mb = max(float(r["peak_mb"]) for r in all_rows)`.
+This is the single heaviest worker process peak, representing the minimum hardware
+requirement for any one prover node. At N=480:
+
+| K | Sub peak | Glue peak | Reported peak | Notes |
+|---|---|---|---|---|
+| 2 | ~551 MB | ~159 MB | ~551 MB | sub dominates |
+| 4 | ~285 MB | ~159 MB | ~285 MB | sub dominates |
+| 8 | ~152 MB | ~159 MB | ~159 MB | glue dominates |
+
+**Glue memory floor:** the glue's G2 partition check sorts `all_sorted_nodes[N]` — N
+elements regardless of K. This creates an O(N) memory floor (~159 MB at N=480) below
+which the reported `peak_mb` cannot fall. At K≥8, the glue becomes the reported peak.
+Variant A++ replaces O(N) sort with O(K) grand product; its glue memory should be
+substantially lower and must be measured explicitly.
+
+**Total single-machine concurrent RAM** = K×sub_peak + glue_peak, always exceeds
+flat_merkle for all K (K=4, N=480: ~1299 MB vs ~1078 MB). The distributed memory
+benefit (sub-circuit peak ≈ flat/K) requires one prover node per circuit.
+
+Three mental models to keep distinct in the thesis:
+
+| | prove_s | peak_mb |
+|---|---|---|
+| Single-machine contended (CSV) | > flat; contention overhead | max(K subs, glue); glue O(N) floor |
+| Per-prover isolated (theoretical / pending) | ≈ flat/K | ≈ flat/K per sub; glue floor constant |
+| Total system | ≈ flat (same work, distributed) | K×sub + glue; > flat |
+
 ---
 
 ## Progress
@@ -229,7 +272,15 @@ variant-to-use-case mapping.
 
 ### Hierarchical implementation programme
 
-- [ ] Variant A — Merkle, sorted nodes public (sub-circuit + glue + pipeline + tests + benchmarks)
+- [x] Variant A — Merkle, sorted nodes public (2026-05-27)
+    - [x] Sub-circuit `circuits/hierarchical_segment` (G1..G5)
+    - [x] Glue circuit `circuits/hierarchical_glue` (G2..G4; G1 is structural-only)
+    - [x] `pipeline/merkle_builder` extended with `--hierarchical K --out-dir`
+    - [x] `pipeline/verify_hier.py` — K+1 `bb verify` + 4 cross-checks
+    - [x] `pipeline/run_hier.py` — K-shadow parallel benchmark harness
+    - [x] `tests/correctness/test_hierarchical_a.py` — 6 tests (1 valid + 4 negatives + 1 sanity at N=48 K=4)
+    - [x] Full benchmark sweep into `results/hier_a.csv` (completed 2026-05-27; N∈{48,96,192,480}, K∈{2,4,8})
+    - [ ] Isolation benchmark: run single sub-circuit without parallel siblings to empirically validate K× speedup claim
 - [ ] Variant A++ — Merkle, grand product + in-circuit Fiat-Shamir
 - [ ] Variant B — flat_full, sub-matrix public
 - [ ] Frontier figure: (total gates, parallel wall-clock, per-prover memory, privacy bits) for all variants

@@ -1158,13 +1158,61 @@ the in-circuit prover to the cheap verifier side.
 
 ### 9.11 Privacy
 
-Verifier learns: K endpoints; K per-segment cost sums; Field-valued aggregates
-(P_i, h_in, h_out, c, X, expected_product) which leak no information about the
-witness beyond what's already disclosed (all are one-way hash images or polynomial
-evaluations).
+Verifier learns directly: K endpoints; K per-segment cost sums; Field-valued
+aggregates (P_i, h_in_i, h_out_i, c, X). Verifier does **not** learn directly: the
+partition; interior order within each segment; individual edge costs; boundary edge
+costs.
 
-Verifier does **not** learn: the partition; interior order within each segment;
-individual edge costs; boundary edge costs.
+**Important caveat — A++ hides the partition *computationally*, not
+information-theoretically.** An earlier framing claimed the Field aggregates "leak no
+information about the witness." That is too strong. Two of the public aggregates are
+not one-way under A++'s threat model — they are *confirmation oracles* that let a
+verifier who is willing to do bounded search recover exactly the data A publishes for
+free. The hiding is real, but it rests on the search being infeasible, i.e. on a work
+factor, not on missing information.
+
+**Oracle 1 — `P_i` reveals the segment multiset (work ≈ C(N, M)).** The grand product
+`P_i = ∏_{j}(X + cycle_segment_i[j])` is a *polynomial evaluation at a public point X*,
+not a one-way hash. Because the partition constraint forces each segment to be a
+size-M subset of the public set {0..N-1}, a verifier can enumerate candidate subsets
+`S ⊆ {0..N-1}, |S| = M`, compute `∏_{v∈S}(X + v)`, and accept the unique `S` whose
+product equals `P_i`. That recovers the segment's node multiset — precisely what
+Variant A discloses as `sorted_nodes`. The cost is ≈ C(N, M) field multiplications per
+segment (a meet-in-the-middle subset-product attack can do better, but C(N, M) is the
+naive ceiling).
+
+**Oracle 2 — the chain anchors reveal interior order (work ≈ (M-2)!).** Both ends of
+each segment's hash chain are public: `h_in_i`, `h_out_i`, and the endpoints
+`start_i = cycle[i·M]`, `end_i = cycle[(i+1)·M − 1]`. The chain step
+`h_{j+1} = Poseidon2(h_j, cycle[j])` takes only public-domain inputs (h-values that are
+now known, plus node indices in [0, N)). So once Oracle 1 has fixed the segment's
+multiset, the verifier brute-forces the (M-2)! interior orderings, recomputes the chain
+from `h_in_i`, and accepts the unique ordering that reproduces `h_out_i`. The published
+anchors turn an information-theoretic ambiguity into a checkable guess.
+
+`c` and `X` add nothing further: `c` is the terminal of the same chain, and `X =
+Poseidon2(c)` is deterministic from it. The privacy-relevant leakage is fully captured
+by Oracles 1 and 2.
+
+**Why the anchors must be public — the price of non-recursion.** `h_in_i` / `h_out_i`
+are public *because* A++ is K+1 independent proofs bound by off-circuit verifier
+cross-checks (§2.1). The verifier can only confirm chain continuity
+(`h_ins[i+1] == h_outs[i]`) and the terminal (`h_outs[K-1] == c`) by comparing values
+that appear in *separate* proofs, which requires them to be public inputs. A recursive
+construction — where an outer circuit verifies the K inner proofs and stitches the
+chain in-circuit — would keep the anchors private and restore information-theoretic
+hiding of the ordering. So this leak is a direct, measurable cost of avoiding recursion
+(the architecture choice in §2.1), and belongs on the frontier story rather than being
+a flaw: A++ buys parallelism + low per-prover memory + non-recursive simplicity, and
+pays for it in computational (not unconditional) partition hiding.
+
+**Net effect.** For the thesis benchmark sizes the work factors are astronomically
+infeasible — at N=480, K=2 (M=240): C(480, 240) ≈ 2⁴⁷⁵ and (M-2)! ≈ (238)! — so the
+partition is hidden in any practical sense. At toy sizes the oracles are cheap
+(N=8, M=4: C(8,4)=70, (M-2)!=2), so the "24 candidate cycles" of §9.13 collapses to a
+unique recovered cycle in milliseconds. Read §9.13's candidate count as the *work
+factor to break hiding*, not as residual information-theoretic uncertainty. See §14.2
+for the quantitative restatement.
 
 ### 9.12 Cost overhead vs A
 
@@ -1197,6 +1245,13 @@ recomputes expected_product and checks it matches the glue's value).
 which nodes are in which segment. Interior nodes {1,3,4,5} split into two pairs: 6
 ways; each pair has 2! orderings: 4 orderings. Total **24 candidate cycles** out of
 5040 — much closer to flat_merkle's privacy than A's 4 candidates.
+
+**Caveat (see §9.11, §14.2):** these 24 are a *work factor*, not residual
+information-theoretic uncertainty. At this toy size the public `P_i` (factor over
+C(8,4)=70 subsets) and chain anchors (brute-force 2!=2 orderings) let the verifier
+confirm the unique real cycle essentially instantly. A++'s partition hiding is
+computational and only meaningful at large N; do not read "24 candidates" as
+unconditional ambiguity.
 
 ---
 
@@ -1468,7 +1523,7 @@ out of ~4032 total — ~20% of cycle entropy lost.
 
 Verifier knows endpoints only; partition is hidden. For each way of partitioning the
 N-K endpoint-free nodes into K interior sets of size M-2, the cycle has
-`(M-2)!^K` orderings. Total candidates:
+`(M-2)!^K` orderings. Total candidates *consistent with the public endpoints alone*:
 
 ```
 |candidate cycles| = C(N-K, K-1 fixed interior sizes) · (M-2)!^K
@@ -1477,11 +1532,38 @@ N-K endpoint-free nodes into K interior sets of size M-2, the cycle has
 (roughly — exact form depends on whether endpoints are distinguishable across
 segments).
 
-At N=8, K=2: 6 partitions × 4 orderings = 24 candidates, 7.7 bits leaked.
+At N=8, K=2: 6 partitions × 4 orderings = 24 candidates.
 At N=480, K=4: much higher candidate count than A, close to but smaller than (N-1)!.
 
-A++ leaks ~2K · log(N) bits at the structural level — independent of N for fixed K
-(modulo log).
+**This candidate count is a work factor, not residual information-theoretic
+uncertainty.** Unlike Variant A — where the verifier *cannot* tell which of the
+`(M-2)!^K` interior orderings is real even with unbounded compute, because nothing
+public distinguishes them — A++ publishes confirmation oracles (§9.11) that let a
+verifier *check* a guessed cycle and find the unique true one. Concretely the
+break cost is:
+
+```
+work_to_recover_partition  ≈  Σ_i C(N, M)        (Oracle 1: factor each P_i)
+work_to_recover_ordering   ≈  Σ_i (M-2)!         (Oracle 2: chain-anchor brute force)
+```
+
+So A++'s *information-theoretic* leakage to an unbounded verifier is the full cycle
+(the public transcript determines it uniquely); its *computational* leakage to a
+bounded verifier is ~0 as long as `C(N,M)` and `(M-2)!` are infeasible.
+
+| (N, K) | M | C(N, M) | (M-2)! | A++ hiding |
+|---|---|---|---|---|
+| 8, 2   | 4   | 70           | 2          | none (toy: breaks in ms) |
+| 48, 4  | 12  | ~1.7·10⁹     | ~3.6·10⁶   | weak–moderate |
+| 480, 2 | 240 | ~2⁴⁷⁵        | (238)!     | infeasible to break |
+| 480, 4 | 120 | ~2³⁵⁰        | (118)!     | infeasible to break |
+
+The contrast with A is the honest framing for the thesis: **A leaks the partition
+unconditionally but cheaply to state; A++ leaks it to no bounded verifier but to an
+unbounded one. The dividing line is compute, and the public chain anchors + P_i are
+what put the line there** — itself a consequence of the non-recursive K+1-proof
+architecture (§9.11, §2.1). A recursive variant would move A++'s hiding from
+computational back to information-theoretic for the interior order.
 
 ### 14.3 Variant B in the matrix-public regime
 
