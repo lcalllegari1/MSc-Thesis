@@ -1395,6 +1395,29 @@ Each occupies a distinct point on the privacy ↔ cost frontier with a clear str
 reason for its position, and each is the natural design for a distinct use-case class
 (Section 7.7).
 
+**Implementation status and headline empirical result (2026-05-28).** Variants A and
+A++ are implemented and benchmarked over the full grid N ∈ {48, 96, 192, 480},
+K ∈ {2, 4, 8}, 3 runs per cell; all K+1 cross-checks pass on every cell of both
+sweeps. The frontier prediction is confirmed where it matters most — **per-prover
+memory**. Variant A's glue carries an O(N) sort whose footprint grows with N; A++
+replaces it with an O(N) grand-product loop plus an O(1) public-input pool, and the
+measured glue peak memory is essentially flat:
+
+| N (K=8) | A glue peak | A++ glue peak |
+|---|---|---|
+| 48 | 39 MB | 38 MB |
+| 192 | 54 MB | 38 MB |
+| 480 | **159 MB** | **42 MB** |
+
+At N=480, A's glue (159 MB) is the per-prover memory ceiling — as large as the
+sub-circuit itself; A++'s glue (42 MB) falls well below its sub-circuit (160 MB), so
+the ceiling is set by the segment proof alone. This is the concrete "A++ for
+memory-constrained provers" result. The sub-circuit overhead from the three added
+constraint groups (hash-chain link, grand product, challenge consistency) measures
+**+6.7% gates** at N=8 (vs the ~5.5% planning estimate), consistent with the
+chain-dominated overhead. Variant B remains unimplemented (see below for whether it
+is still worth implementing).
+
 ### 7.5 Folding schemes as a future direction
 
 Recent proof systems (Nova, ProtoStar, SuperNova) are explicitly designed to address
@@ -1439,7 +1462,7 @@ directly:
 |---|---|---|
 | flat_merkle | Nothing about the cycle | Cycle, individual costs, partition |
 | **A** | Partition (which nodes ∈ which segment), K endpoints (start, end), K segment-cost sums | Interior order within each segment, individual edge costs, boundary edge costs |
-| **A++** | K endpoint pairs, K segment-cost sums, K Field-valued aggregates (no information-theoretic content about node membership) | Partition, interior order, individual edge costs, boundary costs |
+| **A++** | K endpoint pairs, K segment-cost sums, K Field-valued aggregates (P_i, h_in_i, h_out_i) — these hide the partition **computationally**, not information-theoretically (see the A++ privacy caveat below) | Partition and interior order (computationally; recoverable only at ~C(N,M) and ~(M-2)! work per segment), individual edge costs, boundary costs |
 | **B** | Partition, K M×M sub-matrices, K endpoints, K segment-cost sums | Interior order within each segment, individual boundary costs |
 
 **Quantitative privacy bound for Variant A (worked).** Take N = 8, K = 2, M = 4 — the
@@ -1482,6 +1505,32 @@ The matrix-public regime is the one where Variant A++ pays for itself: by hiding
 partition behind a multiset commitment, A++ removes the filtering vector that "matrix
 public + Variant A" provides to the verifier.
 
+**A++ privacy caveat — the hiding is computational, not information-theoretic.** It is
+tempting to state that A++'s Field-valued aggregates "leak no information" about node
+membership. That is too strong, and worth stating precisely because a supervisor will
+probe it. Two of A++'s public aggregates are *confirmation oracles*:
+
+- The grand product `P_i = ∏_j (X + node_j)` is a polynomial evaluation at the *public*
+  challenge X, not a one-way hash. Since the partition constraint forces each segment to
+  be a size-M subset of {0..N-1}, a verifier can enumerate candidate subsets, evaluate
+  the product, and accept the unique match — recovering exactly the segment multiset
+  that Variant A discloses for free. Work: ≈ C(N, M) per segment.
+- The chain anchors `h_in_i, h_out_i` are public and the chain step consumes only
+  public-domain inputs (node indices), so once the multiset is known the interior
+  *ordering* is a checkable brute-force. Work: ≈ (M-2)! per segment.
+
+So A++'s information-theoretic leakage to an *unbounded* verifier is the full cycle; its
+*computational* leakage to a bounded verifier is ~0 provided C(N,M) and (M-2)! are
+infeasible. At the benchmark sizes this is comfortably the case (N=480, K=2:
+C(480,240) ≈ 2⁴⁷⁵), so the partition is hidden in any practical sense — but the claim
+must be stated as computational hiding with a work factor, not as unconditional secrecy.
+Crucially, the anchors are public *because* the architecture is K+1 independent proofs
+bound by off-circuit cross-checks: the verifier can only stitch the chain across
+separate proofs if the anchors are public inputs. A recursive construction (Section 7.5)
+would keep them private and restore information-theoretic hiding of the interior order.
+A++'s computational-hiding boundary is therefore a measurable price of avoiding
+recursion — itself a point on the frontier, not a defect.
+
 **Natural use-case mapping.** The variant-as-statement framing yields a clean mapping
 between variants and applications. None of these is hypothetical — each corresponds to
 an existing real-world TSP-with-privacy setting:
@@ -1490,17 +1539,19 @@ an existing real-world TSP-with-privacy setting:
 |---|---|---|
 | flat_merkle | Logistics SLA audit (matrix private, verifier sees only root); generic "private cycle on private graph" | Maximum privacy; only the existence statement is needed. |
 | **A** | Multi-team SLA accountability; cross-org cost-sharing; regulated zoning where the partition is operational; ESG reporting by region | Partition disclosure is *operationally required*. The per-segment partial_costs are accountability artifacts. The K-fold parallelism story is real because the segments correspond to operational units that can prove independently. |
-| **A++** | Same operational scenarios as A but where the specific partition is competitively sensitive (e.g., delivery route grouping reveals customer-cluster structure); maximum-privacy hierarchical option | Recovers most of flat_merkle's privacy while keeping A's parallelism and per-prover memory benefits. Costs ~5.5% more gates in the sub-circuit. |
+| **A++** | Same operational scenarios as A but where the specific partition is competitively sensitive (e.g., delivery route grouping reveals customer-cluster structure); maximum-privacy hierarchical option | Recovers flat_merkle's partition privacy *computationally* (break work ~C(N,M) / ~(M-2)! per segment — infeasible at thesis sizes) while keeping A's parallelism and **eliminating A's O(N) glue memory floor** (159 MB → 42 MB at N=480, K=8). Costs ~6% more gates in the sub-circuit (measured). |
 | **B** | Smart-city fleet routing on public road networks; verification against TSPLIB instances; non-sensitive matrix with binding gate-cost constraint | Matrix is public anyway, so disclosing sub-matrices costs nothing extra in privacy and saves substantially in gates (Finding 7). |
 | (folding — future) | Same use cases as A++ but with verifier-side overhead the binding constraint | Out of scope; the UltraHonk-based baseline in this thesis is what folding-scheme designs would need to beat. |
 
 **Connecting back to the dualism.** Each variant's position on the frontier is a direct
 consequence of how it negotiates the dualism. A pays for parallelism with partition
 disclosure (the cleanest exchange, but the largest disclosure). A++ recovers partition
-privacy by paying additional Poseidon2 calls (the dualism still applies, but the
-disclosure-vs-cost ratio is more favourable). B sacrifices matrix privacy in exchange
-for gate-count reduction (a different axis of the same trade). None of the three escapes
-the dualism — they navigate it differently.
+privacy *computationally* by paying ~6% additional sub-circuit gates (Poseidon2 chain +
+grand product) and, as a bonus, removes A's O(N) glue memory floor (159 MB → 42 MB at
+N=480, K=8) — the dualism still applies, but the disclosure-vs-cost ratio is more
+favourable. B sacrifices matrix privacy in exchange for gate-count reduction (a
+different axis of the same trade). None of the three escapes the dualism — they navigate
+it differently.
 
 This is also where the case for *not* implementing folding schemes in this thesis is
 strongest: folding would change the verifier-side overhead, not the dualism. The
@@ -1562,10 +1613,17 @@ frontier identified in Section 7. All three share the architecture above and dif
   `X = Poseidon2(c)`); the binding is enforced jointly by the K sub-circuits (each
   proving its segment is the corresponding slice of the chain) and by the glue
   (asserting chain stitching and chain terminal equals `c`). Sub-circuit overhead is
-  approximately M Poseidon2 calls (~5.5% at N=500); glue partition cost drops from
-  O(N) sort to O(K) multiplications. Soundness rests on standard Fiat-Shamir /
-  Schwartz-Zippel arguments (Finding 9). Verifier learns only segment endpoints plus
-  Field-valued aggregates; interior nodes hidden.
+  approximately M Poseidon2 calls (measured +6.7% at N=8); the glue's O(N) sort is
+  replaced by an in-circuit grand-product loop, eliminating A's O(N) memory floor.
+  Soundness rests on standard Fiat-Shamir / Schwartz-Zippel arguments (Finding 9).
+  Verifier learns only segment endpoints plus Field-valued aggregates; interior nodes
+  hidden *computationally* (the aggregates are confirmation oracles at ~C(N,M) / ~(M-2)!
+  work — see §7.7). **Implemented and benchmark-validated (2026-05-28):** end-to-end
+  reference proof verifies, an 8-case soundness suite passes (including a
+  Schwartz-Zippel partition-overlap rejection), and the full sweep confirms the
+  glue-memory result above. Engineering choice: the partition RHS `∏(X+j)` is computed
+  in-circuit (no `expected_product` public input), so the verifier performs no field
+  arithmetic — every soundness claim is a circuit constraint.
 
 - *Variant B — Hierarchical flat_full, sub-matrices public* (sub-circuit takes its
   M × M sub-matrix as public input, glue handles boundary edges via Merkle). Trades

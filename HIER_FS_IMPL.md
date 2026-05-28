@@ -755,23 +755,27 @@ Lock this construction down via the hash-compat test before relying on it.
 This is the order of operations. Each step has a clear acceptance criterion
 before moving on.
 
-| Step | What | Acceptance |
-|---|---|---|
-| 1 | **Reference values (Rust scratch / hand computation).** At N=8, K=2, cycle `[0,5,3,2,7,4,1,6]`, compute h_0..h_8, c, X, P_0, P_1 using the same Poseidon2 instantiation. Verify `P_0 · P_1 == ∏(X+j) for j=0..7` natively. Document the values in this file as a reference table (see §11 — to be filled in during implementation). | The grand-product identity holds for the reference instance. |
-| 2 | **Hash-compat extension** for `Poseidon2::hash([c], 1)`. | Noir circuit accepts Rust-computed expected; test passes. |
-| 3 | **Sub-circuit skeleton** `hierarchical_segment_fs/src/main.nr` at N=8, M=4, DEPTH=6. `nargo compile`; `bb gates` reports circuit_size ~5-10× larger than at the smallest A scale, dominated by G3 Merkle. | Compiles; gate count sane. |
-| 4 | **Glue skeleton** `hierarchical_glue_fs/src/main.nr` at N=8, K=2, DEPTH=6. | Compiles. |
-| 5 | **Rust builder extension** `--hierarchical-fs K --out-dir <dir>`. Validate against reference values from step 1 (Prover.toml fields should match). | Manual diff against step 1 reference table. |
-| 6 | **First end-to-end run** with the reference instance: `nargo execute × 3`, `bb prove × 3`, `bb verify × 3`. | All 3 proofs verify. |
-| 7 | **Verifier `verify_hier_fs.py`.** Cross-check schema from §5.2. | Reference instance passes all 6K+3 checks. |
-| 8 | **Negative tests** from §8.1 (#2-#7). | All 6 negative tests reject at the expected point. |
-| 9 | **Witness-only sanity at N=48, K=4.** | Patched circuits accept valid witnesses. |
-| 10 | **Benchmark harness `run_hier_fs.py`.** Sweep N ∈ {48, 96, 192, 480}, K ∈ {2, 4, 8}. | `results/hier_fs.csv` populated; cross-check passes every cell. |
-| 11 | **Aggregate + plot.** | `plots/hier_fs_*.png` written; visually overlay with hier_a and flat_merkle. |
-| 12 | **Update `DESIGN.md` §8 progress section.** Move A++ from `[ ]` to `[x]`. | Done. |
+**Status: steps 1–10 + 12 complete (2026-05-28); step 11 done by the user; full
+benchmark sweep run by the user.** Acceptance met on every step.
 
-Estimated effort: ~1 work-week per the doc's §15.8 estimate. The risky bit
-is step 2 (hash compat); everything else is mechanical mirroring of A.
+| Step | What | Acceptance | Status |
+|---|---|---|---|
+| 1 | **Reference values (Rust scratch / hand computation).** At N=8, K=2, cycle `[0,5,3,2,7,4,1,6]`, compute h_0..h_8, c, X, P_0, P_1 using the same Poseidon2 instantiation. Verify `P_0 · P_1 == ∏(X+j) for j=0..7` natively. Document the values in this file as a reference table (see §11). | The grand-product identity holds for the reference instance. | ✅ done — §11 filled, identity holds |
+| 2 | **Hash-compat extension** for `Poseidon2::hash([c], 1)`. | Noir circuit accepts Rust-computed expected; test passes. | ✅ done — Rust↔Noir match (the load-bearing FS hash) |
+| 3 | **Sub-circuit skeleton** `hierarchical_segment_fs/src/main.nr` at N=8, M=4, DEPTH=6. `nargo compile`; `bb gates` reports a sane gate count dominated by G3 Merkle. | Compiles; gate count sane. | ✅ done — circuit_size 4776, +6.7% vs A |
+| 4 | **Glue skeleton** `hierarchical_glue_fs/src/main.nr` at N=8, K=2, DEPTH=6. | Compiles. | ✅ done — circuit_size 3985 |
+| 5 | **Rust builder extension** `--hierarchical-fs K --out-dir <dir>`. Validate against reference values from step 1. | Manual diff against step 1 reference table. | ✅ done — Prover.toml fields match §11 byte-for-byte |
+| 6 | **First end-to-end run** with the reference instance: `nargo execute × 3`, `bb prove × 3`, `bb verify × 3`. | All 3 proofs verify. | ✅ done — sub_0/sub_1/glue all verify (9 / 6K+4 public inputs) |
+| 7 | **Verifier `verify_hier_fs.py`.** Cross-check schema from §5.2. | Reference instance passes all 6K+3 checks. | ✅ done — ACCEPTED |
+| 8 | **Negative tests** from §8.1 (#2-#7). | All negative tests reject at the expected point. | ✅ done — 8-case suite 8/8 (incl. Schwartz-Zippel overlap + cross-check-c) |
+| 9 | **Witness-only sanity at N=48, K=4.** | Patched circuits accept valid witnesses. | ✅ done |
+| 10 | **Benchmark harness `run_hier_fs.py`.** Sweep N ∈ {48, 96, 192, 480}, K ∈ {2, 4, 8}. | `results/hier_fs.csv` populated; cross-check passes every cell. | ✅ done — harness written + smoke-validated; full sweep run by user, all 36 cells xcheck OK |
+| 11 | **Aggregate + plot.** | `plots/hier_fs_*.png` written; visually overlay with hier_a and flat_merkle. | ◑ aggregate_hier.py made variant-aware (`hier_fs_k{K}`); aggregation + plots produced by user |
+| 12 | **Update `DESIGN.md` §8 progress section.** Move A++ from `[ ]` to `[x]`. | Done. | ✅ done — DESIGN.md §8 + HOWTO.md + HIERARCHICAL_EXPLAINED.md §9.9/§9.11/§14.2 + supervisor_report §7 updated |
+
+The risky bit was step 2 (hash compat); it passed first, de-risking everything else,
+which was mechanical mirroring of A. Headline empirical result: A++'s glue peak memory
+is flat (~38–42 MB) vs A's O(N) sort floor (159 MB at N=480, K=8).
 
 ---
 
