@@ -1,0 +1,164 @@
+# Recursion example: proof-in-a-proof with `bb_proof_verification`
+
+This directory contains the smallest possible end-to-end demonstration of
+**recursive proof verification in Noir** using Aztec's
+[`bb_proof_verification`](https://github.com/AztecProtocol/aztec-packages/tree/v5.0.0-nightly.20260518/barretenberg/noir/bb_proof_verification)
+library.
+
+## What it demonstrates
+
+Two separate Noir circuits:
+
+| Circuit | Location | What it does |
+|---------|----------|--------------|
+| **Inner** | `inner/` | Proves knowledge of `x` such that `x * x == y` (public). |
+| **Outer** | `outer/` | Verifies the inner circuit's proof *inside a new circuit*. |
+
+The outer circuit is the recursive verifier. It takes the inner proof and
+verification key as private witness inputs, and calls
+`verify_honk_proof_non_zk` which expands to `std::verify_proof_with_type`
+internally. If the inner proof is invalid, the outer circuit is
+unsatisfiable.
+
+## How recursive verification works
+
+Standard UltraHonk proof verification happens natively (outside any circuit).
+Recursive verification means encoding the verifier algorithm *as circuit
+constraints*, so that a second prover can attest "I ran the verifier and it
+accepted."
+
+The key constants that make the two sides agree on wire format:
+
+```
+RECURSIVE_PROOF_LENGTH    = 410   // field elements in one UltraHonk proof
+ULTRA_VK_LENGTH_IN_FIELDS = 115   // field elements in a verification key
+```
+
+These are defined in `bb_proof_verification/src/lib.nr` and must match
+what `bb prove -t noir-recursive-no-zk` actually outputs — verified here.
+
+The outer circuit's `main` signature:
+
+```noir
+fn main(
+    verification_key: UltraHonkVerificationKey,  // [Field; 115]
+    proof:            UltraHonkProof,             // [Field; 410]
+    public_inputs:    pub [Field; 1],             // inner circuit's public outputs
+    key_hash:         Field,                      // poseidon2 hash of the VK
+)
+```
+
+`verification_key`, `proof`, and `key_hash` are private witnesses — the
+outer prover commits to them without revealing them. `public_inputs` is
+kept public so the outer verifier can check which statement was proved
+(here: that *some* x squares to the declared y).
+
+## Prerequisites
+
+- `nargo` 1.0.0-beta.20 or later
+- `bb` 5.0.0-nightly.20260324 or later (Barretenberg CLI)
+- Python 3 (standard library only — used by the glue script)
+
+Both tools must be on `$PATH`. Check versions:
+
+```bash
+nargo --version
+bb --version
+```
+
+## Running the test
+
+```bash
+bash tests/recursion/run_test.sh
+```
+
+Expected output (abridged):
+
+```
+==> Compiling inner circuit...
+==> Executing inner circuit (witness)...
+==> Writing VK (binary + JSON)...
+==> Proving inner circuit (noir-recursive-no-zk)...
+==> Proof self-verified OK
+==> Generating outer Prover.toml...
+  proof_fields=410, vk_fields=115, key_hash=0x235d...
+==> Compiling outer circuit...
+==> Executing outer circuit (recursive verify)...
+
+SUCCESS: outer recursive verifier accepted the inner proof.
+```
+
+## What the script does, step by step
+
+### Step 1 — Inner circuit
+
+```bash
+nargo compile          # → inner/target/inner.json  (ACIR bytecode)
+nargo execute          # → inner/target/inner.gz    (witness for x=3, y=9)
+bb write_vk ...        # → inner/target/vk/vk       (binary VK, used for proving)
+bb write_vk ... --output_format json  # → inner/target/vk_json/vk.json
+bb prove -t noir-recursive-no-zk \
+         --output_format json \
+         --verify ...  # → inner/target/proof_json/proof.json
+                       #    inner/target/proof_json/public_inputs.json
+```
+
+The `-t noir-recursive-no-zk` flag tells bb to produce a proof whose
+transcript uses Poseidon2 (not Keccak), which matches what the in-circuit
+verifier in Noir expects. `--verify` self-checks the proof before writing
+it.
+
+### Step 2 — Glue script (Python)
+
+Reads the JSON outputs and serialises them into `outer/Prover.toml`:
+
+```toml
+verification_key = ["0x...", ...]   # 115 fields
+proof            = ["0x...", ...]   # 410 fields
+public_inputs    = ["0x...9"]       # [y = 9]
+key_hash         = "0x235d..."
+```
+
+`key_hash` comes from `vk.json["hash"]` — it is the Poseidon2 hash of the
+115 VK field elements, computed by bb during `write_vk`.
+
+### Step 3 — Outer circuit
+
+```bash
+nargo compile   # compiles outer/src/main.nr, resolves bb_proof_verification
+nargo execute   # solves the recursive-verifier witness
+```
+
+`nargo execute` propagating `[outer] Circuit witness successfully solved`
+means all constraints were satisfied, including the recursive verification
+gate.
+
+## Directory layout
+
+```
+tests/recursion/
+├── README.md            ← you are here
+├── run_test.sh          ← end-to-end driver
+├── inner/
+│   ├── Nargo.toml
+│   ├── Prover.toml      ← x=3, y=9
+│   └── src/main.nr
+└── outer/
+    ├── Nargo.toml       ← depends on bb_proof_verification
+    ├── Prover.toml      ← auto-generated by run_test.sh (git-ignored)
+    └── src/main.nr
+```
+
+## Extending the example
+
+**Different inner statement** — edit `inner/src/main.nr` and `inner/Prover.toml`,
+then rerun `run_test.sh`. The outer circuit does not need to change as long
+as the number of public inputs stays at 1.
+
+**More public inputs** — change the `[Field; N]` generic in
+`outer/src/main.nr` to match the new count, update `inner/Prover.toml`,
+and rerun.
+
+**ZK variant** — swap `verify_honk_proof_non_zk` for `verify_honk_proof`
+(uses `UltraHonkZKProof`, length 458) and change the `bb prove` target
+from `noir-recursive-no-zk` to `noir-recursive`.

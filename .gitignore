@@ -1,6 +1,10 @@
 # Noir build artifacts
 circuits/*/target/
 tests/hash_compat/noir/target/
+tests/recursion_micro/*/target/
+tests/recursion_micro/*/Prover.toml
+tests/recursion_toy_example/*/target/
+tests/recursion_toy_example/outer/Prover.toml
 
 # Rust build artifacts
 pipeline/merkle_builder/target/

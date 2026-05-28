@@ -1,0 +1,12 @@
+[package]
+name = "rec_exp1_single_segment"
+type = "bin"
+authors = []
+
+# Experiment 1 outer circuit: recursively verifies ONE hierarchical_segment_fs
+# proof (Variant A++ sub-circuit) in-circuit, using the ZK recursive verifier
+# verify_honk_proof (UltraHonkZKProof, length 458). Isolates the cost of a single
+# in-circuit Honk verification. See tests/recursion_micro/README.md.
+
+[dependencies]
+bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages", tag = "v5.0.0-nightly.20260518", directory = "barretenberg/noir/bb_proof_verification" }

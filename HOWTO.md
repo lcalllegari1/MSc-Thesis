@@ -1286,6 +1286,252 @@ Rust/Noir Poseidon2 drift on the single-input shape.  Re-run
 
 ---
 
+## Recursion micro-experiments — `tests/recursion_micro/`
+
+These two experiments measure the cost of **recursive proof verification** — folding
+the per-segment cross-checks *into* an outer circuit that verifies the segment
+proofs in-circuit.  The per-segment public values (endpoints, `P_i`, chain
+anchors, `c`, `X`) become **witness** of the outer circuit and vanish from the
+public surface, which collapses back to `(root, threshold)` — flat_merkle's
+**perfect / information-theoretic hiding**.  The price is a single monolithic
+proof of ~10⁶ gates.  This is the frontier's "perfect hiding is expensive" row;
+folding (ClientIVC / Protogalaxy) is the proposed resolution (future work).
+
+| Experiment | Outer circuit | What it proves |
+|---|---|---|
+| **1 — single segment** | `tests/recursion_micro/exp1_single_segment` | Recursively verifies **one** `hierarchical_segment_fs` proof. Isolates the per-segment recursion overhead. Diagnostic only — not a complete TSP statement. |
+| **2 — K segments** | `tests/recursion_micro/exp2_k_segments` | Recursively verifies **all K** segment proofs **and** re-runs the full glue (chain stitch, FS bind, grand-product partition, K boundary Merkle edges, threshold). A **complete** recursive proof of the K-segment cycle, exposing only `(root, threshold)`. The equal-ground counterpart of A / A++ at the same K. The circuit is generic over K (an array of K proofs); the driver patches `N, K, DEPTH`. |
+
+The inner is the **unmodified `hierarchical_segment_fs`** (the A++ sub-circuit):
+recursion-friendliness comes from the *proving flavor*, not a circuit attribute,
+so the inner is identical to what A++ benchmarks — equal-ground by construction.
+(*Why A++ and not the A sub-circuit, given recursion hides the partition either
+way?* See `Recursive_inner_circuit_choice_explained.md` for the full rationale;
+short version — A++'s O(1) public surface keeps the recursive verification
+segment-size-independent, and it gives a controlled comparison with the A++ row.
+A parallel **A-inner** variant exists to quantify the difference: see "A-inner
+recursion" below.)
+
+**ZK path (important).** We use the **ZK** recursive verifier `verify_honk_proof`
+(`UltraHonkZKProof`, length **458**), proved with `bb -t noir-recursive` —
+**not** the toy's `verify_honk_proof_non_zk` (length 410, `-t
+noir-recursive-no-zk`).  For the final verifier's view only the *outer* proof
+must be ZK; ZK *inner* proofs additionally hide each segment's witness from the
+aggregator who runs the outer prover.
+
+### Prerequisites
+
+```bash
+# bb_proof_verification (the in-circuit Honk verifier) resolves from the Aztec
+# packages repo, tag v5.0.0-nightly.20260518 — fetched automatically on first
+# `nargo compile` of either outer circuit.
+# The merkle_builder must be built (shared with all Merkle variants):
+cargo build --release --manifest-path pipeline/merkle_builder/Cargo.toml
+```
+
+### Running an experiment
+
+`run_recursion.py` does everything per `(N, K, run)`: patches + compiles the
+inner segment, writes its **recursive ZK** VK, generates+solves an instance,
+builds the K+1 Prover.tomls (`merkle_builder --hierarchical-fs`), proves the
+needed segment(s) with `bb prove -t noir-recursive`, assembles the outer
+`Prover.toml`, then compiles the outer circuit and records `bb gates`, witness,
+prove (time + peak mem) and verify.  The shared segment source is
+snapshotted and **restored** afterwards, so your A++ setup is left untouched.
+
+```bash
+# Exp 1 — isolate the single-segment recursion cost (N=48 K=2 matches A++'s
+# smallest sweep point; the outer cost is ~independent of N anyway):
+python tests/recursion_micro/run_recursion.py --exp 1 --n 48 --k 2 --runs 1 \
+    --out results/recursion_micro.csv
+
+# Exp 2 — the complete K-segment recursive proof (any K >= 2, N divisible by K):
+python tests/recursion_micro/run_recursion.py --exp 2 --n 48 --k 2 --runs 1 \
+    --out results/recursion_micro.csv
+python tests/recursion_micro/run_recursion.py --exp 2 --n 48 --k 4 --runs 1 \
+    --out results/recursion_micro.csv
+
+# --skip-prove  : only compile / `bb gates` / `nargo execute` the outer (fast;
+#                 gets the headline gate count without the heavy outer bb prove).
+# --runs R      : repeat the cell R times (each row tagged with `run`).
+```
+
+The outer recursive prove is heavy and grows with K: the gate count is
+~`K x 7e5` (each in-circuit verifier checks a fixed-size proof, so it's
+~independent of N but linear in K).  Rough peak memory: ~1 GiB (K=1) / ~2.1 GiB
+(K=2) / ~4.3 GiB (K=4) — **check you have the RAM before large K** (K=4 needs a
+~16 GiB machine).  Per the benchmark workflow, drive larger sweeps yourself; the
+harness is left ready.
+
+### How the pipeline fits together (the outer consumes inner proofs — it does not generate them)
+
+**You cannot just run the outer circuit.**  A Noir circuit + `bb` is a prover for
+one fixed relation, not an orchestrator: `bb prove` takes a *complete* witness
+(everything in `Prover.toml`) and emits a proof — it never spawns sub-processes
+or computes its inputs.  The recursion call `verify_honk_proof(vk, proof, pubs,
+key_hash)` is just *constraints* over `proof`, and `proof` is **ordinary
+witness**.  So the K inner proofs (458 field elements each) must already sit in
+the outer `Prover.toml` before `nargo execute` can even solve the witness.  Run
+the outer with no `Prover.toml` and it fails immediately — the inner proof is
+*required input*, not something the outer derives.
+
+The recursive proof is therefore a **three-phase pipeline**, and the circuit
+itself contributes only phase 3:
+
+```
+phase 1  prove each segment       bb prove -t noir-recursive --output_format json
+                                   -> proof_i/proof.json (458), public_inputs.json (9), vk.json (vk[115] + hash)
+phase 2  serialize those fields into the OUTER Prover.toml
+                                   (proofs[], sub_pubs[], sub_vk, key_hash, + boundary witness from the glue toml)
+phase 3  prove the outer          nargo execute + bb prove   -> the 1 delivered proof
+```
+
+`run_recursion.py` **is** the orchestrator: it performs all three phases, so with
+the driver it is genuinely one command and you feed nothing by hand.  Without the
+driver you must do phases 1–2 yourself.  The manual recipe (Exp 1, single
+segment — Exp 2 is the same with K inner proofs plus the boundary witness):
+
+```bash
+SEG=circuits/hierarchical_segment_fs          # patched to (N, M, DEPTH) + nargo compile first
+# (the segment's Prover.toml comes from `merkle_builder --hierarchical-fs K`,
+#  e.g. copy out-dir/sub_0/Prover.toml into $SEG/Prover.toml — see the A++ section.)
+# phase 1: recursive ZK VK + one segment proof
+bb write_vk -b $SEG/target/hierarchical_segment_fs.json -t noir-recursive -o $SEG/target/vk
+bb write_vk -b $SEG/target/hierarchical_segment_fs.json -t noir-recursive --output_format json -o $SEG/target/vk_json
+(cd $SEG && nargo execute && bb prove -b target/hierarchical_segment_fs.json \
+    -w target/hierarchical_segment_fs.gz -k target/vk/vk -t noir-recursive \
+    --output_format json --verify -o /tmp/seg0)
+# phase 2: hand-write tests/recursion_micro/exp1_single_segment/Prover.toml using
+#   verification_key = vk_json/vk.json ["vk"]   (115 fields)
+#   key_hash         = vk_json/vk.json ["hash"]
+#   proof            = /tmp/seg0/proof.json ["proof"]          (458 fields)
+#   sub_pub          = /tmp/seg0/public_inputs.json ["public_inputs"]  (9 fields)
+#   root             = sub_pub[3]
+# phase 3: run the outer
+(cd tests/recursion_micro/exp1_single_segment && nargo compile && nargo execute && \
+    bb write_vk -b target/rec_exp1_single_segment.json -o target/vk && \
+    bb prove -b target/rec_exp1_single_segment.json -w target/rec_exp1_single_segment.gz \
+        -k target/vk/vk -o /tmp/outer && \
+    bb verify -k target/vk/vk -p /tmp/outer/proof -i /tmp/outer/public_inputs)
+```
+
+This manual proof/VK-field plumbing (phase 2) is exactly what makes the recursion
+path "finicky," and why folding frameworks (ClientIVC / Protogalaxy), which
+orchestrate the inner→outer hand-off internally, are the natural next step.
+
+Raw CSV schema (one row per measured circuit):
+
+```
+exp,n,k,m,depth,run,role,circuit,gates,acir,compile_s,witness_s,prove_s,verify_s,proof_bytes,peak_mb
+```
+
+`role` is `inner_segment` (the segment proof(s)) or `outer_recursive` (the
+recursive verifier — its `gates` is THE recursion cost number).
+
+### Headline numbers (N=48, this machine)
+
+| Circuit | gates | prove | peak | verify | proof |
+|---|---|---|---|---|---|
+| inner segment (A++ sub) | 28,480 (K=2) / 15,184 (K=4) | ~0.5–0.8 s | ~62 MiB | — | — |
+| **Exp 1 outer** (verify 1) | **704,363** | ~8.6 s | ~1.0 GiB | ~0.02 s | 14.7 KB |
+| **Exp 2 outer, K=2** (verify 2 + glue) | **1,473,357** | ~24 s | ~2.1 GiB | ~0.02 s | 14.7 KB |
+| **Exp 2 outer, K=4** (verify 4 + glue) | **3,008,907** | ~40 s | ~4.1 GiB | ~0.02 s | 14.7 KB |
+
+- One in-circuit ZK verification ≈ **704k gates**, ~147× the segment's own logic,
+  and **independent of segment size** (identical at N=8 and N=48).
+- Recursion scales **~K×**: K=2 ≈ 2.09× and K=4 ≈ 4.27× the single verification
+  (3,008,907 / 704,363); the full glue tax is small (~63k gates at K=2, ~191k at
+  K=4). Prove time and peak memory track the same ~K growth.
+- **vs A++ at the same K** (aggregated total proving work): recursion is ~25×
+  (K=2) → ~45× (K=4) more gates, and the gap *widens* with K — A++'s total grows
+  slowly (~K small subs + glue) while recursion adds a full ~700k-gate verifier
+  per segment. That is the aggregation layer dwarfing the TSP logic.
+
+### Comparable results — aggregate, then plot
+
+The raw CSV is *not* in the `plot.py` schema (like the raw `hier_*` CSVs aren't).
+`pipeline/aggregate_recursion.py` is the recursion analogue of
+`aggregate_hier.py`: it folds each `(exp, N, run)` cell's inner+outer rows into
+one `run.py`-schema row.  Aggregation rules: `circuit_size = sum(inner) + outer`
+(total proving work); `prove_s / witness_s = inner-step + outer` where the inner
+step is `max` (`--mode parallel`, default) or `sum` (`--mode total`); **`verify_s`
+and `proof_bytes` are the OUTER's only** (the verifier checks exactly one proof —
+recursion's whole point); `peak_mb = max(the K inner-segment peaks and the outer
+peak)`.
+
+> **What `peak_mb = max` means (and why it's correct here).** Each raw `peak_mb`
+> is the peak RSS of *one* `bb prove` process. The aggregator reports the **max
+> over the K inner peaks and the outer peak** — the heaviest single proving step
+> ("per-prover peak"), the same metric `aggregate_hier.py` uses, so recursion and
+> A++ are compared on the same axis. Because the outer consumes the inner proofs
+> as *data* (the inner provers have already exited and freed their memory), only
+> one prover is resident at a time under sequential proving — so the machine's
+> peak-over-time **is** this max, exactly. It would under-count only if K inner
+> provers ran *concurrently* and their memory summed above the outer
+> (`sum(inner) > outer`); in every measured cell the outer dominates by 4–14×
+> (worst: N=480 K=4 → Σinner 1.17 GB vs outer 4.1 GB), so the two interpretations
+> coincide. An inner *larger* than the outer would be reported (inner peaks are
+> in the max); only the concurrent-sum case is not modelled, and it never arises.
+
+```bash
+# Aggregate (parallel projection of the inner proofs; total CPU work too).
+python pipeline/aggregate_recursion.py --in results/recursion_micro.csv \
+    --out results/recursion_par.csv --mode parallel
+python pipeline/aggregate_recursion.py --in results/recursion_micro.csv \
+    --out results/recursion_tot.csv --mode total
+```
+
+Output variant column: exp 2 → `recursion_k{K}` (one line per K — e.g.
+`recursion_k2`, `recursion_k4` — the complete variants to compare against
+`hier_fs_k2`, `hier_fs_k4`), exp 1 → `recursion_1seg` (single-segment diagnostic
+— its `verify_s` / `proof_bytes` describe verifying *one* segment proof, not a
+full cycle).
+
+**The frontier figure** — flat baseline, A++, and recursion (all K) on the same
+axes (`plot.py` draws one line per `variant`, matching by `n`):
+
+```bash
+python pipeline/plot.py \
+  --csv results/500.csv results/hier_fs_par.csv results/recursion_par.csv \
+  --out plots/frontier
+```
+
+Reading the panels (recursion specifics):
+
+- **circuit_size** — `recursion_k2` sits ~52× and `recursion_k4` ~100× above the
+  corresponding `hier_fs_k{K}` per-proof line: the cost of the K in-circuit
+  verifiers (~`K x 7e5` gates). This is the headline tradeoff, and it scales ~K.
+- **verify_s** / **proof_bytes** — recursion is **flat in K**: one ~14.7 KB proof,
+  one ~15 ms verify, for *any* K — versus A++'s K+1 proofs and K+1 verifies plus
+  cross-checks. The aggregation reflects this (outer-only).
+- **peak_mb** / **prove_s** — recursion climbs back above flat and grows ~K (one
+  big proof, no K-way parallelism); A++'s parallel wins are surrendered. That *is*
+  the "perfect hiding is expensive" story; folding is the row that would recover
+  both.
+
+> Single-N note: `plot.py` draws lines across `N`. With one `N` measured you get
+> single points (no slope). Add more `N` (`--n 96 192 ...`, divisible by K) for
+> trend lines, or read the values from `results/recursion_par.csv` directly for a
+> one-`N` table comparison.
+
+### Common issues (recursion-specific)
+
+**`nargo compile` (outer) fails with "Invalid comment character: only ASCII…"**
+Noir comments must be ASCII; avoid box-drawing/Unicode in the outer `main.nr`.
+
+**Outer `nargo execute` fails inside the recursive verify**
+The inner proof / VK / public-inputs fed to `verify_honk_proof` don't agree.
+Re-derive them from the *same* `bb prove -t noir-recursive` call — the proof,
+`vk.json["vk"]`, `vk.json["hash"]`, and `public_inputs.json` must be one set.
+The driver does this automatically; only relevant if assembling by hand.
+
+**Proof length assertion (`expected 458 … got 410`)**
+A non-ZK proof leaked in. Both `write_vk` and `prove` must use `-t
+noir-recursive` (ZK), and the outer must import `UltraHonkZKProof`, not
+`UltraHonkProof`.
+
+---
+
 ## Variants
 
 | Directory | Matrix input | Permutation check | Status |
@@ -1297,6 +1543,7 @@ Rust/Noir Poseidon2 drift on the single-input shape.  Re-run
 | `flat_merkle_presence` | Poseidon2 Merkle root | Presence mark array ~4N + N*DEPTH hashes | done |
 | `hierarchical_segment` + `hierarchical_glue` | Poseidon2 Merkle root | Per-segment `sort_via` + global partition check | done (Variant A) |
 | `hierarchical_segment_fs` + `hierarchical_glue_fs` | Poseidon2 Merkle root | Grand product + in-circuit Fiat-Shamir (partition hidden) | done (Variant A++) |
+| `tests/recursion_micro/exp2_k_segments` (+ reused `hierarchical_segment_fs`) | Poseidon2 Merkle root | In-circuit recursive verify of K segment proofs + glue (any K≥2; partition hidden, **perfect**) | done (recursion micro-experiment) |
 | Variant B (flat-full, sub-matrix public) | K disclosed M×M sub-matrices | Per-segment ROM lookup | future |
 
 ---
