@@ -1,53 +1,29 @@
 """
-tests/recursion_micro/run_recursion.py -- recursion micro-experiment driver.
+tests/recursion_micro/run_recursion_a.py -- A-INNER recursion micro-experiment.
 
-Two experiments (selected with --exp):
+This is the deliberate duplicate of run_recursion.py for the **Variant A** inner
+sub-circuit (circuits/hierarchical_segment), kept fully separate so the two
+recursive designs can be compared head-to-head (see compare_inner.py and
+Recursive_inner_circuit_choice_explained.md).
 
-  --exp 1   Recursively verify ONE hierarchical_segment_fs proof.  Measures the
-            per-segment recursion overhead in isolation (outer circuit =
-            exp1_single_segment, one in-circuit verify_honk_proof).
+Difference from the A++ driver (run_recursion.py):
+  * Inner circuit:  hierarchical_segment (Variant A) instead of *_fs.
+  * Builder mode:   merkle_builder --hierarchical K  (not --hierarchical-fs).
+  * A sub_pub:      M+4 fields [sorted_nodes[M], start, end, partial_cost, root]
+                    (vs A++'s fixed 9), so the recursive verifier absorbs an
+                    O(M) public surface.
+  * Outer glue:     SORT-based partition (sort(all_nodes) == [0..N-1]) -- no
+                    Fiat-Shamir / grand product / hash chain.
+  * Outer circuits: exp1_single_segment_a / exp2_k_segments_a.
+  * CSV default:    results/recursion_a_micro.csv  (same schema as the A++ one).
 
-  --exp 2   Recursively verify ALL K segments of a K-way split AND fold in the
-            full glue logic (outer circuit = exp2_k_segments, generic over K).  A
-            complete recursive proof of the K-segment TSP, exposing only (root,
-            threshold) -- the equal-ground recursive counterpart of Variant A /
-            A++ at the same K.  Cost scales ~K (one ~700k-gate verifier each).
+Everything else (three-phase pipeline, ZK recursive flavor -t noir-recursive,
+per-process timing, snapshot/restore of the shared segment circuit) mirrors
+run_recursion.py exactly.
 
-Both reuse the UNMODIFIED hierarchical_segment_fs circuit as the inner; the only
-difference from the A++ benchmark is the proving flavor (-t noir-recursive, ZK,
-verified in-circuit by verify_honk_proof / UltraHonkZKProof length 458).
-
-What it does per (N, K, run):
-  1. Patch + compile hierarchical_segment_fs for (N, M=N/K, DEPTH); write its
-     RECURSIVE ZK verification key (bb write_vk -t noir-recursive); record inner
-     `bb gates`.
-  2. Generate a TSP instance, solve it, and build the K+1 Prover.tomls via
-     merkle_builder --hierarchical-fs K.
-  3. Prove the needed segment(s) with `bb prove -t noir-recursive --output_format
-     json --verify`, capturing proof (458) / public_inputs (9) / VK (115) fields.
-  4. Assemble the outer Prover.toml (Exp 2 also reads the glue toml for the
-     boundary-edge witness + threshold).
-  5. Compile the outer circuit, record `bb gates` (THE recursion cost), run
-     `nargo execute` (satisfiability), and -- unless --skip-prove -- `bb prove`
-     (wall time + peak memory) and `bb verify` (verify time).
-
-The hierarchical_segment_fs source globals are snapshotted and RESTORED at the
-end so the shared A++ circuit is left untouched.
-
-CSV columns (one row per measured circuit):
-    exp n k m depth run role circuit gates acir compile_s witness_s prove_s
-    verify_s proof_bytes peak_mb
-(Feed this raw CSV to pipeline/aggregate_recursion.py to get plot.py-compatible
-rows comparable with flat_* and hier_* results.)
-
-Smoke usage (small; validates the harness):
-    /home/callexyz/anaconda3/envs/zk-tsp/bin/python \\
-        tests/recursion_micro/run_recursion.py --exp 1 --n 8 --k 2 --runs 1 \\
-        --out results/recursion_micro.csv
-
-The inner segment size barely affects the recursion overhead (the in-circuit
-verifier checks a fixed-size proof), so small N already gives a representative
-outer gate count.  Sweep larger N at your leisure.
+Usage:
+    python tests/recursion_micro/run_recursion_a.py --exp 2 --n 48 --k 2 --runs 1 \\
+        --out results/recursion_a_micro.csv
 """
 
 import argparse
@@ -65,40 +41,33 @@ from pathlib import Path
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HERE         = Path(__file__).resolve().parent
 PROJECT_ROOT = HERE.parent.parent
-SUB_DIR      = PROJECT_ROOT / "circuits" / "hierarchical_segment_fs"
-SUB_NAME     = "hierarchical_segment_fs"
-EXP1_DIR     = HERE / "exp1_single_segment"
-EXP1_NAME    = "rec_exp1_single_segment"
-EXP2_DIR     = HERE / "exp2_k_segments"
-EXP2_NAME    = "rec_exp2_k_segments"
+SUB_DIR      = PROJECT_ROOT / "circuits" / "hierarchical_segment"   # Variant A inner
+SUB_NAME     = "hierarchical_segment"
+EXP1_DIR     = HERE / "exp1_single_segment_a"
+EXP1_NAME    = "rec_exp1_single_segment_a"
+EXP2_DIR     = HERE / "exp2_k_segments_a"
+EXP2_NAME    = "rec_exp2_k_segments_a"
 BUILDER_BIN  = PROJECT_ROOT / "pipeline" / "merkle_builder" / "target" / "release" / "merkle_builder"
-SCRATCH_ROOT = Path("/tmp/recursion_micro")
+SCRATCH_ROOT = Path("/tmp/recursion_micro_a")
 
-# Pipeline helpers (instance gen + solver).
 sys.path.insert(0, str(PROJECT_ROOT / "pipeline"))
 from instance_gen import generate_instance
 from solver       import solve, cycle_cost
 
 FIELDNAMES = [
     "exp", "n", "k", "m", "depth",
-    "run",          # 1-based run index for this (exp, n, k) cell
+    "run",
     "role",         # "inner_segment" or "outer_recursive"
     "circuit",
-    "gates",        # UltraHonk gate count (bb gates circuit_size)
-    "acir",         # ACIR opcode count
-    "compile_s",
-    "witness_s",    # nargo execute wall time
-    "prove_s",      # bb prove wall time
-    "verify_s",     # bb verify wall time
-    "proof_bytes",
-    "peak_mb",      # peak mem during bb prove
+    "gates", "acir",
+    "compile_s", "witness_s", "prove_s", "verify_s",
+    "proof_bytes", "peak_mb",
 ]
 
 
 # ── Shell helpers ───────────────────────────────────────────────────────────--
 
 def run_cmd(cmd, cwd=None, check=True):
-    """Run a subprocess; return (elapsed_s, stdout, stderr, rc).  Raise on failure if check."""
     t0 = time.perf_counter()
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
     elapsed = time.perf_counter() - t0
@@ -113,7 +82,6 @@ def parse_peak_mb(stderr):
 
 
 def parse_gates(stdout):
-    """Return (acir_opcodes, circuit_size) from `bb gates --output_format json`."""
     data = json.loads(stdout)
     fn = data["functions"][0]
     return fn["acir_opcodes"], fn["circuit_size"]
@@ -137,7 +105,6 @@ def patch_globals(src_path: Path, **values):
 # ── TOML emit helpers ─────────────────────────────────────────────────────────
 
 def _field_array(hexvals):
-    """hexvals already include the 0x prefix (from bb json / glue toml)."""
     return "[" + ", ".join(f'"{v}"' for v in hexvals) + "]"
 
 
@@ -149,14 +116,13 @@ def _bool_array(bools):
     return "[" + ", ".join("true" if b else "false" for b in bools) + "]"
 
 
-# ── Inner segment proving (ZK recursive flavor) ───────────────────────────────
+# ── Inner segment proving (Variant A, ZK recursive flavor) ────────────────────
 
 def configure_segment(n, k):
-    """Patch + compile the inner segment for (N, M, DEPTH); write recursive ZK VK."""
+    """Patch + compile the Variant A inner for (N, M, DEPTH); write recursive ZK VK."""
     m, depth = n // k, merkle_depth(n)
     patch_globals(SUB_DIR / "src" / "main.nr", N=n, M=m, DEPTH=depth)
     compile_s, _, _, _ = run_cmd(["nargo", "compile"], cwd=SUB_DIR)
-    # Recursive ZK verification key (binary, for `bb prove -k`) + JSON (vk fields + hash).
     run_cmd(["bb", "write_vk", "-b", f"target/{SUB_NAME}.json",
              "-t", "noir-recursive", "-o", "target/vk"], cwd=SUB_DIR)
     run_cmd(["bb", "write_vk", "-b", f"target/{SUB_NAME}.json",
@@ -169,7 +135,7 @@ def configure_segment(n, k):
 
 
 def build_tomls(n, k, instance, cycle, out_dir, multiplier=1.1):
-    """merkle_builder --hierarchical-fs K -> out_dir/{sub_0..,glue}/Prover.toml."""
+    """merkle_builder --hierarchical K -> out_dir/{sub_0..,glue}/Prover.toml."""
     if out_dir.exists():
         shutil.rmtree(out_dir)
     matrix = instance["matrix"]
@@ -179,17 +145,14 @@ def build_tomls(n, k, instance, cycle, out_dir, multiplier=1.1):
         "flat_matrix": [matrix[i][j] for i in range(n) for j in range(n)],
         "cycle": cycle, "cost": cost, "threshold": math.ceil(cost * multiplier),
     })
-    r = subprocess.run([str(BUILDER_BIN), "--hierarchical-fs", str(k), "--out-dir", str(out_dir)],
+    r = subprocess.run([str(BUILDER_BIN), "--hierarchical", str(k), "--out-dir", str(out_dir)],
                        input=payload, capture_output=True, text=True)
     if r.returncode != 0:
         raise RuntimeError(f"merkle_builder failed:\n{r.stderr}")
 
 
-def prove_segment(seg_idx, tomls_dir, proof_dir):
-    """Copy sub_<seg> Prover.toml into the segment dir, witness, and ZK-recursive prove.
-
-    Returns dict with proof(458)/public_inputs(9) field lists and inner timings.
-    Segments are proved sequentially in the shared SUB_DIR (no race)."""
+def prove_segment(seg_idx, tomls_dir, proof_dir, expected_pub_len):
+    """Copy sub_<seg> Prover.toml into the segment dir, witness, ZK-recursive prove."""
     shutil.copy(tomls_dir / f"sub_{seg_idx}" / "Prover.toml", SUB_DIR / "Prover.toml")
     witness_s, _, _, _ = run_cmd(["nargo", "execute"], cwd=SUB_DIR)
     if proof_dir.exists():
@@ -202,38 +165,41 @@ def prove_segment(seg_idx, tomls_dir, proof_dir):
     proof = json.loads((proof_dir / "proof.json").read_text())["proof"]
     pub   = json.loads((proof_dir / "public_inputs.json").read_text())["public_inputs"]
     assert len(proof) == 458, f"expected 458 ZK proof fields, got {len(proof)}"
-    assert len(pub)   == 9,   f"expected 9 segment public inputs, got {len(pub)}"
+    assert len(pub) == expected_pub_len, f"expected {expected_pub_len} public inputs, got {len(pub)}"
     return {"proof": proof, "pub": pub,
             "witness_s": witness_s, "prove_s": prove_s, "peak_mb": parse_peak_mb(prove_err)}
 
 
-# ── Outer Prover.toml assembly ────────────────────────────────────────────────
+# ── Outer Prover.toml assembly (A inner) ──────────────────────────────────────
 
-def assemble_exp1(seg, vk_fields, key_hash):
-    """Outer Prover.toml for exp1: one proof + its 9 public inputs; expose root = pub[3]."""
+def assemble_exp1(seg, vk_fields, key_hash, m):
+    """exp1_a outer: one A proof + its M+4 public inputs; expose root = pub[M+3]."""
     lines = [
-        "# Auto-generated by run_recursion.py (exp 1) -- do not edit by hand\n",
+        "# Auto-generated by run_recursion_a.py (exp 1, A inner) -- do not edit by hand\n",
         f"verification_key = {_field_array(vk_fields)}",
         f'key_hash         = "{key_hash}"',
         f"proof            = {_field_array(seg['proof'])}",
         f"sub_pub          = {_field_array(seg['pub'])}",
-        f'root             = "{seg["pub"][3]}"',
+        f'root             = "{seg["pub"][m + 3]}"',
     ]
     return "\n".join(lines) + "\n"
 
 
-def assemble_exp2(segs, vk_fields, key_hash, tomls_dir):
-    """Outer Prover.toml for exp2 (any K): K proofs (2D arrays) + boundary witness + threshold."""
+def assemble_exp2(segs, vk_fields, key_hash, tomls_dir, m):
+    """exp2_a outer (any K): K A-proofs (2D arrays) + sort-partition witness + boundary."""
     glue = tomllib.loads((tomls_dir / "glue" / "Prover.toml").read_text())
-    # Integer mirrors derived from the verified sub_pub fields (consistency by construction).
-    starts        = [int(s["pub"][0], 16) for s in segs]
-    ends          = [int(s["pub"][1], 16) for s in segs]
-    partial_costs = [int(s["pub"][2], 16) for s in segs]
-    root          = segs[0]["pub"][3]
+    # Derive per-segment values from the verified A sub_pub vectors (consistent by construction).
+    #   sub_pub layout: [sorted_nodes[0..M], start(M), end(M+1), partial_cost(M+2), root(M+3)]
+    starts        = [int(s["pub"][m], 16)     for s in segs]
+    ends          = [int(s["pub"][m + 1], 16) for s in segs]
+    partial_costs = [int(s["pub"][m + 2], 16) for s in segs]
+    root          = segs[0]["pub"][m + 3]
+    # all_nodes = concatenation of each segment's sorted_nodes chunk (length N = K*M).
+    all_nodes = [int(s["pub"][j], 16) for s in segs for j in range(m)]
     proofs_2d   = "[" + ", ".join(_field_array(s["proof"]) for s in segs) + "]"
     sub_pubs_2d = "[" + ", ".join(_field_array(s["pub"])   for s in segs) + "]"
     lines = [
-        "# Auto-generated by run_recursion.py (exp 2) -- do not edit by hand\n",
+        "# Auto-generated by run_recursion_a.py (exp 2, A inner) -- do not edit by hand\n",
         f"sub_vk   = {_field_array(vk_fields)}",
         f'key_hash = "{key_hash}"',
         f"proofs   = {proofs_2d}",
@@ -244,6 +210,7 @@ def assemble_exp2(segs, vk_fields, key_hash, tomls_dir):
         f"starts        = {_int_array(starts)}",
         f"ends          = {_int_array(ends)}",
         f"partial_costs = {_int_array(partial_costs)}",
+        f"all_nodes     = {_int_array(all_nodes)}",
         f'root      = "{root}"',
         f'threshold = "{int(glue["threshold"])}"',
     ]
@@ -253,7 +220,6 @@ def assemble_exp2(segs, vk_fields, key_hash, tomls_dir):
 # ── Outer measurement ─────────────────────────────────────────────────────────
 
 def measure_outer(outer_dir, outer_name, skip_prove):
-    """Compile outer, record gates, witness, (optionally) prove + verify."""
     compile_s, _, _, _ = run_cmd(["nargo", "compile"], cwd=outer_dir)
     _, gates_out, _, _ = run_cmd(["bb", "gates", "-b", f"target/{outer_name}.json"], cwd=outer_dir)
     acir, size = parse_gates(gates_out)
@@ -285,11 +251,10 @@ def measure_outer(outer_dir, outer_name, skip_prove):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    ap = argparse.ArgumentParser(description="Recursion micro-experiment driver (ZK, noir-recursive).")
+    ap = argparse.ArgumentParser(description="A-inner recursion micro-experiment driver (ZK, noir-recursive).")
     ap.add_argument("--exp", type=int, choices=[1, 2], required=True)
-    ap.add_argument("--n", type=int, default=8, help="Total nodes N (default 8).")
-    ap.add_argument("--k", type=int, default=2,
-                    help="Segments K (>= 2; for exp 2 the outer verifies all K proofs; default 2).")
+    ap.add_argument("--n", type=int, default=8)
+    ap.add_argument("--k", type=int, default=2, help="Segments K (>= 2); default 2.")
     ap.add_argument("--runs", type=int, default=1)
     ap.add_argument("--out", required=True, help="CSV output path.")
     ap.add_argument("--seed", type=int, default=42)
@@ -313,8 +278,8 @@ def main():
     write_header = not out_csv.exists()
 
     sub_src = SUB_DIR / "src" / "main.nr"
-    sub_snapshot = sub_src.read_text()  # restore the shared A++ circuit afterwards
-    sub_toml = SUB_DIR / "Prover.toml"  # the driver overwrites this with segment witnesses
+    sub_snapshot = sub_src.read_text()
+    sub_toml = SUB_DIR / "Prover.toml"
     sub_toml_snapshot = sub_toml.read_text() if sub_toml.exists() else None
     outer_src = outer_dir / "src" / "main.nr"  # patched per (N,K) below; restore after
     outer_snapshot = outer_src.read_text()
@@ -324,12 +289,15 @@ def main():
             if write_header:
                 writer.writeheader()
 
-            print(f"[exp {args.exp}] N={n} K={k} M={m} DEPTH={depth}: compiling inner segment + recursive VK ...")
+            print(f"[exp {args.exp} A-inner] N={n} K={k} M={m} DEPTH={depth}: compiling A segment + recursive VK ...")
             seg_meta = configure_segment(n, k)
-            print(f"  inner segment: gates={seg_meta['gates']} acir={seg_meta['acir']}")
+            print(f"  inner A segment: gates={seg_meta['gates']} acir={seg_meta['acir']}")
 
-            if args.exp == 2:
-                patch_globals(outer_dir / "src" / "main.nr", N=n, K=k, DEPTH=depth)
+            # Outer globals: exp1_a needs M (sub_pub length); exp2_a needs N,K,M,DEPTH.
+            if args.exp == 1:
+                patch_globals(outer_dir / "src" / "main.nr", M=m)
+            else:
+                patch_globals(outer_dir / "src" / "main.nr", N=n, K=k, M=m, DEPTH=depth)
 
             for run_idx in range(1, args.runs + 1):
                 print(f"  run {run_idx}/{args.runs}: instance + solve + build tomls ...", flush=True)
@@ -339,21 +307,21 @@ def main():
                 tomls    = cell / "tomls"
                 build_tomls(n, k, instance, cycle, tomls)
 
-                print("  proving inner segment(s) (bb prove -t noir-recursive, ZK) ...", flush=True)
+                print("  proving inner A segment(s) (bb prove -t noir-recursive, ZK) ...", flush=True)
                 if args.exp == 1:
-                    seg0 = prove_segment(0, tomls, cell / "proof_0")
-                    (outer_dir / "Prover.toml").write_text(assemble_exp1(seg0, seg_meta["vk_fields"], seg_meta["key_hash"]))
+                    seg0 = prove_segment(0, tomls, cell / "proof_0", m + 4)
+                    (outer_dir / "Prover.toml").write_text(
+                        assemble_exp1(seg0, seg_meta["vk_fields"], seg_meta["key_hash"], m))
                     inner_rows = [("sub_0", seg0)]
                 else:
-                    segs = [prove_segment(i, tomls, cell / f"proof_{i}") for i in range(k)]
+                    segs = [prove_segment(i, tomls, cell / f"proof_{i}", m + 4) for i in range(k)]
                     (outer_dir / "Prover.toml").write_text(
-                        assemble_exp2(segs, seg_meta["vk_fields"], seg_meta["key_hash"], tomls))
+                        assemble_exp2(segs, seg_meta["vk_fields"], seg_meta["key_hash"], tomls, m))
                     inner_rows = [(f"sub_{i}", segs[i]) for i in range(k)]
 
                 print(f"  measuring outer recursive circuit ({outer_name}) ...", flush=True)
                 outer = measure_outer(outer_dir, outer_name, args.skip_prove)
 
-                # one row per inner segment proof
                 for cname, seg in inner_rows:
                     writer.writerow({
                         "exp": args.exp, "n": n, "k": k, "m": m, "depth": depth,
@@ -364,7 +332,6 @@ def main():
                         "witness_s": round(seg["witness_s"], 4), "prove_s": round(seg["prove_s"], 4),
                         "verify_s": "", "proof_bytes": "", "peak_mb": round(seg["peak_mb"], 3),
                     })
-                # the outer recursive circuit row
                 writer.writerow({
                     "exp": args.exp, "n": n, "k": k, "m": m, "depth": depth,
                     "run": run_idx,
@@ -382,9 +349,9 @@ def main():
                 pv = "skipped" if args.skip_prove else f"{outer['prove_s']:.2f}s, peak {outer['peak_mb']:.0f} MiB"
                 print(f"  OUTER gates={outer['gates']}  witness={outer['witness_s']:.2f}s  prove={pv}")
     finally:
-        sub_src.write_text(sub_snapshot)  # leave the shared A++ segment circuit untouched
+        sub_src.write_text(sub_snapshot)
         if sub_toml_snapshot is not None:
-            sub_toml.write_text(sub_toml_snapshot)  # restore the original Prover.toml too
+            sub_toml.write_text(sub_toml_snapshot)
         outer_src.write_text(outer_snapshot)  # restore outer circuit globals to committed default
 
     print(f"\nDone. Results appended to {out_csv}")

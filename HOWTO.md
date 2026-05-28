@@ -1514,6 +1514,58 @@ Reading the panels (recursion specifics):
 > trend lines, or read the values from `results/recursion_par.csv` directly for a
 > one-`N` table comparison.
 
+### A-inner recursion (the alternative design) and `compare_inner.py`
+
+The experiments above use the **A++** sub-circuit as the inner. A deliberate,
+**fully separate** duplicate uses the **Variant A** sub-circuit instead — see
+`Recursive_inner_circuit_choice_explained.md` for *why* (short version: inside
+recursion the partition is hidden either way, so A's public node set is no longer
+a leak; A lets the outer check the partition by a deterministic **sort** instead
+of A++'s grand-product + Fiat-Shamir, at the price of an **O(M) public surface**).
+
+- Circuits: `exp1_single_segment_a`, `exp2_k_segments_a` (sort-based partition,
+  no FS; globals `N,K,M,DEPTH`).
+- Driver: `run_recursion_a.py` — same flags as `run_recursion.py`, inner =
+  `circuits/hierarchical_segment`, builder `--hierarchical` (not `-fs`),
+  A `sub_pub` = `M+4` fields. Writes `results/recursion_a_micro.csv`.
+
+```bash
+python tests/recursion_micro/run_recursion_a.py --exp 2 --n 48 --k 2 --runs 1 \
+    --out results/recursion_a_micro.csv
+```
+
+**Head-to-head:** `compare_inner.py` runs *both* variants on the **same instance**
+(both drivers derive the instance from the same `seed + N*1000 + K*100 + run`
+formula, so one `--seed` gives both the identical cycle and segmentation) and
+prints the per-metric delta for the outer proof:
+
+```bash
+python tests/recursion_micro/compare_inner.py --n 480 --k 2 --exp 2 --skip-prove
+#   --skip-prove : gate-only (fast).  --keep-csv DIR : save both raw CSVs + a diff CSV.
+```
+
+What it shows (this machine):
+
+| metric | A++ inner | A inner | note |
+|---|---|---|---|
+| inner public inputs | 9 (O(1)) | M+4 (O(M)) | 28 @N48, 244 @N480 |
+| inner segment gates | 28,480 | 27,084 | A ~−5% (no FS gadgets) |
+| **outer gates @ N=48** | 1,473,357 | 1,475,164 | +0.1% — a wash at M=24 |
+| **outer gates @ N=480** | 1,475,250 (flat in N) | 1,497,705 (grows) | **+22,455 (+1.5%)** — the O(M) term |
+| outer witness_s @ N=480 | 0.19 s | 0.66 s | A's in-circuit sort, +250% |
+| outer proof_bytes | 14,656 | 14,656 | **identical** (1 ZK proof) |
+| outer verify_s | ~0.016 s | ~0.016 s | identical |
+| outer peak_mb | ~2.1 GiB | ~2.0 GiB | identical (outer-dominated) |
+
+**Reading it.** The two designs are *practically equal* in total cost (the K
+in-circuit verifications dominate both), and **identical on the verifier side**
+(one 14.7 KB proof, ~16 ms verify, perfect hiding — both expose only
+`root,threshold`). The one structural signal: **A++'s outer is flat in N**
+(1.473M→1.475M across N=48→480) while **A's grows** (1.475M→1.498M) — the O(M)
+public-input absorption + the N-element sort. That is the rationale's prediction,
+measured. (`outer prove_s` differences are dominated by single-run noise — re-run
+`--runs 3` if you need that column; the gate counts are exact.)
+
 ### Common issues (recursion-specific)
 
 **`nargo compile` (outer) fails with "Invalid comment character: only ASCII…"**
@@ -1543,7 +1595,8 @@ noir-recursive` (ZK), and the outer must import `UltraHonkZKProof`, not
 | `flat_merkle_presence` | Poseidon2 Merkle root | Presence mark array ~4N + N*DEPTH hashes | done |
 | `hierarchical_segment` + `hierarchical_glue` | Poseidon2 Merkle root | Per-segment `sort_via` + global partition check | done (Variant A) |
 | `hierarchical_segment_fs` + `hierarchical_glue_fs` | Poseidon2 Merkle root | Grand product + in-circuit Fiat-Shamir (partition hidden) | done (Variant A++) |
-| `tests/recursion_micro/exp2_k_segments` (+ reused `hierarchical_segment_fs`) | Poseidon2 Merkle root | In-circuit recursive verify of K segment proofs + glue (any K≥2; partition hidden, **perfect**) | done (recursion micro-experiment) |
+| `tests/recursion_micro/exp2_k_segments` (+ reused `hierarchical_segment_fs`) | Poseidon2 Merkle root | In-circuit recursive verify of K **A++** segment proofs + glue (grand-product partition; any K≥2; **perfect** hiding) | done (recursion micro-experiment) |
+| `tests/recursion_micro/exp2_k_segments_a` (+ reused `hierarchical_segment`) | Poseidon2 Merkle root | In-circuit recursive verify of K **A** segment proofs + glue (**sort** partition, no FS; any K≥2; **perfect** hiding) | done (A-inner comparison variant) |
 | Variant B (flat-full, sub-matrix public) | K disclosed M×M sub-matrices | Per-segment ROM lookup | future |
 
 ---

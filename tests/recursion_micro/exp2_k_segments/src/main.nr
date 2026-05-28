@@ -38,9 +38,9 @@
 // All K segments share ONE circuit -> one VK -> one key_hash.
 // =============================================================================
 
-global N: u32 = 48;
-global K: u32 = 4;
-global DEPTH: u32 = 12;
+global N: u32 = 8;
+global K: u32 = 2;
+global DEPTH: u32 = 6;
 
 use poseidon::poseidon2::Poseidon2;
 use bb_proof_verification::{UltraHonkZKProof, UltraHonkVerificationKey, verify_honk_proof};

@@ -1,0 +1,18 @@
+[package]
+name = "rec_exp2_k_segments_a"
+type = "bin"
+authors = []
+
+# A-INNER variant of Experiment 2: the "recursive Variant A" glue for arbitrary
+# K (>= 2).  Recursively verifies all K hierarchical_segment (Variant A) proofs
+# in-circuit AND re-runs Variant A's glue logic: a SORT-based partition over the
+# concatenated node sets (sort == [0..N-1]), boundary Merkle, threshold.  No
+# Fiat-Shamir, no grand product -- because the A sub exposes the node sets, the
+# outer can check the partition deterministically once everything is witness.
+# Exposes only (root, threshold).  Counterpart of exp2_k_segments (A++ inner);
+# the difference quantifies the O(M) public-surface vs deterministic-partition
+# tradeoff.  See Recursive_inner_circuit_choice_explained.md.
+
+[dependencies]
+bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages", tag = "v5.0.0-nightly.20260518", directory = "barretenberg/noir/bb_proof_verification" }
+poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }

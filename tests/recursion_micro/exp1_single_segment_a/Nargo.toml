@@ -1,0 +1,14 @@
+[package]
+name = "rec_exp1_single_segment_a"
+type = "bin"
+authors = []
+
+# A-INNER variant of Experiment 1: recursively verifies ONE Variant A sub-circuit
+# (hierarchical_segment) proof. Counterpart of exp1_single_segment (A++ inner).
+# The A sub's public-input vector is M+4 fields (sorted_nodes[M], start, end,
+# partial_cost, root) vs A++'s O(1) 9 fields -- this circuit exists to measure
+# the O(M) public-input absorption cost of the recursive verifier.
+# See Recursive_inner_circuit_choice_explained.md.
+
+[dependencies]
+bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages", tag = "v5.0.0-nightly.20260518", directory = "barretenberg/noir/bb_proof_verification" }
