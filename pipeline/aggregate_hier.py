@@ -2,10 +2,16 @@
 pipeline/aggregate_hier.py -- Convert raw hierarchical-benchmark CSV (K+1 rows
 per cell) into a plot.py-compatible CSV (one row per (N, K, run)).
 
-run_hier.py emits K+1 rows per (N, K, run) cell -- one row per circuit:
-sub_0, sub_1, ..., sub_{K-1}, glue.  plot.py expects one row per (variant, N)
-data point with the standard run.py schema, so this script aggregates the
-K+1 rows into a single "hier_a_k{K}" variant row.
+run_hier.py (Variant A) and run_hier_fs.py (Variant A++) both emit K+1 rows per
+(N, K, run) cell -- one row per circuit: sub_0, sub_1, ..., sub_{K-1}, glue.
+plot.py expects one row per (variant, N) data point with the standard run.py
+schema, so this script aggregates the K+1 rows into a single per-(K) variant row.
+
+Variant-aware: the output variant base is taken from the raw CSV's `variant`
+column, so the SAME script handles both inputs with no flags:
+  results/hier_a.csv   -> rows tagged  hier_a_k{K}
+  results/hier_fs.csv  -> rows tagged  hier_fs_k{K}
+(See "Variant naming" below.)
 
 Aggregation rules
 -----------------
@@ -42,10 +48,11 @@ Modes
 Variant naming
 --------------
 
-By default the output variant column is `hier_a_k{K}` (one variant per K
-value) regardless of --mode, so a parallel and a total aggregation of the
-same hier_a.csv share variant names.  Pass --mode-in-name to disambiguate as
-`hier_a_k{K}_{mode}` when both modes appear in the same combined CSV.
+The output variant column is `{base}_k{K}` where `{base}` is read from the raw
+CSV's `variant` column (`hier_a` or `hier_fs`) -- one variant per K value,
+regardless of --mode, so a parallel and a total aggregation of the same input
+share variant names.  Pass --mode-in-name to disambiguate as
+`{base}_k{K}_{mode}` when both modes appear in the same combined CSV.
 
 Schema written
 --------------
@@ -138,7 +145,11 @@ def aggregate(rows, mode, include_mode_in_name):
         proof_bytes = sum(int(r["proof_bytes"]) for r in all_rows)
         peak_mb     = max(float(r["peak_mb"])   for r in all_rows)
 
-        variant = f"hier_a_k{k}"
+        # Variant base comes from the raw CSV's `variant` column, so the same
+        # aggregator serves Variant A (hier_a) and A++ (hier_fs) unchanged:
+        # hier_a -> hier_a_k{K}, hier_fs -> hier_fs_k{K}.
+        base = subs[0].get("variant", "hier_a") or "hier_a"
+        variant = f"{base}_k{k}"
         if include_mode_in_name:
             variant += f"_{mode}"
 

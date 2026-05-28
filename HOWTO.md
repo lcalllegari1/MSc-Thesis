@@ -1069,6 +1069,223 @@ sub-circuit proofs was kept from an older run.
 
 ---
 
+## Variant A++ workflow — `circuits/hierarchical_segment_fs` + `circuits/hierarchical_glue_fs`
+
+Variant A++ is the partition-**hidden** hierarchical design (Merkle commitment,
+grand-product multiset equality, in-circuit Fiat-Shamir).  It is a near-exact
+mirror of Variant A; the only architectural change is *how the partition is
+enforced*:
+
+- A's sub-circuit publishes `sorted_nodes[M]` and the glue sorts the
+  concatenation against `[0..N-1]` (the partition is public).
+- A++'s sub-circuit publishes a single Field grand product `P_i = ∏(X+node)`
+  and folds its segment into a Poseidon2 hash chain (`h_in_i → h_out_i`); the
+  glue checks `∏ P_i == ∏_{j}(X+j)` at a Fiat-Shamir challenge
+  `X = Poseidon2([c],1)` derived in-circuit from the full-cycle chain terminal
+  `c`.  The partition is never disclosed.
+
+The K+1 proofs are still independent UltraHonk proofs; the verifier runs
+`bb verify` K+1 times then `pipeline/verify_hier_fs.py`, which cross-checks that
+all proofs share the same `root`, `c`, and `X`, and that the glue's per-segment
+arrays match each sub-proof's scalars.  See `HIERARCHICAL_EXPLAINED.md` §9 for
+the theory and `HIER_FS_IMPL.md` for the implementation plan that was followed.
+
+> **Privacy note.** A++ hides the partition *computationally*, not
+> information-theoretically: the public `P_i` is a multiset-confirmation oracle
+> (~C(N,M) work) and the public chain anchors `h_in/h_out` are an ordering
+> oracle (~(M-2)! work).  This is strong at the benchmark sizes and the price of
+> the non-recursive K+1-proof architecture.  See `HIERARCHICAL_EXPLAINED.md`
+> §9.11 / §14.2.
+
+### Prerequisites
+
+```bash
+# Build the Rust merkle_builder (shared with all Merkle variants).
+cargo build --release --manifest-path pipeline/merkle_builder/Cargo.toml
+```
+
+A++'s load-bearing hash is the single-input Fiat-Shamir challenge
+`Poseidon2::hash([c], 1)`.  It is cross-validated (Rust ↔ Noir) by the hash-compat
+test, which also emits the N=8 reference table (`HIER_FS_IMPL.md` §11):
+
+```bash
+bash tests/hash_compat/run_test.sh   # asserts both [l,r],2 and [c],1 shapes match
+```
+
+### Compile-time globals
+
+| Circuit | Globals | Patched per |
+|---|---|---|
+| `hierarchical_segment_fs` | `N`, `M`, `DEPTH` | `(N, K)` cell (M = N/K, DEPTH = ⌈log₂(N²)⌉) |
+| `hierarchical_glue_fs` | `N`, `K`, `DEPTH` | `(N, K)` cell |
+
+`run_hier_fs.py` patches and recompiles automatically.  The circuits ship at the
+N=8, K=2 reference size.
+
+### Single end-to-end run on the reference instance (N=8, K=2)
+
+Same documented cycle as A (`0 → 5 → 3 → 2 → 7 → 4 → 1 → 6 → 0`, cost 92,
+threshold 100).  Only the builder flag (`--hierarchical-fs`), circuit names, and
+verifier (`verify_hier_fs.py`) differ from A's walkthrough.
+
+```bash
+# 1. Patch + compile both circuits, write VKs (circuits already default to N=8, K=2).
+( cd circuits/hierarchical_segment_fs && nargo compile \
+    && bb write_vk -b target/hierarchical_segment_fs.json -o target/vk )
+( cd circuits/hierarchical_glue_fs && nargo compile \
+    && bb write_vk -b target/hierarchical_glue_fs.json -o target/vk )
+
+# 2. Build the reference instance's K+1 Prover.tomls into /tmp/hier_fs_ref.
+python - <<'EOF'
+import json, subprocess
+N = 8
+flat = [0] * (N * N)
+for f, t, c in [(0,5,10),(5,3,12),(3,2,8),(2,7,15),
+                (7,4,11),(4,1,9),(1,6,14),(6,0,13)]:
+    flat[f * N + t] = c
+payload = json.dumps({
+    "n": N, "flat_matrix": flat,
+    "cycle": [0, 5, 3, 2, 7, 4, 1, 6],
+    "threshold": 100, "cost": 92,
+})
+subprocess.run(
+    ["pipeline/merkle_builder/target/release/merkle_builder",
+     "--hierarchical-fs", "2", "--out-dir", "/tmp/hier_fs_ref"],
+    input=payload, text=True, check=True,
+)
+EOF
+
+# 3. Prove sub_0, sub_1, glue (mirrors A; the sub circuit is reused for both segments).
+for seg in 0 1; do
+  cp /tmp/hier_fs_ref/sub_${seg}/Prover.toml circuits/hierarchical_segment_fs/Prover.toml
+  ( cd circuits/hierarchical_segment_fs \
+    && nargo execute \
+    && bb prove -b target/hierarchical_segment_fs.json \
+                -w target/hierarchical_segment_fs.gz \
+                -k target/vk/vk -o target/proof_sub${seg} )
+done
+cp /tmp/hier_fs_ref/glue/Prover.toml circuits/hierarchical_glue_fs/Prover.toml
+( cd circuits/hierarchical_glue_fs \
+  && nargo execute \
+  && bb prove -b target/hierarchical_glue_fs.json \
+              -w target/hierarchical_glue_fs.gz \
+              -k target/vk/vk -o target/proof_glue )
+
+# 4. Stage the K+1 proofs for verify_hier_fs.py.
+mkdir -p /tmp/hier_fs_proofs/sub_0 /tmp/hier_fs_proofs/sub_1 /tmp/hier_fs_proofs/glue
+cp circuits/hierarchical_segment_fs/target/proof_sub0/{proof,public_inputs} /tmp/hier_fs_proofs/sub_0/
+cp circuits/hierarchical_segment_fs/target/proof_sub1/{proof,public_inputs} /tmp/hier_fs_proofs/sub_1/
+cp circuits/hierarchical_glue_fs/target/proof_glue/{proof,public_inputs}    /tmp/hier_fs_proofs/glue/
+
+# 5. Run K+1 bb verify + the cross-checks (same root/c/X; per-segment field equalities).
+python pipeline/verify_hier_fs.py \
+  --proof-dir /tmp/hier_fs_proofs \
+  --n 8 --k 2 \
+  --sub-vk  circuits/hierarchical_segment_fs/target/vk/vk \
+  --glue-vk circuits/hierarchical_glue_fs/target/vk/vk
+```
+
+Expected output ends with `ACCEPTED`.  The sub public-inputs dump has exactly 9
+field elements (constant in M — one of A++'s wins) and the glue has 6K+4.
+
+### Soundness tests
+
+```bash
+python tests/correctness/test_hierarchical_fs.py
+```
+
+Covers eight cases (baseline + seven perturbations):
+
+1. **VALID** — reference instance N=8 K=2 passes end to end.
+2. **INVALID — cost binding** (inherited): sub G4 catches `sum(edge_costs) != partial_cost`.
+3. **INVALID — boundary Merkle** (inherited): glue G6 catches a tampered boundary cost.
+4. **INVALID — cross-check `c`** (A++-unique): mix sub-proofs from cycle A with the
+   glue from cycle B (same matrix).  Each `bb verify` accepts; `verify_hier_fs.py`
+   rejects because `sub_i.c != glue.c` (the A++ analogue of A's "same root").
+5. **INVALID — bad `P_i`** (A++-unique): tamper a sub's grand product; sub G6 rejects.
+6. **INVALID — broken chain** (A++-unique): tamper `glue.h_ins[1]`; glue G2 rejects.
+7. **INVALID — partition overlap** (A++-unique): node 3 in both segments.  Each sub
+   is locally valid, but glue G5's grand-product check fails via Schwartz-Zippel at
+   the unforgeable chain-derived X.  *This is the headline demonstration that the
+   grand product replaces A's sort.*
+8. **VALID — N=48 K=4** sanity (witness only).
+
+### Benchmark sweep — `pipeline/run_hier_fs.py`
+
+Identical interface to `run_hier.py`; same grid recommended for direct A vs A++
+comparison:
+
+```bash
+python pipeline/run_hier_fs.py \
+  --ns 48 96 192 480 \
+  --ks 2 4 8 \
+  --runs 3 \
+  --out results/hier_fs.csv
+```
+
+It patches/compiles the `_fs` circuits, uses `/tmp/hier_fs_shadows` (distinct from
+A's shadow dir, so both sweeps can run concurrently), builds K+1 Prover.tomls via
+`merkle_builder --hierarchical-fs`, proves K+1-way in parallel, and runs
+`verify_hier_fs.py` per cell.  CSV schema and columns are identical to
+`run_hier.py`'s (variant column = `hier_fs`).
+
+### Aggregating + plotting (A and A++ together)
+
+`pipeline/aggregate_hier.py` is **variant-aware**: it reads the `variant` column
+from the raw CSV, so the *same* command serves both A and A++ — `hier_a.csv`
+yields `hier_a_k{K}` rows and `hier_fs.csv` yields `hier_fs_k{K}` rows.  No flag
+needed.  Aggregation rules (per cell) are unchanged from the A section above
+(`circuit_size = K*sub + glue`, `prove_s/witness_s = max` for `--mode parallel`
+or `sum` for `--mode total`, `peak_mb = max`, etc.).
+
+```bash
+# Aggregate A++ (parallel wall-clock projection and total CPU work).
+python pipeline/aggregate_hier.py --in results/hier_fs.csv --out results/hier_fs_par.csv --mode parallel
+python pipeline/aggregate_hier.py --in results/hier_fs.csv --out results/hier_fs_tot.csv --mode total
+
+# (Do the same for A if not already done.)
+python pipeline/aggregate_hier.py --in results/hier_a.csv  --out results/hier_a_par.csv  --mode parallel
+python pipeline/aggregate_hier.py --in results/hier_a.csv  --out results/hier_a_tot.csv  --mode total
+```
+
+**The frontier figure** — flat baseline, A, and A++ on the same axes (the
+thesis's headline comparison).  `plot.py` accepts any number of CSVs and draws
+one line per `variant`:
+
+```bash
+python pipeline/plot.py \
+  --csv results/500.csv results/hier_a_par.csv results/hier_fs_par.csv \
+  --out plots/flat_vs_hier_a_vs_hier_fs
+```
+
+Reading the panels (A++ specifics):
+
+- **circuit_size** — A++'s sub is ~+6% over A's (chain G5 + challenge G7); the
+  glue drops sharply at large N (A's O(N) sort is gone, replaced by ~N cheap
+  field mults).  Watch the `peak_mb` glue line: A++'s glue should fall well below
+  A's ~159 MB floor at N=480 — the headline empirical claim to confirm.
+- **proof_bytes** — same as A (K+1 separate proofs; ~14.6 KB × (K+1)).
+- **prove_s** under `--mode parallel` is CPU-contended single-machine wall-clock,
+  same caveat as A: the per-prover speedup requires isolated hardware.
+
+### Common issues (A++-specific)
+
+**`verify_hier_fs.py` reports "c mismatch" or "X mismatch"**
+The K+1 proofs come from different *cycles* (not just different matrices).  All
+K+1 Prover.tomls must come from the same `merkle_builder --hierarchical-fs` call —
+`c` and `X` are derived from the full cycle, so any cycle difference trips this.
+
+**Glue `nargo execute` fails with "grand-product partition mismatch"**
+The segment node-multisets do not tile `{0..N-1}` (overlap or a missing node).
+This is the partition check (glue G5) firing correctly — expected for a cheating
+instance, a bug otherwise.
+
+**Glue `nargo execute` fails with "X != Poseidon2(c)"**
+Rust/Noir Poseidon2 drift on the single-input shape.  Re-run
+`bash tests/hash_compat/run_test.sh`; it must pass before any A++ proof is valid.
+
+---
+
 ## Variants
 
 | Directory | Matrix input | Permutation check | Status |
@@ -1079,7 +1296,7 @@ sub-circuit proofs was kept from an older run.
 | `flat_full_presence` | Full N^2 public inputs | Presence mark array ~4N constrained | done |
 | `flat_merkle_presence` | Poseidon2 Merkle root | Presence mark array ~4N + N*DEPTH hashes | done |
 | `hierarchical_segment` + `hierarchical_glue` | Poseidon2 Merkle root | Per-segment `sort_via` + global partition check | done (Variant A) |
-| Variant A++ (Merkle, grand product + FS) | Poseidon2 Merkle root | Grand product with in-circuit Fiat-Shamir | future |
+| `hierarchical_segment_fs` + `hierarchical_glue_fs` | Poseidon2 Merkle root | Grand product + in-circuit Fiat-Shamir (partition hidden) | done (Variant A++) |
 | Variant B (flat-full, sub-matrix public) | K disclosed M×M sub-matrices | Per-segment ROM lookup | future |
 
 ---

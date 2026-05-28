@@ -1131,10 +1131,28 @@ Private witness:
 
 ### 9.9 The role of `expected_product`
 
-`expected_product` is supplied by the prover as a public input to the glue. The
-verifier independently computes `∏(X + j)` for j = 0..N-1 (O(N) native multiplications)
-and confirms it matches the value declared in the glue. This shifts O(N) work from
-the in-circuit prover to the cheap verifier side.
+There are two sound ways to enforce the RHS of the partition check
+`∏ P_i == ∏_{j=0..N-1}(X + j)`:
+
+- **Option A (verifier-supplied).** `expected_product` is a public input to the
+  glue; the verifier independently computes `∏(X + j)` for j = 0..N-1 (O(N) native
+  multiplications) and confirms it matches the declared value. This shifts the O(N)
+  work to the cheap verifier side but makes the verifier carry a non-optional
+  cryptographic obligation (it *must* recompute, or soundness is lost).
+
+- **Option B (in-circuit) — AS BUILT.** The glue computes `∏(X + j)` itself in a
+  `for j in 0..N` loop (G5 RHS); there is **no** `expected_product` public input.
+  Cost is ~N cheap field multiplications in-circuit (~N gates), still far below A's
+  O(N) sort. The verifier then does *no field arithmetic at all* — every soundness
+  claim is a circuit constraint, and the verifier's cross-checks are pure
+  Field-equality bookkeeping.
+
+**The implementation (`circuits/hierarchical_glue_fs`, `pipeline/verify_hier_fs.py`,
+2026-05-28) uses Option B** — see `HIER_FS_IMPL.md` D5. The interface in §9.7 and
+the soundness link in §9.10 below are written for Option A; under the as-built
+Option B, drop the `expected_product` public input and read "verifier-supplied/
+checked expected_product" as "in-circuit `∏(X+j)` loop". Both are sound; Option B
+gives the cleaner thesis story ("the verifier has no cryptographic obligation").
 
 ### 9.10 Soundness chain — eight links
 

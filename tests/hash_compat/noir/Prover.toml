@@ -1,3 +1,5 @@
-left     = "1"
-right    = "2"
-expected = "0x038682aa1cb5ae4e0a3f13da432a95c77c5c111f6f030faf9cad641ce1ed7383"
+left      = "1"
+right     = "2"
+expected2 = "0x038682aa1cb5ae4e0a3f13da432a95c77c5c111f6f030faf9cad641ce1ed7383"
+single_in = "0x0b43032bbf000f5e35ff8ed6e316b29b58cbd33fe56e2d87ea7dc0588bce59db"
+expected1 = "0x031e267ebb904211df3ac4071c17daaa5331665123fe92fdac6b35c9267d1d5a"

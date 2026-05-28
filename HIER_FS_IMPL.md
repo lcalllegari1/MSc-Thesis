@@ -777,8 +777,11 @@ is step 2 (hash compat); everything else is mechanical mirroring of A.
 
 ## 11. Reference values for the N=8, K=2 instance
 
-**To be populated during step 1 of the implementation.** Use the same cycle
-and edge costs as A's reference (HIERARCHICAL_EXPLAINED.md §8.9):
+**Populated 2026-05-28 (step 1).** Computed by
+`tests/hash_compat/rust/src/main.rs` and cross-validated against Noir's
+Poseidon2 by `tests/hash_compat/run_test.sh` (both the `[c],1` challenge and
+the `[l,r],2` chain step pass). Use the same cycle and edge costs as A's
+reference (HIERARCHICAL_EXPLAINED.md §8.9):
 
 - Cycle: `[0, 5, 3, 2, 7, 4, 1, 6]`
 - Internal edges (sub_0): 0→5=10, 5→3=12, 3→2=8 (partial_cost=30)
@@ -786,26 +789,45 @@ and edge costs as A's reference (HIERARCHICAL_EXPLAINED.md §8.9):
 - Boundary edges: 2→7=15, 6→0=13
 - Threshold: 100, total: 92
 
-Expected derived values (to compute and fill in):
+Chain step is `h_{j+1} = Poseidon2::hash([h_j, cycle[j]], 2)` (iv = 2·2⁶⁴);
+challenge is `X = Poseidon2::hash([c], 1)` (iv = 1·2⁶⁴). All values are
+32-byte BN254 Field elements, big-endian hex.
+
 ```
-h_0 = 0
-h_1 = Poseidon2(0, 0)
-h_2 = Poseidon2(h_1, 5)
-h_3 = Poseidon2(h_2, 3)
-h_4 = Poseidon2(h_3, 2)            (= h_out_0 = h_in_1)
-h_5 = Poseidon2(h_4, 7)
-h_6 = Poseidon2(h_5, 4)
-h_7 = Poseidon2(h_6, 1)
-h_8 = Poseidon2(h_7, 6)            (= c)
-X   = Poseidon2::hash([c], 1)
-P_0 = (X+0)(X+5)(X+3)(X+2)
-P_1 = (X+7)(X+4)(X+1)(X+6)
-∏(X+j) for j∈[0,8) = (X+0)(X+1)...(X+7)
-Identity to verify: P_0 · P_1 == ∏(X+j)
+h_0 = 0x0000000000000000000000000000000000000000000000000000000000000000
+h_1 = 0x0b63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1   Poseidon2(h_0, 0)
+h_2 = 0x263a6cc67fee2d0034d79b9070dbbceba5d6679924a0d3d60b45fe862e73fdd1   Poseidon2(h_1, 5)
+h_3 = 0x292d067fc20bb50c82c858b471fa3e27beaa10d41cddde3ae7920ea50ede0401   Poseidon2(h_2, 3)
+h_4 = 0x249b4bd9b262e23c79d1aa87fa77ea200b5622cef472355bb916564bfe320736   Poseidon2(h_3, 2)  (= h_out_0 = h_in_1)
+h_5 = 0x261eb5d6843cb6119129a24aba9490f25583feed479c3763777b1b10be9048d3   Poseidon2(h_4, 7)
+h_6 = 0x14cfe2c68776101103e4e00dcbb81fb9bfbf41e666cd2033404e19af7c3e5221   Poseidon2(h_5, 4)
+h_7 = 0x1ecf5809ae7642460382108b850d9b31cf3524f65f79eab60e1f3f8a4374b2d2   Poseidon2(h_6, 1)
+h_8 = 0x0b43032bbf000f5e35ff8ed6e316b29b58cbd33fe56e2d87ea7dc0588bce59db   Poseidon2(h_7, 6)  (= c)
+
+c   = h_8 = 0x0b43032bbf000f5e35ff8ed6e316b29b58cbd33fe56e2d87ea7dc0588bce59db
+X   = Poseidon2([c],1) = 0x031e267ebb904211df3ac4071c17daaa5331665123fe92fdac6b35c9267d1d5a
+
+Per-segment chain anchors:
+  sub_0: h_in_0 = h_0 = 0x000...000,   h_out_0 = h_4 = 0x249b4bd9...320736
+  sub_1: h_in_1 = h_4 = 0x249b4bd9..., h_out_1 = h_8 = c = 0x0b43032b...ce59db
+
+Grand products (at the X above):
+  P_0 = (X+0)(X+5)(X+3)(X+2) = 0x1ab912e08827d1ec7d509e737a01b329b94f2a8fd8486dbe2fe0a156546872b0
+  P_1 = (X+7)(X+4)(X+1)(X+6) = 0x27555d776a871e918bc3410b36524a62b78434d551d99764921b2fbfb2a8cbe2
+  expected_product = prod_(j=0..7)(X+j) = 0x24b8308221e78905073209a6c773f3126e3f41671213bc03c4c1d3bf9cf3d79c
+
+Identity P_0 * P_1 == expected_product:  OK (verified natively in Rust)
 ```
 
 The grand-product identity holds because `{0,5,3,2} ∪ {7,4,1,6} = {0..7}` —
 that is the partition exactness that A++ enforces non-trivially at large N.
+
+**Caveat on what step 1 validates.** The native identity `P_0·P_1 ==
+∏(X+j)` is a *polynomial identity in X* — it holds for any X when the
+segment multisets tile `{0..7}`, so it does **not** by itself confirm that X
+was derived correctly. The challenge derivation is validated separately by
+the single-input hash-compat assertion (`tests/hash_compat`, step 2) and is
+re-checked in-circuit by sub-circuit G7 / glue G4 during `nargo execute`.
 
 ---
 

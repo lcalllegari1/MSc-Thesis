@@ -281,7 +281,18 @@ Three mental models to keep distinct in the thesis:
     - [x] `tests/correctness/test_hierarchical_a.py` — 6 tests (1 valid + 4 negatives + 1 sanity at N=48 K=4)
     - [x] Full benchmark sweep into `results/hier_a.csv` (completed 2026-05-27; N∈{48,96,192,480}, K∈{2,4,8})
     - [ ] Isolation benchmark: run single sub-circuit without parallel siblings to empirically validate K× speedup claim
-- [ ] Variant A++ — Merkle, grand product + in-circuit Fiat-Shamir
+- [x] Variant A++ — Merkle, grand product + in-circuit Fiat-Shamir (implemented + validated 2026-05-28)
+    - [x] Hash-compat extension: single-input `Poseidon2::hash([c],1)` cross-validated Rust↔Noir (`tests/hash_compat/`); N=8 reference table filled in `HIER_FS_IMPL.md` §11
+    - [x] Sub-circuit `circuits/hierarchical_segment_fs` (G1..G7: +G5 chain link, +G6 grand product, +G7 challenge consistency; no sorted_nodes)
+    - [x] Glue circuit `circuits/hierarchical_glue_fs` (G1..G7: chain stitch G1-G3, FS bind G4, grand-product partition G5 with **in-circuit** RHS, boundary Merkle G6, threshold G7)
+    - [x] `pipeline/merkle_builder` extended with `--hierarchical-fs K --out-dir` (chain → c → X, per-segment P_i / h_in / h_out, two new Prover.toml writers)
+    - [x] `pipeline/verify_hier_fs.py` — K+1 `bb verify` + ~6K+3 equality cross-checks (same root/c/X; per-segment starts/ends/partial_costs/P_is/h_ins/h_outs). No field arithmetic (Option B).
+    - [x] `pipeline/run_hier_fs.py` — K-shadow parallel harness (`/tmp/hier_fs_shadows`, variant=`hier_fs`); `aggregate_hier.py` made variant-aware (emits `hier_fs_k{K}`)
+    - [x] `tests/correctness/test_hierarchical_fs.py` — 8 tests (1 valid + 6 negatives incl. Schwartz-Zippel partition overlap + 1 sanity at N=48 K=4); all pass
+    - [x] End-to-end reference proof verifies; gate counts at N=8: sub +6.7% vs A, glue ≈parity (the −67% glue win is a large-N effect)
+    - [ ] Full benchmark sweep into `results/hier_fs.csv` (harness ready; **deferred to user** — N∈{48,96,192,480}, K∈{2,4,8})
+    - **Design divergence from `HIERARCHICAL_EXPLAINED.md` §9.9:** `expected_product` is computed **in-circuit** (D5 = Option B), not supplied/checked by the verifier. The Python verifier therefore does no field arithmetic.
+    - **Privacy refinement:** A++ hides the partition *computationally* (not information-theoretically): public `P_i` is a multiset oracle (~C(N,M)) and chain anchors are an ordering oracle (~(M-2)!). This is the price of the non-recursive architecture — see `HIERARCHICAL_EXPLAINED.md` §9.11/§14.2.
 - [ ] Variant B — flat_full, sub-matrix public
 - [ ] Frontier figure: (total gates, parallel wall-clock, per-prover memory, privacy bits) for all variants
 - [ ] Integration with clustered TSP solver (B-side, partitioned routing) for combined-pipeline analysis

@@ -1,28 +1,31 @@
 // Cross-validation: Noir Poseidon2 vs Rust bn254_blackbox_solver Poseidon2
 //
-// The circuit replicates what poseidon::poseidon2::Poseidon2::hash([left, right], 2)
-// computes and asserts the result equals the value produced by the Rust binary.
+// The circuit replicates what poseidon::poseidon2::Poseidon2::hash(..) computes
+// for two sponge shapes and asserts each equals the value produced by the Rust
+// binary (forwarded into Prover.toml by the shell harness):
 //
-// Public input `expected` is supplied from Prover.toml by the shell harness,
-// which runs the Rust binary first and forwards its output.
+//   * Two-input  Poseidon2::hash([left, right], 2): Merkle compression shape,
+//     also the A++ hash-chain step.  iv = 2 * 2^64, state = [left, right, 0, iv].
+//   * Single-input Poseidon2::hash([single_in], 1): the A++ Fiat-Shamir
+//     challenge derivation X = Poseidon2(c).  iv = 1 * 2^64, state = [c, 0, 0, iv].
 //
-// Sponge trace for hash([left, right], in_len=2):
-//   RATE=3, N=2 (compile-time), in_len=2
-//   iv    = 2 * 2^64 (= 36893488147419103232)
-//   No full-rate chunk (N/RATE = 0), partial fill: state[0..2] += [left, right, 0]
-//   Final permute (in_len % RATE != 0)
-//   hash = permuted_state[0]
-//
-// The assert fires if the Rust implementation disagrees with Noir, proving they
-// share the same Poseidon2 parameterisation on BN254.
+// The single-input case is the load-bearing hash for Variant A++: the challenge X
+// must be computed identically in Rust (off-circuit, in merkle_builder) and in
+// Noir (in-circuit, sub-circuit G7 + glue G4).  Any drift breaks A++ soundness
+// silently, so this assertion gates the A++ implementation.
 
 use poseidon::poseidon2::Poseidon2;
 
 fn main(
-    left:     Field,
-    right:    Field,
-    expected: pub Field,
+    left:      Field,
+    right:     Field,
+    expected2: pub Field, // == Poseidon2::hash([left, right], 2)
+    single_in: Field,
+    expected1: pub Field, // == Poseidon2::hash([single_in], 1)
 ) {
-    let hash = Poseidon2::hash([left, right], 2);
-    assert(hash == expected, "Poseidon2 mismatch: Noir and Rust outputs differ");
+    let h2 = Poseidon2::hash([left, right], 2);
+    assert(h2 == expected2, "Poseidon2 2-input mismatch: Noir and Rust differ");
+
+    let h1 = Poseidon2::hash([single_in], 1);
+    assert(h1 == expected1, "Poseidon2 1-input mismatch: Noir and Rust differ");
 }
