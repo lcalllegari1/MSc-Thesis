@@ -248,6 +248,104 @@ Three mental models to keep distinct in the thesis:
 
 ---
 
+## 9. The Binding Tax, Committed Variants, and the Privacy Ladder (reframe 2026-05-29)
+
+This section records the conceptual reframe from the 2026-05-29 discussion. It does
+not supersede §8; it adds the organizing spine that sits under it. Full synthesis
+with numbers and next steps lives in `FRONTIER_REFRAME.md`.
+
+### 9.1 The binding tax — one artifact, three symptoms
+
+Decomposing into K independent segment-proofs forces a binding step to recombine them
+into one sound, private statement. That binding is a **single object with three
+coupled symptoms**, all of which are the *shared public surface of independent proofs*:
+1. **partition leakage** (the shared values are disclosed),
+2. **O(K) verifier cost** (K+1 proofs → K× proof bytes + K× verify time),
+3. **verifier-side bookkeeping** (the equality cross-checks in `verify_hier*.py`).
+
+They dissolve **together** under one move: fold the binding into a proof. Recursion
+does this (the cross-checks become in-circuit asserts; the verifier returns to a single
+`bb verify` on `(root, threshold)`). Folding does it cheaply. So the privacy leak, the
+O(K) verifier cost, and the external bookkeeping are not three separate problems — they
+are three faces of "independent proofs need external binding."
+
+### 9.2 Two decisions generate the whole family
+
+- **Where binding lives:** verifier-side (A, A++, B) / in-circuit (recursion) /
+  deferred (folding, future).
+- **What is bound:** plaintext (discloses — the leak; good when disclosure is the goal)
+  / hiding commitment (committed-A/A++) / witness (recursion — the limit).
+
+### 9.3 The pick-two triangle (frontier, at fixed privacy)
+
+Three desiderata; each architecture gives exactly two. The O(K) verifier cost is the
+**price A/A++ pay to keep P and C together** — a defining feature of the corner.
+
+| | Parallel + low per-prover mem (P) | O(1) verifier (V) | Low prover overhead (C) |
+|---|:--:|:--:|:--:|
+| flat (K=1) | ✗ | ✓ | ✓ |
+| A / A++ / committed-* | ✓ | ✗ | ✓ |
+| recursion | ✓ | ✓ | ✗ |
+| folding (future) | ✓ | ✓ | ✓ (breaks the triangle) |
+
+### 9.4 The commitment fix — close the leak without recursion
+
+Bind on **hiding commitments** instead of plaintext: each sub exposes
+`C_i = Commit(values; r_i)`; the glue takes values+openings as witness and runs the
+partition/boundary/cost checks in-circuit; the verifier checks `sub_i.C_i == glue.C_i`.
+Public surface collapses to `(root, threshold, C_0..C_{K-1})`; the bookkeeping becomes
+ZK automatically (comparing opaque blobs) and can be collapsed to one digest per proof.
+For A++ this is minimal — `P_i` is already a per-segment summary lacking blinding.
+
+### 9.5 A is NOT dominated by A++ (correction to an earlier read)
+
+Glue-to-glue, A++'s grand product beats A's sort (N=480 K=2: 6,987 gates / 31 MB vs
+14,822 / 159 MB). But A++ **relocates** that O(N) work into the K segments (+~3.5%/sub),
+so on **totals A is cheaper at every measured K** (N=480: A 769,926 / 775,622 / 787,014
+vs A++ 788,533 / 794,401 / 806,137 for K=2/4/8). Per-prover memory **ties at K=8**
+(~159 MB) for opposite reasons (A pinned by O(N) glue floor; A++ by its heavier sub). A
+also has a **deterministic** partition check (no Schwartz–Zippel error).
+
+A++'s real justification, in order of durability:
+1. **Best recursion inner** — O(1) public surface (9 fields, M-independent) keeps the
+   recursive verifier segment-size-independent (single-segment outer = 704,363 gates
+   flat at N=8 *and* N=480; an A inner exposes M+4 fields and grows with N).
+2. **High-K memory** — O(K) glue removes A's O(N) memory floor; A++ keeps falling at
+   K≥16 where A plateaus.
+3. **Distributed partition check** — O(M)/segment parallel + O(K) merge vs A's serial
+   O(N) sort.
+
+So A++ is *the design you recurse on*, not a cheaper A. Cut recursion from the thesis
+and A++'s standalone case gets thin.
+
+### 9.6 Privacy classification and the ladder
+
+"Perfect hiding" of flat/recursion is **structural** (the public surface carries no
+route/partition info), not information-theoretic ZK (UltraHonk-ZK is computational/
+statistical and identical across all variants — not a discriminator). Per
+implementation:
+
+| Implementation | Partition privacy class | Rests on |
+|---|---|---|
+| flat_full | matrix disclosed; no partition | — |
+| flat_merkle_presence | no partition; matrix committed | weak matrix hiding (entropy/blinding) |
+| Variant A | **disclosed** (node-sets + endpoints plaintext) | nothing (unconditional leak) |
+| Variant A++ | **computational, oracle** (`P_i` ~C(N,M), confirms guesses); endpoints plaintext | subset-product hardness |
+| committed-A/A++ (Poseidon) | **computational** | hash one-wayness |
+| committed-A/A++ (Pedersen) | **unconditional content** (K revealed; comp. binding) | perfect-hiding primitive |
+| Recursion (A- & A++-inner) | **structural / assumption-free** (partition is witness) | nothing |
+| Variant B | **disclosed** (partition + sub-matrices) | nothing (by design) |
+| Folding (future) | **structural / assumption-free** | nothing |
+
+**Ladder (assumption-decreasing):** B → A → A++ → committed(hash) → committed(Pedersen)
+→ recursion/folding/flat. Two mechanisms: *commit to hide it* (computational/
+unconditional) vs *don't put it there at all* (assumption-free). A- and A++-inner
+recursion have **identical** final privacy. Even unconditional committed-* is a notch
+weaker than recursion: it still publishes K commitments, whereas recursion makes the
+partition structurally absent.
+
+---
+
 ## Progress
 
 ### Flat baseline (complete)
@@ -297,8 +395,16 @@ Three mental models to keep distinct in the thesis:
 - [ ] Frontier figure: (total gates, parallel wall-clock, per-prover memory, privacy bits) for all variants
 - [ ] Integration with clustered TSP solver (B-side, partitioned routing) for combined-pipeline analysis
 
+### Done since
+
+- Recursive composition of the K segment proofs into one outer proof — **implemented
+  and benchmarked** (`tests/recursion_micro/`; A++-inner and A-inner variants +
+  `compare_inner.py`). Re-attains flat_merkle's perfect hiding (public surface =
+  `root, threshold`); ~704k gates per in-circuit verification, ~K× total. See HOWTO.md
+  and `Recursive_inner_circuit_choice_explained.md`.
+
 ### Future / out of scope
 
-- Folding-scheme variant (Nova/ProtoStar) — the natural continuation
-- True recursive composition of K+1 proofs into one (verifier-side overhead reduction)
+- Folding-scheme variant (Nova/ProtoStar) — the natural continuation; the only
+  unimplemented frontier corner. Would remove the ~704k×K recursive-verifier overhead.
 - Hash commitment for sorted node sets (alternative to A++ for partition hiding)

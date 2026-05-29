@@ -3,6 +3,10 @@
 **Working title (draft):** *Zero-Knowledge Proofs for the Travelling Salesman Problem:
 A Family of Statements, a Structural Dualism, and a Privacy-Cost Frontier*
 
+**Alternative subtitle (2026-05-29 reframe):** *…a Structural Dualism, and the Binding
+Tax of Decomposed Proofs* — surfaces the binding-tax spine (see new §8.8). Decide
+during drafting; both subtitles are on the table.
+
 **Author:** [author]
 **Programme:** MSc Cybersecurity
 **Supervisor:** [supervisor]
@@ -243,16 +247,40 @@ does not give the algorithmic speedup that classical hierarchical TSP gives.
   the proof system. Out of scope for this thesis.
 - §8.7 Implications for proof-system design — the predictive heuristic: "does this
   problem factor locally?"
+- §8.8 **The binding tax — the second structural result** *(added 2026-05-29 reframe)*
+  - §8.8.1 One artifact, three symptoms — decomposition forces a binding step to
+    recombine K independent segment-proofs; that binding manifests as *partition
+    leakage*, *O(K) verifier cost*, and *verifier-side bookkeeping*, all of which are
+    the shared public surface of independent proofs. They dissolve together by folding
+    the binding into a proof.
+  - §8.8.2 Two decisions generate the family — *where* binding lives (verifier-side /
+    in-circuit / deferred) × *what* is bound (plaintext / hiding commitment / witness).
+  - §8.8.3 The pick-two triangle — P (parallel + low per-prover mem) / V (O(1) verifier)
+    / C (low prover overhead); each architecture gives exactly two; folding is the
+    missing corner. The frontier is this triangle *at fixed privacy*.
+  - §8.8.4 Relation to the dualism — §8 explains *why decompose* (parallelism is the
+    only payoff); §8.8 explains *how the variants pay* for it. Source:
+    `FRONTIER_REFRAME.md` / DESIGN.md §9.
 
-**Cross-refs.** §8.3 ↔ Finding 6; §8.4 ↔ Finding 8; §8.7 ↔ §10.5 and §11.2.
+**Cross-refs.** §8.3 ↔ Finding 6; §8.4 ↔ Finding 8; §8.7 ↔ §10.5 and §11.2; §8.8 ↔
+§9.1, §9.6, §10.5, §12.2.1.
 
 ## Chapter 9 — Three Hierarchical Variants *(~15–18 pages)*
 
-**Purpose.** Present the variant-as-statement reframe and the three variants on the
-privacy/cost frontier.
+**Purpose.** Present the variant-as-statement reframe and the variants as *points in
+the binding-tax design space* (§8.8) on the privacy/cost frontier.
+
+**Note (2026-05-29 reframe).** This chapter was titled "Three Hierarchical Variants"
+(A, A++, B). It now additionally presents **recursion as a first-class variant** (it is
+implemented and benchmarked — the perfect-hiding endpoint) and the **committed-A/A++**
+points (the leak-closing move). The chapter title may be relaxed to "Hierarchical
+Variants" during drafting. Variants are framed as answers to the binding tax, not as a
+flat catalogue. See DESIGN.md §9 and `FRONTIER_REFRAME.md`.
 
 - §9.1 The variant-as-statement reframe — variants don't compete on cost; they prove
-  different statements. Mirrors supervisor report §7.7 / Finding 10.
+  different statements. Mirrors supervisor report §7.7 / Finding 10. *Now subordinated
+  to the binding-tax spine: each variant is a choice of where binding lives and what is
+  bound (§8.8.2).*
 - §9.2 Common architecture — K sub-proofs + glue, independent composition (model
   (i)), N divisibility discipline, K parameterisation, glue sharing between A/B
 - §9.3 Variant A — Merkle, sorted-nodes-public
@@ -268,6 +296,25 @@ privacy/cost frontier.
 - §9.5 Variant B — flat-full, sub-matrix public
   - §9.5.1 Sub-circuit (sub-matrix as public input) and glue (reuses A's logic)
   - §9.5.2 Gate-count analysis: O(N²/K)
+- §9.5a **Committed-A / Committed-A++** *(added 2026-05-29 reframe)* — the leak-closing
+  move: bind on hiding commitments instead of plaintext, glue checks openings
+  in-circuit, verifier compares opaque commitments. Closes the partition leak while
+  keeping the non-recursive architecture (stays in the O(K)-verifier corner).
+  - §9.5a.1 Construction — `C_i = Commit(values; r_i)`; for A++, blind the existing
+    `P_i`. Bookkeeping becomes ZK (digest-collapsible to O(K) field-equalities).
+  - §9.5a.2 Hiding type — computational (Poseidon) vs unconditional-content (Pedersen,
+    costlier in-circuit, computational binding). See §9.6.6.
+  - §9.5a.3 Status — analytical point first; implement if time allows (DESIGN.md §9.4).
+- §9.5b **Recursion as a first-class variant** *(added 2026-05-29 reframe)* — in-circuit
+  binding: the outer verifies the K inner proofs, their public inputs become witness,
+  public surface collapses to `(root, threshold)`. Implemented + benchmarked.
+  - §9.5b.1 Why it is the perfect-hiding endpoint — partition structurally absent
+    (assumption-free), same surface as flat_merkle.
+  - §9.5b.2 Inner-circuit choice — A++-inner vs A-inner; the O(1)-surface argument
+    (outer flat ~704,363 gates, N-independent). Source:
+    `Recursive_inner_circuit_choice_explained.md`.
+  - §9.5b.3 Cost — ~704k gates per in-circuit verification, ~K× total; the prover-side
+    price of collapsing the binding tax (the C corner of the §8.8.3 triangle).
 - §9.6 Privacy analysis and per-variant threat-model considerations
   - §9.6.1 Quantitative privacy bound for Variant A — the worked example
     (10.3 bits at N=8) and the general formula
@@ -275,6 +322,17 @@ privacy/cost frontier.
     cycle-recovery feasibility under each
   - §9.6.3 What A++ buys back vs A
   - §9.6.4 B's privacy profile — partition + sub-matrix disclosure
+  - §9.6.5 **The privacy ladder** *(added 2026-05-29 reframe)* — assumption-decreasing
+    ordering: B → A → A++ → committed(hash) → committed(Pedersen) → recursion/folding/
+    flat. Two mechanisms: *commit to hide it* vs *don't put it there at all*
+    (assumption-free). Clarify that flat/recursion "perfect hiding" is **structural**
+    (public surface carries no partition info), not information-theoretic ZK — the
+    SNARK's ZK is identical across all variants and is not a discriminator. Per-variant
+    table in DESIGN.md §9.6.
+  - §9.6.6 **Commitment taxonomy box** *(added 2026-05-29 reframe)* — the hiding/binding
+    tradeoff: Poseidon (computational hiding, cheap) vs Pedersen (unconditional content
+    hiding, costly, computational binding). A++'s `P_i` framed as a binding-but-
+    unblinded commitment (oracle, ~C(N,M)); the commitment fix = adding blinding.
 - §9.7 Use-case mapping — which variant for which real-world scenario (mirrors
   supervisor report §7.7 use-case table)
 
@@ -295,6 +353,12 @@ optimisation), not the implementation order.
 - §10.5 **The frontier figure** — (total gates, parallel wall-clock, per-prover
   memory) panels × (Variant A, A++, B, flat-Merkle baseline). Privacy bits
   annotated.
+  - §10.5a **Reframe (2026-05-29):** redesign as the **pick-two triangle at fixed
+    privacy** (§8.8.3) and add **recursion as the perfect-hiding endpoint** (and
+    committed-A/A++ if implemented). Add an equal-privacy comparison panel: flat /
+    committed-A / committed-A++ / recursion all at 0 partition-bits, reading the P/V/C
+    triangle directly. Folding shown as the empty (P+V+C) corner. Source:
+    `FRONTIER_REFRAME.md` Part 2/5.
 - §10.6 Comparison with flat baseline — anchored at N=480 against flat-Merkle's
   N=500
 
@@ -327,11 +391,16 @@ optimisation), not the implementation order.
 - §12.1 Summary of contributions — restated from §1.4 with the supporting evidence
   for each
 - §12.2 Future work
-  - §12.2.1 Folding-scheme variant
-  - §12.2.2 Recursive composition of K+1 proofs into one
-  - §12.2.3 Other graph problems with non-local constraints (k-clique, graph
+  - §12.2.1 Folding-scheme variant (Nova/ProtoStar) — the only unimplemented
+    frontier corner; would remove the ~704k×K per-step verifier overhead measured
+    for recursion (Ch 10 / report §7.8). *Reframe (2026-05-29): folding is precisely
+    the corner that breaks the §8.8.3 pick-two triangle — it targets P + V + C
+    simultaneously (parallel proving, O(1) verifier, and low prover overhead). Frame it
+    as the single design that collapses the binding tax (§8.8.1) at low cost on every
+    axis.*
+  - §12.2.2 Other graph problems with non-local constraints (k-clique, graph
     colouring) — does the dualism apply?
-  - §12.2.4 Threat-model extensions — actively malicious verifier, network
+  - §12.2.3 Threat-model extensions — actively malicious verifier, network
     adversary
 - §12.3 Closing reflections — what the discovery process suggests about ZK
   applied research more generally
@@ -386,9 +455,9 @@ material.
 | Ch 5 Flat Circuit Design | supervisor_report §3 (most subsections) |
 | Ch 6 Implementation | supervisor_report §4; circuit source comments |
 | Ch 7 Flat Evaluation | supervisor_report §5, §6 (Findings 1–5) |
-| Ch 8 Dualism | supervisor_report §7 |
-| Ch 9 Hierarchical Variants | supervisor_report §7.7, §8; SESSION_SUMMARY hierarchical sections |
-| Ch 10 Hierarchical Empirical | new writing once benchmarks are run |
+| Ch 8 Dualism | supervisor_report §7; **§8.8 binding tax → DESIGN.md §9 + FRONTIER_REFRAME.md Part 1–2** |
+| Ch 9 Hierarchical Variants | supervisor_report §7.7, §8; SESSION_SUMMARY hierarchical sections; **§9.5a/b + §9.6.5/6 → DESIGN.md §9 + FRONTIER_REFRAME.md Part 3** |
+| Ch 10 Hierarchical Empirical | new writing once benchmarks are run; **§10.5a triangle → FRONTIER_REFRAME.md Part 2/5** |
 | Ch 11 Discussion | supervisor_report §6 (Findings 8, 10, 11); new writing |
 | Ch 12 Conclusion | supervisor_report §8 future work; new writing |
 | Appendix A | repository source |

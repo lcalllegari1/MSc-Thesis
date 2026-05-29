@@ -76,6 +76,16 @@ distinct use-case regimes (Section 7).
    problem class. The frontier figure replaces the originally-planned single crossover
    figure and is the principal deliverable of the next phase.
 
+5. **A measured recursive-aggregation corner.** The "perfect-hiding via recursion"
+   endpoint of the frontier is implemented and benchmarked (not left as analysis):
+   an outer circuit verifies the K segment proofs in-circuit and folds in the glue,
+   collapsing the public surface back to `(root, threshold)` — flat_merkle's
+   information-theoretic hiding. One in-circuit UltraHonk verification costs ~704k
+   gates (N-independent); the K-segment proof scales ~K× (~1.47M at K=2, ~3.0M at K=4),
+   ~25–45× A++'s total proving work. A head-to-head A-inner vs A++-inner study shows the
+   choice of inner barely moves total cost (the verifications dominate) but A++'s O(1)
+   public surface keeps the recursive verification segment-size-independent (Section 7.8).
+
 A secondary thread, motivated by parallel work on heuristic TSP solvers, examines the
 same decomposition question in two complementary roles — *finding* a solution
 (optimisation) and *verifying* one (zero-knowledge proof). Section 7 develops the
@@ -1423,11 +1433,13 @@ is still worth implementing).
 Recent proof systems (Nova, ProtoStar, SuperNova) are explicitly designed to address
 the hierarchical / recursive setting. They fold K instances into one with a
 constant-cost folding step, sidestepping the per-recursion verifier overhead that
-limits naive recursive SNARKs. The gate-count analysis in this thesis becomes the
-UltraHonk baseline that any folding-scheme implementation would need to beat for TSP.
-Implementing a folding-scheme variant is out of scope for this thesis but is the
-natural continuation: it would test whether the dualism is intrinsic to the problem
-class or a property of the proof system in use.
+limits naive recursive SNARKs. That overhead is no longer hypothetical here: Section
+7.8 *measures* it at ~704k gates per in-circuit UltraHonk verification (~K× for K
+segments), so a folding implementation has a concrete number to beat. The gate-count
+analysis in this thesis is the UltraHonk baseline any folding-scheme implementation
+would need to improve on for TSP. Implementing a folding-scheme variant is out of scope
+for this thesis but is the natural continuation: it would test whether the dualism is
+intrinsic to the problem class or a property of the proof system in use.
 
 ### 7.6 Combined-pipeline synthesis
 
@@ -1526,10 +1538,12 @@ C(480,240) ≈ 2⁴⁷⁵), so the partition is hidden in any practical sense �
 must be stated as computational hiding with a work factor, not as unconditional secrecy.
 Crucially, the anchors are public *because* the architecture is K+1 independent proofs
 bound by off-circuit cross-checks: the verifier can only stitch the chain across
-separate proofs if the anchors are public inputs. A recursive construction (Section 7.5)
-would keep them private and restore information-theoretic hiding of the interior order.
-A++'s computational-hiding boundary is therefore a measurable price of avoiding
-recursion — itself a point on the frontier, not a defect.
+separate proofs if the anchors are public inputs. The recursive construction now
+implemented (Section 7.8) keeps them private and **restores information-theoretic hiding
+of the interior order** — confirmed in practice: the recursive outer proof exposes only
+`(root, threshold)`. A++'s computational-hiding boundary is therefore a measurable price
+of *avoiding* recursion (and its ~704k×K-gate aggregation cost) — a point on the
+frontier, not a defect.
 
 **Natural use-case mapping.** The variant-as-statement framing yields a clean mapping
 between variants and applications. None of these is hypothetical — each corresponds to
@@ -1541,7 +1555,8 @@ an existing real-world TSP-with-privacy setting:
 | **A** | Multi-team SLA accountability; cross-org cost-sharing; regulated zoning where the partition is operational; ESG reporting by region | Partition disclosure is *operationally required*. The per-segment partial_costs are accountability artifacts. The K-fold parallelism story is real because the segments correspond to operational units that can prove independently. |
 | **A++** | Same operational scenarios as A but where the specific partition is competitively sensitive (e.g., delivery route grouping reveals customer-cluster structure); maximum-privacy hierarchical option | Recovers flat_merkle's partition privacy *computationally* (break work ~C(N,M) / ~(M-2)! per segment — infeasible at thesis sizes) while keeping A's parallelism and **eliminating A's O(N) glue memory floor** (159 MB → 42 MB at N=480, K=8). Costs ~6% more gates in the sub-circuit (measured). |
 | **B** | Smart-city fleet routing on public road networks; verification against TSPLIB instances; non-sensitive matrix with binding gate-cost constraint | Matrix is public anyway, so disclosing sub-matrices costs nothing extra in privacy and saves substantially in gates (Finding 7). |
-| (folding — future) | Same use cases as A++ but with verifier-side overhead the binding constraint | Out of scope; the UltraHonk-based baseline in this thesis is what folding-scheme designs would need to beat. |
+| **recursion** (measured, §7.8) | Same use cases as flat_merkle (maximum/perfect hiding) but where the segment proving must be parallel/streamed, or a single constant-size proof + O(1) verification is required regardless of K | Re-attains flat_merkle's *perfect* hiding (public surface = `root, threshold`) with one ~14.7 KB proof, while keeping segment proving parallelisable. Cost: a monolithic outer of ~704k×K gates (~25–45× A++), per-prover memory ~2–4 GiB. The "perfect hiding is expensive" corner. |
+| (folding — future) | Same use cases as recursion but with the per-step verifier overhead removed | Out of scope; the UltraHonk recursion baseline (§7.8, ~704k×K gates) is the concrete number folding-scheme designs would need to beat. |
 
 **Connecting back to the dualism.** Each variant's position on the frontier is a direct
 consequence of how it negotiates the dualism. A pays for parallelism with partition
@@ -1557,6 +1572,76 @@ This is also where the case for *not* implementing folding schemes in this thesi
 strongest: folding would change the verifier-side overhead, not the dualism. The
 Pareto-frontier among non-folding designs would shift but its shape (the variant-as-
 statement structure) would persist.
+
+### 7.8 Recursive aggregation: the measured perfect-hiding corner
+
+The recursive construction anticipated in Section 7.5 and in the A++ privacy caveat
+(7.7) is now **implemented and benchmarked**, not left as analysis. An outer circuit
+verifies the K segment proofs *in-circuit* (`std::verify_proof` via Aztec's
+`bb_proof_verification`, ZK flavour — `verify_honk_proof`, 458-field proof) and re-runs
+the glue logic with the per-segment values read from the verified proofs. Those values
+are now **witness** of the outer circuit, so the public surface collapses to
+`(root, threshold)` — byte-for-byte flat_merkle's *information-theoretic* hiding, the
+endpoint the A++ caveat pointed at. The harness lives in `tests/recursion_micro/`; the
+inner is the unmodified A++ sub-circuit (recursion-friendliness is a proving-flavour
+choice, not a circuit change), so the comparison against A++ is ceteris paribus.
+
+**What it costs (measured, this machine, UltraHonk).**
+
+| | gates | prove | peak mem | verify | proof |
+|---|---|---|---|---|---|
+| one in-circuit verification | **704,363** | ~8.6 s | ~1.0 GiB | ~15 ms | 14.7 KB |
+| K=2 (verify 2 + glue) | **1,473,357** | ~23 s | ~2.1 GiB | ~15 ms | 14.7 KB |
+| K=4 (verify 4 + glue) | **3,008,907** | ~41 s | ~4.1 GiB | ~15 ms | 14.7 KB |
+
+Three structural facts, each measured across N ∈ {48, 96, 192, 480}:
+
+1. **The aggregation overhead is N-independent.** One in-circuit verification is ~704k
+   gates regardless of segment size (it checks a fixed-size proof). The outer's own gate
+   count is flat in N (1.473M → 1.475M at K=2 across the whole range); the slow growth in
+   the *total* is the inner segment proofs, which can be produced in parallel.
+2. **It scales ~K×.** K=4 ≈ 4.27× one verification; the glue tax is small (~63k gates at
+   K=2, ~191k at K=4). Recursion is therefore **~25× (K=2) to ~45× (K=4) more total
+   proving work than A++**, and the gap *widens* with K — the aggregation layer dwarfs
+   the TSP logic. This makes the "perfect hiding is expensive" claim quantitative.
+3. **The verifier-side win is present-tense.** Recursion delivers *one* ~14.7 KB proof
+   with ~15 ms verification *regardless of K*, versus A++'s K+1 proofs plus off-circuit
+   cross-checks (proof bytes and verify time grow with K). On these axes recursion is
+   already best-tier today (tied with flat_merkle, beating every hierarchical variant).
+
+**Scoped crossover claim (committee-safe).** Recursion is *not* cheaper than the
+hierarchical variants on any prover-cost axis at the sizes tested — A++ Pareto-dominates
+it on gates, prove time, and per-prover memory at every N (and stays there by raising K).
+The defensible crossover is **vs flat_merkle, among perfect-hiding designs, on memory**:
+recursion's prover memory *plateaus* (~2.1 GiB at K=2, N-independent), while flat_merkle's
+*grows* with N (~1.08 GiB at N=500); extrapolating, flat would exceed recursion's plateau
+around N ≈ 1000. So recursion is best framed as *how one scales perfect hiding past where
+monolithic flat proving exhausts RAM* — a qualitative privacy/scaling argument, not a
+cost win. (Prove-time figures are single-run and noisy; the gate and memory columns are
+the robust ones.)
+
+**Inner-circuit choice (A++ vs A).** Inside recursion the partition is hidden regardless
+of inner, so A's public node set is no longer a leak — A would let the outer check the
+partition by a deterministic sort instead of A++'s grand-product + Fiat-Shamir. A
+separate A-inner variant (`exp2_k_segments_a`) and a same-instance comparison
+(`compare_inner.py`) quantify the difference: the two designs are within ~1.5% on outer
+gates and **identical on the verifier side** (one 14.7 KB proof, ~15 ms verify, perfect
+hiding). The one signal is that A++'s outer is flat in N while A's grows by ~22k gates
+from N=48→480 — the O(M) public-input absorption of A's M+4-field surface. A++ is used as
+the benchmark inner for a controlled comparison with the A++ row and because its O(1)
+public surface keeps the recursive verification segment-size-independent; the A-inner
+design (deterministic partition, no Fiat-Shamir) is arguably the more natural recursive
+construction and is recorded as such. Full rationale:
+`Recursive_inner_circuit_choice_explained.md`.
+
+**Frontier placement.** Recursion is the fourth measured corner: flat_merkle (perfect,
+monolithic) → A (parallel, partition public) → A++ (parallel, computational hiding) →
+recursion (perfect, monolithic, ~K× expensive). It re-attains flat_merkle's perfect
+hiding *and* a single constant-size proof while keeping the segment proving
+parallelisable — the corner neither flat (monolithic) nor A++ (computational, K+1 proofs)
+reaches — at a prover cost that grows with K. Folding (Section 7.5) is the remaining
+unimplemented corner that would make this corner cheap; recursion's measured ~704k×K
+overhead is precisely the number a folding implementation would aim to remove.
 
 ---
 
@@ -1577,8 +1662,11 @@ afternoon of machine time.
   `starts/ends/partial_costs` agree with the per-sub-proof publications). This binding
   via shared public inputs replaces what would otherwise be in-circuit recursive
   verification of sub-proofs inside the glue. The verifier-side cost is O(N) trivial
-  equality checks, negligible compared to proof verification itself. Recursive
-  composition is deferred to future work alongside folding schemes (Section 7.5).
+  equality checks, negligible compared to proof verification itself. This independent-
+  proofs design is what *exposes* A++'s anchors as public inputs (the
+  computational-hiding boundary). The in-circuit recursive alternative is **no longer
+  deferred** — it is implemented and benchmarked as the perfect-hiding corner
+  (Section 7.8); only folding (Section 7.5) remains future work.
 - **Instance sizes divisible by `lcm(K)`.** Benchmarks use N ∈ {48, 96, 192, 480} so all
   values of K under test (2, 4, 8) yield integer M = N/K. N=480 is the comparison
   anchor against the existing flat_merkle benchmarks at N=500 (~4% size mismatch).
