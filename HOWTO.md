@@ -646,6 +646,16 @@ python pipeline/make_frontier.py \
 ```
 `--mode both` produces `_parallel` and `_total` lines in the same figure.
 
+### Isolation benchmark (the K× parallelism claim)
+
+The harnesses above launch the K+1 provers **concurrently on one machine**, so their
+per-prover times are measured under contention — the headline K× speedup is therefore
+a *projection* from circuit-size ratios, not a measurement. To **measure** it, time
+each prover **alone** on an idle machine (flat, one segment, glue) and reconstruct the
+distributed wall-clock. Full reasoning, protocol, a verified copy-paste recipe, and
+the reporting format are in **`ISOLATION_BENCHMARK.md`** (this is the open gap O12;
+run it before final submission).
+
 ---
 
 ## Tests

@@ -28,10 +28,11 @@ Map of the project's markdown docs — what each is for and a suggested read ord
 | `thesis_guidelines_and_per_prover_parallel_mem_explained.md` | Thesis guidelines + the per-prover parallel/memory model explainer. |
 | `something_on_motivation_and_defense.md` | Older motivation/defense notes (superseded in part by `MOTIVATION_AND_OBJECTIONS.md`). |
 
-## Write-up planning
+## Write-up planning & methodology
 | Doc | What it is |
 |---|---|
 | `Thesis_Outline.md` | Chapter-by-chapter plan (Ch 9 variants, Ch 10 frontier figure). |
+| `ISOLATION_BENCHMARK.md` | Methodology + verified runnable recipe to turn the K× parallelism speedup from a projection into a measurement (closes objection O12). Run before final submission. |
 
 ## Point-in-time records (historical — banner-marked, not current)
 | Doc | What it is |
