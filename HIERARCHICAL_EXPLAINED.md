@@ -127,6 +127,64 @@ at N=500 (~4% mismatch).
 Initial implementation hardcodes K=2 for the first working end-to-end run; immediately
 after, K becomes a compile-time global. Benchmarks then sweep K ∈ {2, 4, 8}.
 
+### 2.5 Where node-distinctness is enforced — "segment binds, glue enforces"
+
+A natural question: **what stops a prover from putting a duplicate node inside a
+segment** (e.g. `cycle_segment = [3, 3, 5, 7]`)? The answer is the single most
+important structural decision shared by every hierarchical variant, so it is stated
+here once as a principle rather than re-derived per variant.
+
+**Duplicates are *allowed* at the segment level and *refused* globally in the glue.**
+This is deliberate and is the only correct place to enforce the constraint, because
+"each node is visited exactly once" is **inherently global**: a segment sees only its
+own M nodes, so no per-segment check can ever rule out node 3 appearing in segment 0
+*and* in segment 1. The work is therefore split as:
+
+- **Segment binds.** The sub-circuit's only obligation is to *truthfully* tie its
+  public summary to its actual private nodes — so the glue operates on honest data. In
+  Variant A this is `sort(cycle_segment) == sorted_nodes`
+  (`hierarchical_segment` G2); in A++ it is the grand product
+  `∏ⱼ (X + cycle_segment[j]) == P_i` (`hierarchical_segment_fs` G6). Without this
+  binding a prover could declare a clean summary while secretly proving a
+  duplicate-containing internal path — so the binding is **not optional**, even though
+  the *enforcement* lives elsewhere.
+- **Glue enforces.** Exactly one global check catches every duplicate — whether
+  intra-segment or cross-segment — because any repeat means some value of `{0..N-1}` is
+  necessarily missing from the N node slots:
+  - Variant A / B: `sort(all_sorted_nodes) == [0..N-1]` (the sort-based partition,
+    `hierarchical_glue` G2, §8.4.G2).
+  - Variant A++: `∏ᵢ Pᵢ == ∏_{j=0..N-1}(X + j)` (the grand-product multiset equality,
+    `hierarchical_glue_fs` G5, §9.1 / §7).
+
+**Why not also check distinctness inside the segment?** Because it is *redundant*. A
+per-segment strict-ascending / uniqueness check is necessary-but-not-sufficient (it
+cannot see cross-segment overlap), so you would *still* need the global check, and the
+global check already subsumes it. Adding it spends `K·(M−1)` comparison gates that
+catch nothing new — which is exactly why Variant A's sub-circuit deliberately **omits**
+the strict-ascending check (§8.2.G2).
+
+**Which global mechanism is best.** Both global checks are correct; they sit at
+different points on the privacy/cost frontier:
+
+| Mechanism | Public surface / segment | Partition privacy | Glue cost (N=480, K=4) | Soundness |
+|---|---|---|---|---|
+| Sort (A/B) | O(M) — the whole `sorted_nodes` | **disclosed** (verifier sees every node set) | ~21k gates (O(N) in-circuit sort) | unconditional |
+| Grand product (A++) | O(1) — one Field `Pᵢ` | **hidden** (partition never revealed) | ~6.9k gates (~N cheap field mults) | Schwartz–Zippel, error ≤ N/2²⁵⁴ |
+
+The **grand product (A++) is the preferred construction** whenever privacy and a small
+public surface matter — which is this thesis's direction — dominating the sort on
+public-input size, partition privacy, *and* glue gate count. Its only costs are the
+Fiat-Shamir plumbing (the chain terminal `c` → challenge `X = Poseidon2([c])`,
+`hierarchical_glue_fs` G1–G4) and a *probabilistic* soundness error. The sort is
+simpler and unconditional, so it remains the right **baseline / disclosed** rung.
+
+**Load-bearing caveat (A++).** The grand-product argument is sound only if `X` is
+unforgeable *before* the prover commits the `Pᵢ` — otherwise the prover could grind a
+fake partition whose products happen to match at a known `X` (§7.3). That is the entire
+purpose of binding `X` to the full-cycle chain terminal `c` (§7.5, sub G7 + glue G4).
+When auditing "refuse in the glue," this Fiat-Shamir binding is the assumption the whole
+global check rests on.
+
 ---
 
 ## 3. The variant-as-statement reframe

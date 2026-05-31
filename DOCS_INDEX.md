@@ -33,6 +33,7 @@ Map of the project's markdown docs — what each is for and a suggested read ord
 |---|---|
 | `Thesis_Outline.md` | Chapter-by-chapter plan (Ch 9 variants, Ch 10 frontier figure). |
 | `ISOLATION_BENCHMARK.md` | Methodology + verified runnable recipe to turn the K× parallelism speedup from a projection into a measurement (closes objection O12). Run before final submission. |
+| `HIER_MEASUREMENT_AND_PLOTS.md` | Measurement semantics (per-segment vs cumulative, the `--isolated`/`--mode` knobs, concurrent vs isolated deployment claims) + a **plot taxonomy** organized by the question each chart answers. Read before designing figures. |
 
 ## Point-in-time records (historical — banner-marked, not current)
 | Doc | What it is |
