@@ -8,9 +8,11 @@ plot.py expects one row per (variant, N) data point with the standard run.py
 schema, so this script aggregates the K+1 rows into a single per-(K) variant row.
 
 Variant-aware: the output variant base is taken from the raw CSV's `variant`
-column, so the SAME script handles both inputs with no flags:
-  results/hier_a.csv   -> rows tagged  hier_a_k{K}
-  results/hier_fs.csv  -> rows tagged  hier_fs_k{K}
+column, so the SAME script handles every hierarchical variant with no flags:
+  results/hier_a.csv    -> rows tagged  hier_a_k{K}     (Variant A)
+  results/hier_fs.csv   -> rows tagged  hier_fs_k{K}    (Variant A++)
+  results/hier_c.csv    -> rows tagged  hier_c_k{K}     (Variant committed-A)
+  results/hier_cfs.csv  -> rows tagged  hier_cfs_k{K}   (Variant committed-A++)
 (See "Variant naming" below.)
 
 Aggregation rules

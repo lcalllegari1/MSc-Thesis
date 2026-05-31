@@ -146,41 +146,51 @@ implies.
 | flat_merkle_presence | committed (root) | N/A | — |
 | **Variant A** | committed | node-sets + endpoints plaintext | **disclosed** (unconditional leak) |
 | **Variant A++** | committed | endpoints plaintext; membership = unblinded `P_i` | **computational, oracle** (~C(N,M), confirms guesses) |
-| **committed-A/A++ (hash)** | committed | blinded commitment | **computational** |
-| **committed-A/A++ (Pedersen)** | committed | blinded commitment | **unconditional content** (K revealed, comp. binding) |
+| **committed-A** (impl., Poseidon) | committed | blinded commitment `C_i` (sort partition in glue) | **computational** (reveals K; on Poseidon) |
+| **committed-A++** (impl., Poseidon) | committed | blinded commitment `C_i` (grand-product partition) | **computational** (reveals K; on Poseidon) |
+| committed-A/A++ (Pedersen, analytical) | committed | blinded commitment | **unconditional content** (K revealed, comp. binding) |
 | **Recursion** (A- & A++-inner) | committed | absent (witness) | **structural / assumption-free** |
 | Variant B (unimpl.) | sub-matrices disclosed | partition + sub-matrices plaintext | **disclosed** (most) |
 | Folding (future) | committed | absent (witness) | **structural / assumption-free** |
 
 **Privacy ladder (assumption-decreasing):**
-B → A → A++ → committed(hash) → committed(Pedersen) → recursion/folding/flat.
-Two distinct mechanisms: *commit to hide it* (rungs 4–5) vs *don't put it there at
-all* (rung 6, assumption-free). A- and A++-inner recursion have **identical** final
-privacy.
+B → A → A++ → committed-A / committed-A++ (Poseidon) → committed (Pedersen) →
+recursion/folding/flat. Two distinct mechanisms: *commit to hide it* (the committed
+rungs) vs *don't put it there at all* (recursion/flat, assumption-free). **Implemented
+finding:** committed-A and committed-A++ land at the *same* rung (multiset
+computational, interior order info-theoretic, reveal K) — they differ only in glue
+cost/mechanism (O(N) sort + O(N) commit-fold vs distributed grand-product + O(K)
+commit-fold), the equal-privacy restatement of F7. A- and A++-inner recursion also
+have **identical** final privacy.
 
 ---
 
-## Part 4 — Open choices (decisions needed)
+## Part 4 — Decisions (resolved 2026-05-31)
 
-| # | Choice | Options | Recommendation |
-|---|---|---|---|
-| C1 | Adopt "binding tax" as 2nd structural result? | yes / keep only dualism | **Yes** — it's what makes the progress-line monotone |
-| C2 | committed-A/A++ status | implement as full variants / analytical "could-build" point | **Analytical first** (Solution 1), implement only if time allows |
-| C3 | Commitment scheme (if implemented) | Poseidon (computational, cheap) / Pedersen (unconditional content, costly) | **Poseidon** — matches the stack; note Pedersen as the unconditional upgrade |
-| C4 | Privacy treatment in comparison | quantify as bits (no code) / equalize via commitment (code) | **Quantify-bits now**, equalize-by-commitment as the stronger follow-up |
-| C5 | Recursion's status in the narrative | first-class variant / future-work footnote | **First-class** — it's implemented and is the perfect-hiding endpoint |
+| # | Choice | Resolution |
+|---|---|---|
+| C1 | Adopt "binding tax" as 2nd structural result? | **Yes** — it makes the progress-line monotone |
+| C2 | committed-A/A++ status | **Implemented as full variants** (both committed-A and committed-A++), kept *alongside* A/A++ as new frontier points |
+| C3 | Commitment scheme | **Poseidon implemented**; Pedersen kept as an analytical unconditional-content upgrade |
+| C4 | Privacy treatment in comparison | **Equalize via commitment (code)** — committed-* give the equal-privacy slice; privacy-bits also quantified (§14.4/14.5) |
+| C5 | Recursion's status in the narrative | **First-class** — implemented, the perfect-hiding endpoint |
+| C6 | Role of A / A++ given committed-* | **Keep, reframed** as the *diagnosis* (binding tax + confirmation-oracle leak) and the *disclosure-regime* points; committed-* are the *cure*. Presented as one progression line, not co-equal variants |
 
 ---
 
 ## Part 5 — Next steps (ordered, mapped to artifacts)
 
-**Immediate (no new circuits — unblocks the comparison):**
-1. **Privacy-bits quantification** → write §9.6 content: the per-implementation table +
-   ladder + a commitment-taxonomy box (hiding/binding tradeoff). Source: Part 3 above.
-2. **Frontier figure redesign** (Ch 10 §10.5): replace 2D privacy-cost plot with the
+**Immediate (unblocks the comparison):**
+1. ✅ **Privacy-bits quantification** written: per-implementation table + ladder +
+   commitment taxonomy now in `HIERARCHICAL_EXPLAINED.md` §9b (design) and §14.4/14.5
+   (privacy class + assumption-decreasing ladder).
+2. **Frontier figure redesign** (Ch 10): replace the 2D privacy-cost plot with the
    pick-two triangle at fixed privacy; add **recursion as the perfect-hiding endpoint**;
-   add an equal-privacy comparison panel (flat / committed-A / committed-A++ /
-   recursion). Privacy-bits annotated.
+   add an **equal-privacy comparison panel** (flat / committed-A / committed-A++ /
+   recursion — all at the "partition hidden" slice, differing in cost / parallelism /
+   verifier), with A / A++ drawn as the upstream *disclosure / oracle-leak* points on the
+   same progression line (arrows, not co-equal markers). Privacy-bits annotated. Needs the
+   `results/hier_c.csv` / `results/hier_cfs.csv` sweeps for the cost coordinates.
 
 **Outline edits (`Thesis_Outline.md`):**
 3. **Ch 8:** add closing section introducing the **binding tax** (F3) + the two binding
@@ -196,16 +206,22 @@ privacy.
 7. Spec / auto-generate the cross-check code from the circuit public-input ABI so it
    can't drift; add property tests. Addresses the "trusted code surface" objection (F2).
 
-**Optional implementation (only if C2 = implement):**
-8. **committed-A++:** replace public `P_i` with a blinded commitment; move `P_i` +
-   endpoints to glue witness; recompute commitment + grand product in-circuit; update
-   `verify_hier_fs.py` to check commitment equality. Smallest change (P_i is already a
-   per-segment summary lacking blinding).
-9. **committed-A:** analogous with `sorted_nodes` → blinded commitment.
-10. Benchmark committed-* into `results/` and add to the frontier figure.
+**committed-* implementation — DONE (2026-05-31):**
+8. ✅ **committed-A++** built: `circuits/hierarchical_segment_cfs` + `hierarchical_glue_cfs`,
+   blinded `C_i` over `[P_i, h_in, h_out, start, end, partial_cost]`; sub G7 dropped; glue
+   G0 recompute. Public `{root, X, C_i}` / `{root, T, X, C_is}`.
+9. ✅ **committed-A** built: `circuits/hierarchical_segment_c` + `hierarchical_glue_c`,
+   blinded `C_i` over `[cycle_segment…, partial_cost]`; per-segment sort dropped; glue G0 +
+   O(N) sort. Public `{root, C_i}` / `{root, T, C_is}`.
+10. ✅ Builder modes `--hierarchical-c` / `--hierarchical-cfs`, verifiers
+    `verify_hier_{c,cfs}.py`, harnesses `run_hier_{c,cfs}.py` (CSV `hier_c` / `hier_cfs`),
+    correctness suites `test_hierarchical_{c,cfs}.py` (7/7 each), `aggregate_hier.py`
+    variant-agnostic. **Pending:** the user runs the `run_hier_{c,cfs}.py` sweeps into
+    `results/` and the frontier figure adds the equal-privacy panel.
 
-**Already done (cite, don't redo):** recursion implemented + benchmarked (A++-inner &
-A-inner, `compare_inner.py`); A++ partition-privacy = computational established in
+**Already done (cite, don't redo):** committed-A/A++ implemented + documented
+(§9b, §14.4/14.5); recursion implemented + benchmarked (A++-inner & A-inner,
+`compare_inner.py`); A++ partition-privacy = computational established in
 `HIERARCHICAL_EXPLAINED.md` §9.11/§14.2; recursion inner-choice justified in
 `Recursive_inner_circuit_choice_explained.md`.
 

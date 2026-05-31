@@ -1,0 +1,31 @@
+# hierarchical_glue_c Prover.toml
+# Variant committed-A glue. Public: root, threshold, C_is.
+# (all_nodes/partial_costs/r_is are private witness.)
+
+# Private witness: K boundary-edge costs
+boundary_costs = ["212418", "138884"]
+
+# Private witness: Poseidon2 Merkle siblings for the K boundary-edge proofs
+boundary_siblings = ["0x000000000000000000000000000000000000000000000000000000000004933a", "0x078b70a5f7c0d940087776482513b06d51934777a9d5389a21b2e0d40a0891db", "0x20aa8ea71e4a1ff5407ca954e34a79c294b352055bbd1cd0cc30c449808c95ed", "0x1969c7d83190336ae77b1d4220cfdba05388b07138b8862e41dbf3d8097af2f0", "0x124e7e464ec791d019b076f9fadfa58965f2d774d1b2bf48e9eaf83305810bbd", "0x09eb252b8ac9936711cb6825c2b43f0977f2f10ce8044ae55a9be4a93f286d35", "0x000000000000000000000000000000000000000000000000000000000007c463", "0x275beb2152d05316635589ca7553a28f8d29b8ea3b32e9d6337d2cc5525f3ead", "0x0f0ebbf4038cc93ebe554b263fcb7c9f42badb8dd16bc8a1e159857d491e6117", "0x1df4370abc761c3e49fd503c4f5d3104c38b9c1d63ac194c3cf698f616529b8c", "0x081d6df401218b6eb30e1b232fe653fa32ef54c6ec41eb282425839101f387fe", "0x09eb252b8ac9936711cb6825c2b43f0977f2f10ce8044ae55a9be4a93f286d35"]
+
+# Private witness: LSB-first leaf-index encoding for boundary-edge proofs
+boundary_path_bits = [true, false, true, true, false, false, false, false, false, false, true, false]
+
+# Private witness: concatenated segment node visit orders (length N)
+all_nodes = ["0", "6", "4", "1", "5", "7", "3", "2"]
+
+# Private witness: per-segment internal cost sums
+partial_costs = ["978174", "1010560"]
+
+# Private witness: per-segment blinding scalars (commitment openings)
+r_is = ["0x00000000000000000000000000000000cf85a5f545f7e199e4157cf67573dd96", "0x00000000000000000000000000000000169dcfa189f4f42b13764b3cbf78d70a"]
+
+# Public input: Poseidon2 Merkle root of the N*N cost matrix
+root = "0x2abde2849b8aada81718848be4830e557fb102fd62670ec5e1263b11df1624e4"
+
+# Public input: cycle cost upper bound
+# (actual cost = 2340036, threshold = 2574040)
+threshold = "2574040"
+
+# Public input: per-segment blinded commitments (cross-checked vs sub_i.C_i)
+C_is = ["0x0d5d81c35419f4b4a1386cda03f857b2096e6d938127684137837975e07f0e44", "0x01690ab2f4a809c49c4c38b5509e9dde84396dd9c9a5e3013579ea5e5ae56549"]

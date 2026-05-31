@@ -502,10 +502,54 @@ CSV columns: `variant, n, run, circuit_size, acir_opcodes, compile_s, witness_s,
 ### Plot the results
 
 ```bash
+# Simplest: one CSV, default 8-metric grid, linear + log-log PNGs.
 python pipeline/plot.py \
   --csv results/flat_full_pairwise.csv \
   --out plots/flat_full_pairwise
 ```
+
+`plot.py` groups rows by `(variant, N)`, plots mean ± std across runs, one line
+per variant, and always writes a `_linear` and a `_loglog` file.
+
+Options:
+- `--csv`       One or more CSVs (concatenated; the `variant` column = one line). Required.
+- `--out`       Output path prefix, no extension. Required.
+- `--metrics`   Which metrics to draw (default: all eight — `circuit_size acir_opcodes
+                prove_s witness_s verify_s proof_bytes peak_mb compile_s`). Pass a subset
+                to focus a figure.
+- `--variants`  Variant names or `fnmatch` globs to include (default: all in the CSV),
+                e.g. `--variants 'hier_c_k*' 'hier_cfs_k*' flat_merkle_presence`.
+- `--min-n` / `--max-n`  Window the size range read from a big CSV (filters on N), so one
+                large CSV serves many figures without splitting it.
+- `--separate`  Write one file per metric (`<out>_<metric>_<scale>.<fmt>`) instead of the
+                single grid (grid is the default).
+- `--format`    `png` (default), `pdf`, or `svg`. **Use `pdf` for thesis figures** (vector,
+                scales crisply in LaTeX).
+- `--legend`    `outside` (default; one shared legend below), `inside` (on a panel), or
+                `none`. Switch with e.g. `--legend inside`.
+- `--no-title`  Omit the figure suptitle (let the LaTeX caption be the title).
+- `--title`     Custom suptitle (default: first CSV's filename stem).
+- `--dpi`       Raster DPI for PNG (default 150; ignored for vector formats).
+
+Examples:
+```bash
+# Thesis figure: committed variants + flat baseline, N<=192, vector, per-metric files.
+python pipeline/plot.py \
+  --csv results/all.csv --out plots/committed_small \
+  --variants 'hier_c_k*' 'hier_cfs_k*' flat_merkle_presence \
+  --max-n 192 --separate --format pdf --no-title \
+  --metrics circuit_size prove_s peak_mb proof_bytes
+
+# Quick look at just the new ACIR/witness metrics, legend on the panel.
+python pipeline/plot.py --csv results/all.csv --out plots/acir \
+  --metrics acir_opcodes witness_s --legend inside
+```
+
+Per-variant colours/markers are **stable across figures** (keyed by the variant
+name), so a variant looks the same in every plot regardless of which others are
+shown. To curate the final thesis colours/labels, edit two dicts near the top of
+`pipeline/plot.py`: `STYLE_OVERRIDES` (pin a variant to a colour slot) and
+`DISPLAY_NAMES` (relabel a variant in legends). Both are empty (identity) by default.
 
 ---
 
@@ -535,14 +579,72 @@ Saves one PNG with four panels:
 
 Options: `--csv`, `--out`, `--dpi` (default 150).
 
-Produces two PNG files:
-- `plots/flat_full_pairwise_linear.png`  — linear axes, error bars show std across runs
-- `plots/flat_full_pairwise_loglog.png`  — log-log axes with empirical slope annotation
-  (slope ≈ exponent of the polynomial relationship, e.g. 2.0 for O(N^2))
+---
 
-Options:
-- `--title`  Custom figure suptitle (default: CSV filename stem)
-- `--dpi`    Output resolution (default: 150)
+## Hierarchical benchmarking and the frontier
+
+The hierarchical variants emit **K+1 rows per (N, K) cell** (one per circuit:
+`sub_0..sub_{K-1}`, `glue`). Each variant has its own harness; all four share the
+CSV schema and downstream tooling.
+
+```bash
+# Variant A (sorted-nodes public)     -> results/hier_a.csv   (variant col "hier_a")
+python pipeline/run_hier.py     --ns 48 96 192 480 --ks 2 4 8 --runs 3 --out results/hier_a.csv
+# Variant A++ (grand product + FS)    -> results/hier_fs.csv  (variant col "hier_fs")
+python pipeline/run_hier_fs.py  --ns 48 96 192 480 --ks 2 4 8 --runs 3 --out results/hier_fs.csv
+# Variant committed-A (blinded C_i, sort partition)        -> results/hier_c.csv
+python pipeline/run_hier_c.py   --ns 48 96 192 480 --ks 2 4 8 --runs 3 --out results/hier_c.csv
+# Variant committed-A++ (blinded C_i, grand-product)       -> results/hier_cfs.csv
+python pipeline/run_hier_cfs.py --ns 48 96 192 480 --ks 2 4 8 --runs 3 --out results/hier_cfs.csv
+```
+
+Shared options: `--ns`, `--ks`, `--runs`, `--out`, `--seed`. Each harness patches
+the circuit globals, compiles sub + glue, builds the K+1 `Prover.toml`s via
+`merkle_builder` (mode `--hierarchical{,-fs,-c,-cfs}`), proves the K+1 circuits in
+parallel, then runs the matching `verify_hier{,_fs,_c,_cfs}.py` cross-check.
+Prerequisite: the Rust builder must be compiled
+(`cargo build --release --manifest-path pipeline/merkle_builder/Cargo.toml`).
+
+### Aggregate K+1 rows into one point per cell
+
+`aggregate_hier.py` is variant-agnostic (reads the `variant` column) and turns the
+raw CSV into a `plot.py`-compatible one (`{variant}_k{K}` rows):
+
+```bash
+python pipeline/aggregate_hier.py --in results/hier_cfs.csv \
+  --out results/hier_cfs_parallel.csv --mode parallel
+```
+- `--mode parallel` (default): `prove_s`/`witness_s` use **max** over the K+1 provers
+  — the ideal one-node-per-segment wall-clock. `--mode total` uses **sum** (total CPU work).
+- `--mode-in-name` appends `_parallel`/`_total` to the variant name so both modes can
+  coexist in one figure.
+- Other metrics: `circuit_size`/`acir_opcodes` = K·sub + glue; `verify_s` = Σ bb-verify +
+  cross-check; `proof_bytes` = Σ (the K+1 proofs); `peak_mb` = max (per-prover peak).
+
+### One-shot: aggregate + plot the frontier
+
+`make_frontier.py` chains the aggregator and `plot.py` in one command and echoes
+every sub-command it runs (so the chain is reproducible by hand). Pass raw
+hierarchical CSVs with `--aggregate` and already-plot-ready CSVs (the flat baseline
+`results/500.csv`, recursion CSVs) with `--include`; all `plot.py` flags above are
+forwarded.
+
+```bash
+# Equal-privacy frontier: flat + committed-A/A++ + recursion, parallel wall-clock.
+python pipeline/make_frontier.py \
+  --aggregate results/hier_c.csv results/hier_cfs.csv \
+  --include   results/500.csv results/recursion_full_tot.csv \
+  --out plots/frontier --mode parallel
+
+# Thesis panel: window to N<=192, committed + flat only, vector, one file per metric.
+python pipeline/make_frontier.py \
+  --aggregate results/hier_c.csv results/hier_cfs.csv --include results/500.csv \
+  --out plots/frontier_small --mode parallel --max-n 192 \
+  --variants 'hier_c_k*' 'hier_cfs_k*' flat_merkle_presence \
+  --separate --format pdf --no-title --legend inside \
+  --metrics circuit_size prove_s peak_mb proof_bytes
+```
+`--mode both` produces `_parallel` and `_total` lines in the same figure.
 
 ---
 
@@ -576,7 +678,21 @@ python tests/correctness/test_flat_merkle_presence.py
 # Run all soundness tests for Variant A (hierarchical, sub + glue)
 # (patches circuit globals + recompiles per test; merkle_builder built on first run)
 python tests/correctness/test_hierarchical_a.py
+
+# Variant A++ (grand product + in-circuit Fiat-Shamir)
+python tests/correctness/test_hierarchical_fs.py
+
+# Variant committed-A   (blinded commitment, sort partition)
+python tests/correctness/test_hierarchical_c.py
+
+# Variant committed-A++ (blinded commitment, grand-product partition)
+python tests/correctness/test_hierarchical_cfs.py
 ```
+
+The committed-variant suites add two checks beyond A/A++: the **sub-side commitment
+binding** (G8 — tampering the public `C_i` is rejected) and the **glue-side
+commitment binding** (G0 — tampering a now-hidden witnessed value while keeping
+`C_is` is rejected), plus a verifier cross-check that rejects mixed proof sets.
 
 All test suites for `flat_full_*` cover the same invalid-witness categories:
 - Valid baselines (must always pass)

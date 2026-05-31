@@ -1,0 +1,45 @@
+# hierarchical_glue_cfs Prover.toml
+# Variant committed-A++ glue. Public: root, threshold, X, C_is.
+# (starts/ends/partial_costs/P_is/h_ins/h_outs/c are private witness.)
+
+# Private witness: K boundary-edge costs
+boundary_costs = ["212418", "138884"]
+
+# Private witness: Poseidon2 Merkle siblings for the K boundary-edge proofs
+boundary_siblings = ["0x000000000000000000000000000000000000000000000000000000000004933a", "0x078b70a5f7c0d940087776482513b06d51934777a9d5389a21b2e0d40a0891db", "0x20aa8ea71e4a1ff5407ca954e34a79c294b352055bbd1cd0cc30c449808c95ed", "0x1969c7d83190336ae77b1d4220cfdba05388b07138b8862e41dbf3d8097af2f0", "0x124e7e464ec791d019b076f9fadfa58965f2d774d1b2bf48e9eaf83305810bbd", "0x09eb252b8ac9936711cb6825c2b43f0977f2f10ce8044ae55a9be4a93f286d35", "0x000000000000000000000000000000000000000000000000000000000007c463", "0x275beb2152d05316635589ca7553a28f8d29b8ea3b32e9d6337d2cc5525f3ead", "0x0f0ebbf4038cc93ebe554b263fcb7c9f42badb8dd16bc8a1e159857d491e6117", "0x1df4370abc761c3e49fd503c4f5d3104c38b9c1d63ac194c3cf698f616529b8c", "0x081d6df401218b6eb30e1b232fe653fa32ef54c6ec41eb282425839101f387fe", "0x09eb252b8ac9936711cb6825c2b43f0977f2f10ce8044ae55a9be4a93f286d35"]
+
+# Private witness: LSB-first leaf-index encoding for boundary-edge proofs
+boundary_path_bits = [true, false, true, true, false, false, false, false, false, false, true, false]
+
+# Private witness: per-segment endpoints
+starts = ["0", "5"]
+ends = ["1", "2"]
+
+# Private witness: per-segment internal cost sums
+partial_costs = ["978174", "1010560"]
+
+# Private witness: per-segment grand products
+P_is = ["0x24563da2305a03d35f016e440b435a92654d862fc9b2796634aa8a28d14b8785", "0x2c806704f9104fed35228c280677fd77335a9adba350d25b4afce7d4a486a968"]
+
+# Private witness: per-segment chain anchors
+h_ins = ["0x0000000000000000000000000000000000000000000000000000000000000000", "0x0e7ab3ae69c7c024549991d351b936c57fd1a6eb66a4c7b1498198960b391241"]
+h_outs = ["0x0e7ab3ae69c7c024549991d351b936c57fd1a6eb66a4c7b1498198960b391241", "0x24df9545bec644df749e191ab0b0c24dd5c6d3d8a64ccda44623cc4a4ee06efa"]
+
+# Private witness: per-segment blinding scalars (commitment openings)
+r_is = ["0x00000000000000000000000000000000267a489e46146bd1517fd5ce143ef022", "0x000000000000000000000000000000000b5d35cc7c95b51170452cd10c32142f"]
+
+# Private witness: full-cycle chain terminal c
+c = "0x24df9545bec644df749e191ab0b0c24dd5c6d3d8a64ccda44623cc4a4ee06efa"
+
+# Public input: Poseidon2 Merkle root of the N*N cost matrix
+root = "0x2abde2849b8aada81718848be4830e557fb102fd62670ec5e1263b11df1624e4"
+
+# Public input: cycle cost upper bound
+# (actual cost = 2340036, threshold = 2574040)
+threshold = "2574040"
+
+# Public input: Fiat-Shamir challenge X = Poseidon2([c],1)
+X = "0x2d9271c18f0caedae5223a22407be9d21bd1d1a99252496acd709c6fa14dbae7"
+
+# Public input: per-segment blinded commitments (cross-checked vs sub_i.C_i)
+C_is = ["0x29476ce3b1834a1ea00af945e8bf762d1689fa84879d816da412a9ace20d4259", "0x1aa37935f32af63ce2777c94ebe899f0046b790203b61f5883f398a9fd7ff323"]

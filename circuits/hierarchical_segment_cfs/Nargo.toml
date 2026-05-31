@@ -1,0 +1,16 @@
+[package]
+name = "hierarchical_segment_cfs"
+type = "bin"
+authors = []
+
+# Sub-circuit for Variant committed-A++ (hierarchical TSP, Merkle commitment,
+# partition HIDDEN behind a *blinded* Poseidon2 commitment).  Forked from
+# hierarchical_segment_fs: the per-segment public scalars (start_node, end_node,
+# partial_cost, P_i, h_in_i, h_out_i, c) are GONE from the public surface; in
+# their place is a single hiding commitment C_i = fold(r, [P_i, h_in_i, h_out_i,
+# start, end, partial_cost]) over the already-cross-validated 2-input Poseidon2.
+# The sub's G7 (X == Poseidon2(c)) is dropped: the X<->c binding now lives only
+# in the glue (committed-A++ has no public c).  Public surface: {root, X, C_i}.
+
+[dependencies]
+poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }

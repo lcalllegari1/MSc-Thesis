@@ -24,6 +24,7 @@ examples (N=8, K=2 for all three variants on the same cycle) to compare side by 
 7. [Cryptographic building blocks: Schwartz-Zippel and Fiat-Shamir](#7-cryptographic-building-blocks-schwartz-zippel-and-fiat-shamir)
 8. [Variant A — Merkle, partition public](#8-variant-a--merkle-partition-public)
 9. [Variant A++ — Merkle, grand product + in-circuit Fiat-Shamir](#9-variant-a--merkle-grand-product--in-circuit-fiat-shamir)
+9b. [Variants committed-A / committed-A++ — closing the partition leak](#9b-variants-committed-a--committed-a--closing-the-partition-leak)
 10. [Variant B — flat-full, sub-matrices public](#10-variant-b--flat-full-sub-matrices-public)
 11. [The proof workflow (applies to all variants)](#11-the-proof-workflow-applies-to-all-variants)
 12. [Side-by-side comparison](#12-side-by-side-comparison)
@@ -1273,6 +1274,150 @@ unconditional ambiguity.
 
 ---
 
+## 9b. Variants committed-A / committed-A++ — closing the partition leak
+
+Variants A and A++ are the **diagnosis**: A discloses the partition outright; A++
+hides the node multisets but only behind *confirmation oracles* (§9.11) — `P_i`
+factors over C(N,M) subset-products and the public chain anchors brute-force over
+(M-2)! orderings. The committed variants are the **cure**: they keep A's and A++'s
+mechanisms (sort / grand-product) and their parallelism, but move every
+per-segment value behind a single **blinded Poseidon2 commitment**, so a bounded
+verifier can no longer confirm a guessed partition. This is the "commitment fix"
+of `FRONTIER_REFRAME.md` (F6).
+
+### 9b.1 The move
+
+Each sub-circuit, instead of exposing its per-segment scalars in the clear,
+publishes one hiding commitment
+
+```
+C_i = fold(r_i, [v_1, .., v_m])      where  fold(acc, x) = Poseidon2([acc, x], 2)
+```
+
+seeded by a uniformly-sampled blinding scalar `r_i` (the prover's secret). The
+glue takes the values **and their openings `r_i`** as private witness, recomputes
+each `C_i` and asserts it equals the public `C_is[i]` (constraint **G0**), then
+runs all partition / boundary / threshold logic on the now-trusted witnessed
+values. The verifier's cross-check collapses to comparing opaque field elements:
+the shared `root` (and `X` for committed-A++), plus `glue.C_is[i] == sub_i.C_i`.
+Because the commitments are blinded, this bookkeeping is automatically
+zero-knowledge.
+
+`fold` uses only the 2-input `Poseidon2::hash([l, r], 2)` already cross-validated
+against the Rust builder in `tests/hash_compat/`; no new hashing primitive is
+introduced. Hiding rests on Poseidon2 as a random oracle (a guessed value-tuple
+cannot be confirmed without `r_i`); binding rests on its collision resistance (a
+commitment opens to essentially one tuple).
+
+### 9b.2 committed-A++ (the cure for A++)
+
+`circuits/hierarchical_segment_cfs` + `hierarchical_glue_cfs`. The sub folds the
+A++ aggregates `[P_i, h_in_i, h_out_i, start, end, partial_cost]` into `C_i`;
+`h_in_i` and `r` become private witness. **Public surface: `{root, X, C_i}`**
+(sub) / **`{root, threshold, X, C_is}`** (glue). Two consequences:
+
+- **The sub's G7 (`X == Poseidon2(c)`) is dropped.** committed-A++ has no public
+  `c`; the X↔c binding lives only in the glue (G4), and the chain↔nodes binding is
+  re-established by the sub's chain-link (G5) plus the commitment equality. `X`
+  itself stays public: it is a one-way hash of the now-private `c`, leaks nothing,
+  and is the single global challenge every sub needs to compute `P_i`.
+- **The distributed structure is preserved.** Each sub still computes its `P_i`
+  (O(M)); the glue still multiplies K products against the in-circuit RHS
+  `∏(X+j)`. The commitment adds only K aggregate-folds (6 hashes each, O(K) total)
+  to the glue — so committed-A++ keeps A++'s O(K)-flavoured glue advantage.
+
+Both §9.11 oracles close: `P_i` and the anchors are inside `C_i` (private), so the
+multiset is no longer factorable and the interior order is pure witness
+(information-theoretically hidden, as in A).
+
+### 9b.3 committed-A (the cure for A)
+
+`circuits/hierarchical_segment_c` + `hierarchical_glue_c`. The sub folds
+`[cycle_segment…, partial_cost]` into `C_i`; the per-segment sort (plain A's G2) is
+**dropped** — the glue owns the partition. **Public surface: `{root, C_i}`** (sub)
+/ **`{root, threshold, C_is}`** (glue); no Fiat-Shamir, no `X`. The glue witnesses
+all K segments' nodes (flat `[u32; N]`), recomputes each `C_i` (G0), runs the same
+**O(N) sort** partition check (`sort(all_nodes) == [0..N-1]`) over the witnessed
+nodes, and derives the boundary endpoints `start_i = all_nodes[i·M]`,
+`end_i = all_nodes[i·M+M-1]` from them (so the glue needs the `M` global). The sort
+also forces every node into `[0,N)`, so no separate range check is needed in the
+glue.
+
+### 9b.4 Privacy class and the honest ceiling
+
+Both committed variants hide the multiset **computationally** (on Poseidon2) and
+the interior order **information-theoretically** (it is pure witness). The honest
+residual versus flat/recursion: they still publish **K commitments**, so they
+**reveal K** (the segment count), and hiding rests on the commitment scheme. That
+places committed-* exactly **one assumption below** flat and recursion, which make
+the partition *structurally absent* from the public surface (§F10). The payoff:
+committed-* reach near-flat privacy **without recursion's ≈704k×K aggregation
+tax**, keeping the per-segment parallelism and low per-prover memory. The only
+binding-tax symptom they retain is the O(K) verifier (K+1 proofs, K commitments) —
+the symptom that only recursion (in-circuit) or folding (deferred) removes.
+
+The optional unconditional upgrade is **Pedersen** commitments (unconditional
+content hiding, at the cost of in-circuit curve operations and only *computational*
+binding); it is left as an analytical point — Poseidon matches the stack and gives
+computational hiding cheaply.
+
+### 9b.5 The equal-privacy finding (committed-A ≡ committed-A++ in privacy)
+
+Under full equalization the two committed variants reach the **same privacy
+class** — multiset computational, interior order information-theoretic, reveal K.
+They differ only in **glue cost and mechanism**:
+
+- committed-A: O(N) sort **plus** an O(N) commitment fold (the glue re-folds all N
+  nodes), so its glue carries the heavier O(N) work;
+- committed-A++: distributed grand-product (each sub folds its own O(M) into `P_i`)
+  with only an O(K) aggregate commitment fold in the glue.
+
+This is the equal-privacy restatement of the F7 result ("A is not dominated by
+A++"): once privacy is held constant, the A-vs-A++ contrast is purely a
+glue-cost / critical-path comparison — A++'s aggregate commitment is the more
+glue-efficient design, while committed-A is simpler (deterministic, no
+Schwartz–Zippel error term).
+
+### 9b.6 Cost
+
+The commitment adds, per sub, `m` (committed-A) or `6` (committed-A++) extra
+Poseidon2 calls, and, in the glue, the K commitment recomputes. At the toy size
+N=8, K=2 (where the Merkle tree is tiny) the measured circuit-size overhead versus
+the uncommitted variant is modest — committed-A++ ≈ +7% sub / +22% glue over A++,
+committed-A within a comparable band over A. Because the overhead is a fixed
+Poseidon2 count while the dominant cost (internal-edge Merkle proofs) grows with
+DEPTH, the *relative* overhead shrinks at thesis sizes (N≤480). The full
+`results/hier_c.csv` / `results/hier_cfs.csv` sweeps (run with
+`pipeline/run_hier_c.py` / `run_hier_cfs.py`) place the exact numbers on the
+frontier.
+
+### 9b.7 Soundness
+
+Inherited from A / A++: internal/boundary Merkle bind costs to `root`; the sort
+(committed-A) / grand-product at the unforgeable in-circuit `X` (committed-A++)
+enforces the exact partition; the threshold check bounds total cost. **New:** the
+commitment binding (sub **G8**, glue **G0**) ties the hidden per-segment values to
+the public `C_i` — a prover cannot present one set of values to the sub and a
+different set to the glue without breaking Poseidon2 binding, and cannot tamper a
+witnessed value while keeping `C_i` without the recompute failing. Both directions
+are exercised by `tests/correctness/test_hierarchical_{c,cfs}.py` (sub-G8 and
+glue-G0 tamper tests, plus a verifier cross-check that rejects mixed proof sets).
+
+### 9b.8 Implementation pointers
+
+| | committed-A | committed-A++ |
+|---|---|---|
+| sub / glue circuits | `hierarchical_segment_c` / `hierarchical_glue_c` | `hierarchical_segment_cfs` / `hierarchical_glue_cfs` |
+| builder mode | `merkle_builder --hierarchical-c K` | `merkle_builder --hierarchical-cfs K` |
+| verifier | `pipeline/verify_hier_c.py` | `pipeline/verify_hier_cfs.py` |
+| benchmark harness | `pipeline/run_hier_c.py` (CSV `hier_c`) | `pipeline/run_hier_cfs.py` (CSV `hier_cfs`) |
+| correctness test | `tests/correctness/test_hierarchical_c.py` | `tests/correctness/test_hierarchical_cfs.py` |
+
+`pipeline/aggregate_hier.py` consumes both raw CSVs unchanged, emitting
+`hier_c_k{K}` / `hier_cfs_k{K}` rows for `plot.py`.
+
+---
+
 ## 10. Variant B — flat-full, sub-matrices public
 
 B replaces A's Merkle proofs for internal edges with cheap ROM lookups into a
@@ -1593,6 +1738,51 @@ candidate count collapses to A's (4 candidates at N=8, K=2).
 So B's effective privacy *under its intended threat model* is similar to A's. The
 sub_matrix disclosure is the cost in privacy bits when measured against
 flat_merkle, not against A.
+
+### 14.4 Variants committed-A / committed-A++
+
+The committed variants remove the *confirmation oracles* that made A++'s leakage a
+mere work factor (§14.2). With the per-segment values folded into a blinded
+commitment, a verifier can no longer *check* a guessed cycle against the public
+transcript: there is no `P_i` to factor and no anchor to brute-force, and the
+commitment cannot be reproduced without the secret blinding `r_i`. So the
+candidate count stops being a "work factor to confirm the unique true cycle" and
+becomes genuine residual ambiguity again — bounded only by the commitment scheme.
+
+| | recovers multiset? | recovers interior order? |
+|---|---|---|
+| A | published (`sorted_nodes`) | hidden info-theoretically, `(M-2)!^K` |
+| A++ | **confirmable**, work ≈ Σ C(N,M) | **confirmable**, work ≈ Σ (M-2)! |
+| **committed-A / committed-A++** | hidden; needs breaking Poseidon2 hiding | hidden info-theoretically, `(M-2)!^K` |
+| recursion / flat | absent from public surface | absent from public surface |
+
+committed-A and committed-A++ sit at the **same** rung: multiset hidden
+*computationally* (Poseidon2), interior order hidden *information-theoretically*,
+with the segment count K revealed by the K published commitments. The information
+that A++ leaked to an unbounded verifier (the full cycle, via the transcript) is,
+for the committed variants, leaked only to an adversary who breaks the commitment
+— i.e. nothing is determined by the public transcript alone beyond K and the
+aggregate threshold.
+
+### 14.5 The privacy ladder (assumption-decreasing)
+
+Reading the family as one progression makes the privacy axis monotone:
+
+```
+B  →  A  →  A++  →  committed-A / committed-A++  →  recursion / folding / flat
+disclose   disclose   confirmation-       computational hiding,      partition
+sub-matrix  partition   oracle leak         reveals K (Poseidon)      structurally
++ partition (multiset)  (work factor)                                 absent
+```
+
+Two distinct hiding *mechanisms* span the ladder: **"don't put it there"**
+(A discloses; recursion/flat make it structurally absent — assumption-free) versus
+**"commit to hide it"** (committed-* — one cryptographic assumption). A++ is the
+honest in-between: it *looks* hidden but is only a search away. The committed
+variants are the smallest change that turns A++'s "search away" into "one
+assumption away", and recursion is what turns "one assumption away" into
+"assumption-free" — at the ≈704k×K cost quantified in
+`project_recursion_experiment` / the recursion micro-benchmarks.
 
 ---
 

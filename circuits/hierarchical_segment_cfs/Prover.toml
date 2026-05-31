@@ -1,0 +1,30 @@
+# hierarchical_segment_cfs Prover.toml -- segment 0
+# Variant committed-A++ sub-circuit. Public: root, X, C_i.
+# (start/end/partial_cost/P_i/h_in/h_out are folded into the blinded C_i.)
+
+# Private witness: segment node visit order (M entries)
+cycle_segment = ["0", "6", "4", "1"]
+
+# Private witness: M-1 internal edge costs
+edge_costs = ["343213", "335127", "299834"]
+
+# Private witness: Poseidon2 Merkle siblings, flat row-major over (M-1) edge proofs
+siblings = ["0x0000000000000000000000000000000000000000000000000000000000084344", "0x0412f9a17ee4fbb7d34607cbc921be4073f58c2fc82776e59b823bec213f17de", "0x04f3eb3ce3c82a192cde34240bad46eb04a2741dd37824c16e39f3b007ab9e6b", "0x27753416d5c90c34c5885e09673f4a01b5e1f59f3e4a2e18ce0941cce14e729d", "0x124e7e464ec791d019b076f9fadfa58965f2d774d1b2bf48e9eaf83305810bbd", "0x09eb252b8ac9936711cb6825c2b43f0977f2f10ce8044ae55a9be4a93f286d35", "0x00000000000000000000000000000000000000000000000000000000000a5127", "0x044f3336f21435b23f2f287571a0011bd194e016c366aa839f331e600f145a5c", "0x0f0861f7b89390ed692c86f8dcdf2cb06858b17339326e258e897bf67870894a", "0x17fb31d76f3ea406df31bbadbf452bed71514a77b0cafa71e3409d603b1f9989", "0x20e6ce74af5ff30ab45898e6df81eb248056143ae3e1957bf60d11b7de3215c8", "0x237e519ded0d980be0723653a591fc9222a531296cf924f7d62d2f614a7362ef", "0x000000000000000000000000000000000000000000000000000000000003aa36", "0x08c610da556c9f9c3d2c4c0bdf5999096e2acd4b0d1c09e2476fb58351fe38c8", "0x2d02d13dd43e50861876dacaf0c3a4b52b6a6f25b7d0c9db1b6ff4e192a42fec", "0x049af0702f5fb0ffd12a404a4f531abc4bf2cf0905ab116d4f96b41179d8d4ac", "0x039872908aa304bd8078b3d564d583b351730a66385d42560874c6af74d1102f", "0x237e519ded0d980be0723653a591fc9222a531296cf924f7d62d2f614a7362ef"]
+
+# Private witness: LSB-first leaf-index encoding, flat row-major
+path_bits = [false, true, true, false, false, false, false, false, true, false, true, true, true, false, false, false, false, true]
+
+# Private witness: chain value entering this segment
+h_in_i = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
+# Private witness: blinding scalar (makes C_i hiding)
+r = "0x00000000000000000000000000000000267a489e46146bd1517fd5ce143ef022"
+
+# Public input: Poseidon2 Merkle root of the N*N cost matrix
+root = "0x2abde2849b8aada81718848be4830e557fb102fd62670ec5e1263b11df1624e4"
+
+# Public input: Fiat-Shamir challenge X = Poseidon2([c],1) (shared across K+1)
+X = "0x2d9271c18f0caedae5223a22407be9d21bd1d1a99252496acd709c6fa14dbae7"
+
+# Public input: blinded commitment to this segment's values
+C_i = "0x29476ce3b1834a1ea00af945e8bf762d1689fa84879d816da412a9ace20d4259"

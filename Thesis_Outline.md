@@ -270,12 +270,16 @@ does not give the algorithmic speedup that classical hierarchical TSP gives.
 **Purpose.** Present the variant-as-statement reframe and the variants as *points in
 the binding-tax design space* (§8.8) on the privacy/cost frontier.
 
-**Note (2026-05-29 reframe).** This chapter was titled "Three Hierarchical Variants"
-(A, A++, B). It now additionally presents **recursion as a first-class variant** (it is
-implemented and benchmarked — the perfect-hiding endpoint) and the **committed-A/A++**
-points (the leak-closing move). The chapter title may be relaxed to "Hierarchical
-Variants" during drafting. Variants are framed as answers to the binding tax, not as a
-flat catalogue. See DESIGN.md §9 and `FRONTIER_REFRAME.md`.
+**Note (2026-05-29 reframe; committed-* implemented 2026-05-31).** This chapter was
+titled "Three Hierarchical Variants" (A, A++, B). It now presents the family as **one
+progression line**, not a flat catalogue: A and A++ are the **diagnosis** (A discloses
+the partition; A++ hides the node-sets but only behind confirmation oracles) *and* the
+low-cost **disclosure-regime** points; **committed-A / committed-A++** are the **cure**
+(bind on blinded commitments — partition hidden computationally, reveals only K);
+**recursion** is the perfect-hiding endpoint (partition structurally absent, at the
+≈704k×K cost). Each step removes exactly one binding-tax symptom (§8.8). The chapter
+title may be relaxed to "Hierarchical Variants" during drafting. See DESIGN.md §9,
+`FRONTIER_REFRAME.md`, and `HIERARCHICAL_EXPLAINED.md` §9b.
 
 - §9.1 The variant-as-statement reframe — variants don't compete on cost; they prove
   different statements. Mirrors supervisor report §7.7 / Finding 10. *Now subordinated
@@ -296,15 +300,26 @@ flat catalogue. See DESIGN.md §9 and `FRONTIER_REFRAME.md`.
 - §9.5 Variant B — flat-full, sub-matrix public
   - §9.5.1 Sub-circuit (sub-matrix as public input) and glue (reuses A's logic)
   - §9.5.2 Gate-count analysis: O(N²/K)
-- §9.5a **Committed-A / Committed-A++** *(added 2026-05-29 reframe)* — the leak-closing
-  move: bind on hiding commitments instead of plaintext, glue checks openings
-  in-circuit, verifier compares opaque commitments. Closes the partition leak while
-  keeping the non-recursive architecture (stays in the O(K)-verifier corner).
-  - §9.5a.1 Construction — `C_i = Commit(values; r_i)`; for A++, blind the existing
-    `P_i`. Bookkeeping becomes ZK (digest-collapsible to O(K) field-equalities).
-  - §9.5a.2 Hiding type — computational (Poseidon) vs unconditional-content (Pedersen,
-    costlier in-circuit, computational binding). See §9.6.6.
-  - §9.5a.3 Status — analytical point first; implement if time allows (DESIGN.md §9.4).
+- §9.5a **Committed-A / Committed-A++** *(implemented 2026-05-31)* — the leak-closing
+  move (the *cure* for the diagnosis A/A++ provide): bind on hiding commitments instead
+  of plaintext, glue checks openings in-circuit (G0), verifier compares opaque
+  commitments. Closes the partition leak while keeping the non-recursive architecture
+  (stays in the O(K)-verifier corner — parallelism + low per-prover memory preserved).
+  - §9.5a.1 Construction — `C_i = fold(r_i, [values])` over the 2-input Poseidon2;
+    committed-A++ folds the A++ aggregates `[P_i, h_in, h_out, start, end, partial_cost]`
+    (drops the sub's G7); committed-A folds `[cycle_segment…, partial_cost]` (drops the
+    per-segment sort). Public surface `{root, X, C_i}` / `{root, C_i}`; bookkeeping is ZK.
+  - §9.5a.2 Hiding type — computational (Poseidon, implemented) vs unconditional-content
+    (Pedersen, analytical: costlier in-circuit, computational binding). See §9.6.6.
+  - §9.5a.3 **Equal-privacy finding** — committed-A and committed-A++ reach the *same*
+    privacy class (multiset computational, interior order info-theoretic, reveal K); they
+    differ only in glue cost/mechanism (O(N) sort + O(N) commit-fold vs distributed
+    grand-product + O(K) commit-fold). The equal-privacy restatement of the F7 "A not
+    dominated by A++" result.
+  - §9.5a.4 Status — **built + validated**: circuits `hierarchical_{segment,glue}_{c,cfs}`,
+    builder `--hierarchical-{c,cfs}`, verifiers/harnesses `verify_hier_*` / `run_hier_*`,
+    correctness suites `test_hierarchical_{c,cfs}.py` (7/7 each). Sweeps pending.
+    Source: `HIERARCHICAL_EXPLAINED.md` §9b, `FRONTIER_REFRAME.md` Part 4–5.
 - §9.5b **Recursion as a first-class variant** *(added 2026-05-29 reframe)* — in-circuit
   binding: the outer verifies the K inner proofs, their public inputs become witness,
   public surface collapses to `(root, threshold)`. Implemented + benchmarked.
@@ -322,9 +337,10 @@ flat catalogue. See DESIGN.md §9 and `FRONTIER_REFRAME.md`.
     cycle-recovery feasibility under each
   - §9.6.3 What A++ buys back vs A
   - §9.6.4 B's privacy profile — partition + sub-matrix disclosure
-  - §9.6.5 **The privacy ladder** *(added 2026-05-29 reframe)* — assumption-decreasing
-    ordering: B → A → A++ → committed(hash) → committed(Pedersen) → recursion/folding/
-    flat. Two mechanisms: *commit to hide it* vs *don't put it there at all*
+  - §9.6.5 **The privacy ladder** *(added 2026-05-29; committed-* implemented 2026-05-31)*
+    — assumption-decreasing ordering: B → A → A++ → committed-A/committed-A++ (Poseidon,
+    same rung) → committed(Pedersen) → recursion/folding/flat. Two mechanisms: *commit to
+    hide it* vs *don't put it there at all*
     (assumption-free). Clarify that flat/recursion "perfect hiding" is **structural**
     (public surface carries no partition info), not information-theoretic ZK — the
     SNARK's ZK is identical across all variants and is not a discriminator. Per-variant
@@ -353,12 +369,15 @@ optimisation), not the implementation order.
 - §10.5 **The frontier figure** — (total gates, parallel wall-clock, per-prover
   memory) panels × (Variant A, A++, B, flat-Merkle baseline). Privacy bits
   annotated.
-  - §10.5a **Reframe (2026-05-29):** redesign as the **pick-two triangle at fixed
-    privacy** (§8.8.3) and add **recursion as the perfect-hiding endpoint** (and
-    committed-A/A++ if implemented). Add an equal-privacy comparison panel: flat /
-    committed-A / committed-A++ / recursion all at 0 partition-bits, reading the P/V/C
-    triangle directly. Folding shown as the empty (P+V+C) corner. Source:
-    `FRONTIER_REFRAME.md` Part 2/5.
+  - §10.5a **Reframe (2026-05-29; committed-* implemented 2026-05-31):** redesign as the
+    **pick-two triangle at fixed privacy** (§8.8.3) with **recursion as the perfect-hiding
+    endpoint** and **committed-A / committed-A++** as the equal-privacy non-recursive
+    points. Equal-privacy comparison panel: flat / committed-A / committed-A++ / recursion
+    all at the "partition hidden" slice, reading the P/V/C triangle directly; A / A++ drawn
+    as the upstream *disclosure / oracle-leak* points on the same progression line (arrows,
+    not co-equal markers). Folding shown as the empty (P+V+C) corner. Cost coordinates from
+    the `results/hier_c.csv` / `results/hier_cfs.csv` sweeps. Source:
+    `FRONTIER_REFRAME.md` Part 2/5, `HIERARCHICAL_EXPLAINED.md` §9b/§14.5.
 - §10.6 Comparison with flat baseline — anchored at N=480 against flat-Merkle's
   N=500
 
@@ -418,6 +437,10 @@ Chapters 5, 6, 9. Full code available in the repository.
 - A.2 hierarchical_segment (Variant A) — once implemented
 - A.3 hierarchical_glue (Variant A) — once implemented
 - A.4 hierarchical_segment_fs (Variant A++)
+- A.5 hierarchical_segment_cfs / hierarchical_glue_cfs (committed-A++) — the commitment
+  fold (G8/G0) + dropped sub-G7 are the diff worth showing against A.4
+- A.6 hierarchical_segment_c / hierarchical_glue_c (committed-A) — the glue-side O(N) sort
+  over witnessed nodes + commitment recompute
 
 ## Appendix B — Clustered TSP Solver Integration *(~5 pages)*
 
