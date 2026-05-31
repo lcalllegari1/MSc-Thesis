@@ -196,14 +196,42 @@ parallel numbers with no plotting changes.
 
 ---
 
-## 7. Optional convenience (not yet built)
+## 7. The `--isolated` harness flag (recommended path)
 
-A clean future addition: an `--isolated` flag on the `run_hier_*.py` harnesses that
-runs the K+1 provers **sequentially** (each timed alone) and tags the CSV variant
-(e.g. `hier_fs_iso`). Then the whole existing aggregate → plot → `make_frontier`
-chain produces measured parallel numbers automatically. The recipe above is the
-manual equivalent and is sufficient to close objection O12; the flag is purely a
-UX upgrade. (Ask if you want it implemented.)
+All four hierarchical harnesses now take **`--isolated`**, which runs the K+1
+provers **sequentially** (each alone, so its `prove_s`/`witness_s` is its solo
+time) instead of concurrently, and tags the CSV variant `<base>_iso`
+(e.g. `hier_fs_iso`). This is the easy way to do the measurement — it reuses the
+full build/instance/verify machinery and feeds the existing downstream chain.
+
+```bash
+PY=/home/callexyz/anaconda3/envs/zk-tsp/bin/python
+# Measure on an IDLE machine.  --runs averages out noise; use a few cells.
+$PY pipeline/run_hier_fs.py  --ns 192 480 --ks 2 4 8 --runs 5 --isolated --out results/hier_fs_iso.csv
+$PY pipeline/run_hier_cfs.py --ns 192 480 --ks 2 4 8 --runs 5 --isolated --out results/hier_cfs_iso.csv
+# (also: run.py for flat is already single-prover => already isolated, in results/500.csv)
+```
+
+Then the **existing** aggregator turns the solo per-prover times into the
+distributed wall-clock with no extra code:
+
+```bash
+# model (a) K+1 nodes, glue concurrent  ->  max over the K+1 solo times:
+$PY pipeline/aggregate_hier.py --in results/hier_cfs_iso.csv --out results/hier_cfs_iso_par.csv --mode parallel
+# model (b) K nodes, glue after          ->  sum:
+$PY pipeline/aggregate_hier.py --in results/hier_cfs_iso.csv --out results/hier_cfs_iso_tot.csv --mode total
+```
+
+`aggregate_hier --mode parallel` (max over provers) is exactly model (a) above, and
+`--mode total` (sum) is the serial bound — now computed from **measured solo** times.
+Plot the `*_iso_par` series against flat to get the **measured** speedup curve, or
+feed them straight into `make_frontier.py --include`. The `<base>_iso` tag keeps
+isolated and contended runs distinct in the same figure.
+
+> The flag runs the same proving the contended sweep does, just one prover at a
+> time — so the per-prover `prove_s` it records is the solo number this benchmark
+> needs. The manual recipe in §4 is the equivalent if you would rather not run the
+> harness (e.g. to pin cores with `taskset` per prover).
 
 *Related: `MOTIVATION_AND_OBJECTIONS.md` O12, `FIGURES_AND_METRICS.md` (speedup &
 memory-reduction derived metrics), `HOWTO.md` (benchmarking), `SUPERVISOR_CALL_SUMMARY.md`

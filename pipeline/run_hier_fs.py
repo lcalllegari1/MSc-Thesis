@@ -249,29 +249,41 @@ def spawn_worker(cwd, circuit_name, proof_dir, meta_path):
     )
 
 
-def parallel_prove_all(k, hier_dir, scratch):
-    """Launch K+1 parallel workers and collect metrics (see run_hier.py)."""
+def parallel_prove_all(k, hier_dir, scratch, isolated=False):
+    """Launch K+1 nargo-execute && bb-prove workers and collect metrics.
+
+    isolated=False (default): workers run CONCURRENTLY (one-machine contention;
+    matches results/*_par.csv).  isolated=True: workers run SEQUENTIALLY (each alone),
+    so each prover's witness_s/prove_s is its solo time -- the per-node time in the
+    distributed model.  See ISOLATION_BENCHMARK.md.
+    """
     results = []
     procs   = []
     meta_paths = []
 
+    def launch(cwd, name, proof_dir, meta_path):
+        p = spawn_worker(cwd, name, proof_dir, meta_path)
+        if isolated:
+            p.wait()          # finish this prover before the next starts (solo timing)
+        return p
+
+    wall_t0 = time.perf_counter()
     for i in range(k):
         shadow = SHADOW_ROOT / f"sub_{i}"
         shutil.copy(hier_dir / f"sub_{i}" / "Prover.toml", shadow / "Prover.toml")
         proof_dir = scratch / f"sub_{i}"
         proof_dir.mkdir(parents=True, exist_ok=True)
         meta_path = scratch / f"sub_{i}.meta.json"
-        procs.append(spawn_worker(shadow, SUB_NAME, proof_dir, meta_path))
+        procs.append(launch(shadow, SUB_NAME, proof_dir, meta_path))
         meta_paths.append((f"sub_{i}", meta_path, proof_dir))
 
     shutil.copy(hier_dir / "glue" / "Prover.toml", GLUE_DIR / "Prover.toml")
     glue_proof = scratch / "glue"
     glue_proof.mkdir(parents=True, exist_ok=True)
     glue_meta  = scratch / "glue.meta.json"
-    procs.append(spawn_worker(GLUE_DIR, GLUE_NAME, glue_proof, glue_meta))
+    procs.append(launch(GLUE_DIR, GLUE_NAME, glue_proof, glue_meta))
     meta_paths.append(("glue", glue_meta, glue_proof))
 
-    wall_t0 = time.perf_counter()
     for p in procs:
         p.wait()
     wall_total = time.perf_counter() - wall_t0
@@ -326,10 +338,11 @@ def measure_verify_s(scratch, circuit, k):
 
 # ── Main benchmark loop ───────────────────────────────────────────────────────
 
-def benchmark(ns, ks, runs, out_csv, seed):
+def benchmark(ns, ks, runs, out_csv, seed, isolated=False):
     out_csv = Path(out_csv)
     out_csv.parent.mkdir(parents=True, exist_ok=True)
     write_header = not out_csv.exists()
+    variant_tag = "hier_fs" + ("_iso" if isolated else "")
 
     with open(out_csv, "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
@@ -368,7 +381,7 @@ def benchmark(ns, ks, runs, out_csv, seed):
                     scratch   = cell_dir / "proofs"
                     build_hier_tomls(payload, k, hier_dir)
 
-                    res = parallel_prove_all(k, hier_dir, scratch)
+                    res = parallel_prove_all(k, hier_dir, scratch, isolated)
                     wall_total = res.pop()["_wall_total_s"]
 
                     if any(not r["ok"] for r in res):
@@ -386,7 +399,7 @@ def benchmark(ns, ks, runs, out_csv, seed):
                         circuit = r["circuit"]
                         is_glue = (circuit == "glue")
                         writer.writerow({
-                            "variant":      "hier_fs",
+                            "variant":      variant_tag,
                             "n":            n, "k": k, "m": m,
                             "run":          run_idx,
                             "circuit":      circuit,
@@ -428,6 +441,11 @@ def main():
                     help="Output CSV path, e.g. results/hier_fs.csv")
     ap.add_argument("--seed", type=int, default=42,
                     help="Base seed; per-run seed = seed + N*1000 + K*100 + run (default: 42)")
+    ap.add_argument("--isolated", action="store_true",
+                    help="Run the K+1 provers SEQUENTIALLY (each alone) for solo timing "
+                         "instead of concurrently; tags the variant '<base>_iso'. "
+                         "Use on an idle machine to measure the K* speedup (see "
+                         "ISOLATION_BENCHMARK.md).")
     args = ap.parse_args()
 
     if not BUILDER_BIN.exists():
@@ -435,7 +453,7 @@ def main():
         print(f"  cargo build --release --manifest-path pipeline/merkle_builder/Cargo.toml")
         sys.exit(1)
 
-    benchmark(args.ns, args.ks, args.runs, args.out, args.seed)
+    benchmark(args.ns, args.ks, args.runs, args.out, args.seed, args.isolated)
 
 
 if __name__ == "__main__":

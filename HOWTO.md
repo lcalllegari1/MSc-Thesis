@@ -650,11 +650,25 @@ python pipeline/make_frontier.py \
 
 The harnesses above launch the K+1 provers **concurrently on one machine**, so their
 per-prover times are measured under contention — the headline K× speedup is therefore
-a *projection* from circuit-size ratios, not a measurement. To **measure** it, time
-each prover **alone** on an idle machine (flat, one segment, glue) and reconstruct the
-distributed wall-clock. Full reasoning, protocol, a verified copy-paste recipe, and
-the reporting format are in **`ISOLATION_BENCHMARK.md`** (this is the open gap O12;
-run it before final submission).
+a *projection*, not a measurement. To **measure** it, run any hierarchical harness with
+**`--isolated`** on an **idle machine**: it proves the K+1 circuits **sequentially**
+(each alone, so its time is its solo per-node time) and tags the variant `<base>_iso`.
+
+```bash
+PY=/home/callexyz/anaconda3/envs/zk-tsp/bin/python
+$PY pipeline/run_hier_cfs.py --ns 192 480 --ks 2 4 8 --runs 5 --isolated --out results/hier_cfs_iso.csv
+# turn solo times into the distributed wall-clock with the SAME aggregator:
+#   model (a) K+1 nodes (glue concurrent) = max over provers:
+$PY pipeline/aggregate_hier.py --in results/hier_cfs_iso.csv --out results/hier_cfs_iso_par.csv --mode parallel
+#   model (b) K nodes (glue after)        = sum:
+$PY pipeline/aggregate_hier.py --in results/hier_cfs_iso.csv --out results/hier_cfs_iso_tot.csv --mode total
+```
+
+`--mode parallel` (max over the K+1 solo times) is the distributed wall-clock; plot
+the `*_iso_par` series against flat (`results/500.csv`) for the **measured** speedup.
+Full reasoning, the deployment models, measurement protocol, a manual copy-paste
+recipe (for `taskset` core-pinning), and the reporting format are in
+**`ISOLATION_BENCHMARK.md`** (this closes the open gap O12; run before final submission).
 
 ---
 
