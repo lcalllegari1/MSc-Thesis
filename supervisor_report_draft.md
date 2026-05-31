@@ -2,6 +2,14 @@
 
 **Progress Report — May 2026**
 
+> **Note (2026-05-31): this draft predates several later additions and is kept as a
+> point-in-time record.** Since it was written, the project added Variants
+> **committed-A / committed-A++** (the privacy "cure" — blinded-commitment partition
+> hiding), **recursion** as a first-class implemented variant, and the **binding-tax**
+> second structural result. For the current state see `FRONTIER_REFRAME.md`,
+> `HIERARCHICAL_EXPLAINED.md` §9b/§14.4-5, `DESIGN.md` §9, `NARRATIVE_FRAMING.md`, and
+> `MOTIVATION_AND_OBJECTIONS.md`. A full rewrite is deferred to the write-up phase.
+
 ---
 
 ## 1. Overview and Research Question

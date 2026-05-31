@@ -3,6 +3,14 @@
 *Prepared 2026-05-29. Numbers are from the committed CSVs in `results/`; anchor
 size is **N=480** (compared against flat baseline at N=500, ~4% off).*
 
+> **Note (2026-05-31): point-in-time snapshot.** Since this call summary, the project
+> implemented Variants **committed-A / committed-A++** (blinded-commitment partition
+> hiding — the privacy "cure" that makes A/A++ comparable to flat/recursion). The
+> §2 variant table and §6 status below therefore predate them. Current state:
+> `FRONTIER_REFRAME.md`, `HIERARCHICAL_EXPLAINED.md` §9b/§14.4-5, `DESIGN.md` §9,
+> `NARRATIVE_FRAMING.md`, `MOTIVATION_AND_OBJECTIONS.md`. The isolation-benchmark gap
+> (§6) remains open.
+
 ---
 
 ## 1. The one-sentence framing

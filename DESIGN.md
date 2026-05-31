@@ -254,6 +254,14 @@ This section records the conceptual reframe from the 2026-05-29 discussion. It d
 not supersede §8; it adds the organizing spine that sits under it. Full synthesis
 with numbers and next steps lives in `FRONTIER_REFRAME.md`.
 
+> **Status update (2026-05-31): committed-A and committed-A++ are now IMPLEMENTED**
+> (no longer the analytical "could-build" point this section originally described).
+> Circuits `hierarchical_{segment,glue}_{c,cfs}`, builder modes `--hierarchical-{c,cfs}`,
+> verifiers/harnesses `verify_hier_{c,cfs}.py` / `run_hier_{c,cfs}.py`, and 7/7
+> correctness suites. See `HIERARCHICAL_EXPLAINED.md` §9b/§14.4-5 and the checklist
+> below. The narrative role (A/A++ = diagnosis + disclosure; committed-* = cure) is
+> in `NARRATIVE_FRAMING.md`; defense prep in `MOTIVATION_AND_OBJECTIONS.md`.
+
 ### 9.1 The binding tax — one artifact, three symptoms
 
 Decomposing into K independent segment-proofs forces a binding step to recombine them
@@ -296,6 +304,14 @@ partition/boundary/cost checks in-circuit; the verifier checks `sub_i.C_i == glu
 Public surface collapses to `(root, threshold, C_0..C_{K-1})`; the bookkeeping becomes
 ZK automatically (comparing opaque blobs) and can be collapsed to one digest per proof.
 For A++ this is minimal — `P_i` is already a per-segment summary lacking blinding.
+
+**Implemented (2026-05-31).** Both committed-A (`C_i = fold(r, [cycle_segment…,
+partial_cost])`, glue does the O(N) sort over witnessed nodes) and committed-A++
+(`C_i = fold(r, [P_i, h_in, h_out, start, end, partial_cost])`, glue keeps the
+distributed grand-product; sub G7 dropped) use a Poseidon2 fold (the 2-input
+compression already cross-validated in `tests/hash_compat`), with blinding from
+`/dev/urandom`. Public surfaces: committed-A `{root, T, C_is}`, committed-A++
+`{root, T, X, C_is}`. Pedersen is left as the analytical unconditional-content upgrade.
 
 ### 9.5 A is NOT dominated by A++ (correction to an earlier read)
 
@@ -344,6 +360,12 @@ recursion have **identical** final privacy. Even unconditional committed-* is a 
 weaker than recursion: it still publishes K commitments, whereas recursion makes the
 partition structurally absent.
 
+**Equal-privacy finding (implemented):** under full equalization committed-A and
+committed-A++ reach the *same* rung (multiset computational, interior order
+info-theoretic, reveal K); they differ only in glue cost/mechanism (O(N) sort + O(N)
+commit-fold vs distributed grand-product + O(K) commit-fold) — the equal-privacy
+restatement of §9.5.
+
 ---
 
 ## Progress
@@ -391,6 +413,15 @@ partition structurally absent.
     - [ ] Full benchmark sweep into `results/hier_fs.csv` (harness ready; **deferred to user** — N∈{48,96,192,480}, K∈{2,4,8})
     - **Design divergence from `HIERARCHICAL_EXPLAINED.md` §9.9:** `expected_product` is computed **in-circuit** (D5 = Option B), not supplied/checked by the verifier. The Python verifier therefore does no field arithmetic.
     - **Privacy refinement:** A++ hides the partition *computationally* (not information-theoretically): public `P_i` is a multiset oracle (~C(N,M)) and chain anchors are an ordering oracle (~(M-2)!). This is the price of the non-recursive architecture — see `HIERARCHICAL_EXPLAINED.md` §9.11/§14.2.
+- [x] Variants committed-A & committed-A++ — blinded-commitment privacy cure (implemented + validated 2026-05-31)
+    - [x] committed-A++ circuits `circuits/hierarchical_{segment,glue}_cfs` (sub: fold aggregates into `C_i`, drop G7, h_in + r private; glue: G0 recompute, grand-product partition; public `{root,X,C_i}` / `{root,T,X,C_is}`)
+    - [x] committed-A circuits `circuits/hierarchical_{segment,glue}_c` (sub: fold `[cycle_segment…,partial_cost]` into `C_i`, drop per-segment sort; glue: G0 recompute + O(N) sort, needs `M` global; public `{root,C_i}` / `{root,T,C_is}`)
+    - [x] `pipeline/merkle_builder` extended with `--hierarchical-c` / `--hierarchical-cfs` (commit_fold over 2-input Poseidon2, blinding from `/dev/urandom`)
+    - [x] `pipeline/verify_hier_{c,cfs}.py` — K+1 `bb verify` + cross-check collapses to same root (+ X for cfs) and `glue.C_is[i] == sub_i.C_i` (opaque blobs, ZK)
+    - [x] `pipeline/run_hier_{c,cfs}.py` — parallel harnesses (variant=`hier_c` / `hier_cfs`); `aggregate_hier.py` variant-agnostic (emits `hier_c_k{K}` / `hier_cfs_k{K}`)
+    - [x] `tests/correctness/test_hierarchical_{c,cfs}.py` — 7/7 each (baseline, sub-G8 + glue-G0 commitment binding, boundary Merkle, partition violation, verifier cross-check, N=48 K=4 sanity)
+    - [x] All 4 committed circuits compile from their checked-in N=8 defaults
+    - [ ] Full benchmark sweeps into `results/hier_c.csv` / `results/hier_cfs.csv` (harnesses ready; **deferred to user**)
 - [ ] Variant B — flat_full, sub-matrix public
 - [ ] Frontier figure: (total gates, parallel wall-clock, per-prover memory, privacy bits) for all variants
 - [ ] Integration with clustered TSP solver (B-side, partitioned routing) for combined-pipeline analysis
