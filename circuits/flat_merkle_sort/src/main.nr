@@ -73,6 +73,19 @@
 //   Combined with the N equality checks (sorted[i] == i), this is the
 //   full permutation proof.
 //
+//   WITNESS-TIME COST (MEASURED -- see NARRATIVE_FRAMING.md sec. 8.5).  check_shuffle's
+//   step (c) verifies the unconstrained permutation map pi by reading cycle[pi(i)] for
+//   each i.  pi is a witness value, so cycle[pi(i)] is an array read at a DATA-DEPENDENT
+//   index -- a "dynamic ROM lookup": an arithmetic circuit has no pointers, so it is
+//   compiled to a memory-consistency argument (ACIR MEM_INIT/MEM_OP -> ROM gates) whose
+//   access log the WITNESS SOLVER must build, sort, and fill at solve time.  ~2N such
+//   dynamic reads make `nargo execute` here noticeably SLOWER than the grand-product
+//   sibling (flat_merkle_grand_product), even though this circuit has FEWER constraints:
+//   that variant's GROUP 2 is straight-line, statically-indexed arithmetic with no
+//   dynamic memory.  Gate count and witness-solving cost are different currencies; this
+//   pair inverts them.  Both share an UltraHonk dyadic bucket, so prove/memory/proof size
+//   match -- the difference shows up only in witness_s.
+//
 //   Note: the explicit GROUP 1 range check present in flat_merkle_presence
 //   is not needed here.  If sorted == [0,...,N-1] and sorted is proven to
 //   be a permutation of cycle, the multiset of cycle must equal {0,...,N-1},

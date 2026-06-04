@@ -155,7 +155,7 @@ def merkle_depth(n):
     return (n_sq - 1).bit_length()
 
 
-def write_merkle_prover_toml(inputs, out_path, builder_bin):
+def write_merkle_prover_toml(inputs, out_path, builder_bin, tree_cache=None):
     """
     Write Prover.toml for flat_merkle_presence by calling the Rust merkle_builder.
 
@@ -166,6 +166,8 @@ def write_merkle_prover_toml(inputs, out_path, builder_bin):
 
     `inputs` must contain: n, flat_matrix, cycle, threshold, cost.
     `builder_bin` is the path to the compiled merkle_builder binary.
+    `tree_cache`, if given, is passed as --tree-cache so the Poseidon2 tree is
+    built once per instance and reused (see pipeline/instance_cache.py).
 
     Raises RuntimeError if the binary exits non-zero.
     """
@@ -176,8 +178,11 @@ def write_merkle_prover_toml(inputs, out_path, builder_bin):
         "threshold":   inputs["threshold"],
         "cost":        inputs["cost"],
     })
+    cmd = [str(builder_bin), "--out", str(out_path)]
+    if tree_cache is not None:
+        cmd += ["--tree-cache", str(tree_cache)]
     result = subprocess.run(
-        [str(builder_bin), "--out", str(out_path)],
+        cmd,
         input=payload,
         capture_output=True,
         text=True,

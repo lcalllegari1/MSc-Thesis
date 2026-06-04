@@ -41,9 +41,14 @@ def cycle_cost(matrix, path):
     n = len(path)
     return sum(matrix[path[i]][path[(i + 1) % n]] for i in range(n))
 
-def solve(matrix):
+def solve(matrix, two_opt_max_n=1000):
+    # 2-opt is O(N^2) per sweep, run to convergence -> too slow in pure Python for
+    # large N. Optimality is irrelevant (the ZKP only needs a *valid* Hamiltonian
+    # cycle; the threshold is just 1.1x whatever tour we find), so above
+    # two_opt_max_n we keep the nearest-neighbour tour and skip the refinement.
     path = nearest_neighbour(matrix)
-    path = two_opt(matrix, path)
+    if len(matrix) <= two_opt_max_n:
+        path = two_opt(matrix, path)
     return path
 
 def main():

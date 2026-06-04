@@ -1,5 +1,8 @@
 # Noir build artifacts
 circuits/*/target/
+# recursion outer Prover.toml is harness-generated (needs live inner proofs),
+# unlike the static N=8 defaults committed for the other circuits.
+circuits/recursion/Prover.toml
 tests/hash_compat/noir/target/
 tests/recursion_micro/*/target/
 tests/recursion_micro/*/Prover.toml
@@ -9,6 +12,10 @@ tests/recursion_toy_example/outer/Prover.toml
 # Rust build artifacts
 pipeline/merkle_builder/target/
 tests/hash_compat/rust/target/
+
+# Cached instances + Merkle trees (one per N; trees are large -- kept local only).
+# See pipeline/instance_cache.py.  Delete a subdir to force regeneration.
+data/instances/
 
 # Python
 __pycache__/

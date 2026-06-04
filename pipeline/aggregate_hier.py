@@ -56,6 +56,24 @@ regardless of --mode, so a parallel and a total aggregation of the same input
 share variant names.  Pass --mode-in-name to disambiguate as
 `{base}_k{K}_{mode}` when both modes appear in the same combined CSV.
 
+Component split (--split-components)
+------------------------------------
+With --split-components the combined row is still emitted, plus two extra rows
+per cell that break the cell into its measured pieces:
+
+  {base}_k{K}_seg   the K SEGMENT proofs only (circuit_size = K*sub, prove/witness
+                    = max over the K subs in parallel mode / sum in total mode,
+                    verify/proof_bytes summed, peak = max).  NO glue.
+  {base}_k{K}_glue  the GLUE proof alone (its own measured values).  The external
+                    cross-check time (verify_hier_s) rides with glue, since it is
+                    the verifier-side binding tax this proof embodies.
+
+These sum back to the combined row (gates/verify/proof_bytes add; peak and the
+parallel prove/witness are the max), so the split is a faithful decomposition.
+plot.py needs no change: each is a distinct `variant`, drawn as its own line
+(select with --variants '*_seg' '*_glue').  Useful for the write-up's
+"segments vs binding" reasoning.
+
 Schema written
 --------------
 
@@ -98,7 +116,25 @@ OUTPUT_FIELDNAMES = [
 ]
 
 
-def aggregate(rows, mode, include_mode_in_name):
+def _mkrow(variant, n, run, csize, acir, compile_s,
+           witness_s, prove_s, verify_s, proof_bytes, peak_mb):
+    """Assemble one output row dict (rounding the float metrics)."""
+    return {
+        "variant":      variant,
+        "n":            n,
+        "run":          run,
+        "circuit_size": csize,
+        "acir_opcodes": acir,
+        "compile_s":    round(compile_s, 4),
+        "witness_s":    round(witness_s, 4),
+        "prove_s":      round(prove_s,   4),
+        "verify_s":     round(verify_s,  4),
+        "proof_bytes":  proof_bytes,
+        "peak_mb":      round(peak_mb, 3),
+    }
+
+
+def aggregate(rows, mode, include_mode_in_name, split_components=False):
     """
     Group raw hier_a rows by (n, k, run); emit one aggregated dict per group.
     """
@@ -151,23 +187,41 @@ def aggregate(rows, mode, include_mode_in_name):
         # aggregator serves Variant A (hier_a) and A++ (hier_fs) unchanged:
         # hier_a -> hier_a_k{K}, hier_fs -> hier_fs_k{K}.
         base = subs[0].get("variant", "hier_a") or "hier_a"
-        variant = f"{base}_k{k}"
-        if include_mode_in_name:
-            variant += f"_{mode}"
 
-        out.append({
-            "variant":      variant,
-            "n":            n,
-            "run":          run,
-            "circuit_size": k * sub_size + glue_size,
-            "acir_opcodes": k * sub_acir + glue_acir,
-            "compile_s":    round(sub_compile_s + glue_compile_s, 4),
-            "witness_s":    round(witness_s, 4),
-            "prove_s":      round(prove_s,   4),
-            "verify_s":     round(verify_s,  4),
-            "proof_bytes":  proof_bytes,
-            "peak_mb":      round(peak_mb, 3),
-        })
+        def _name(suffix):
+            v = f"{base}_k{k}{suffix}"
+            return v + f"_{mode}" if include_mode_in_name else v
+
+        # Combined row (unchanged): the whole K+1-proof cell as one data point.
+        out.append(_mkrow(
+            _name(""), n, run,
+            k * sub_size + glue_size, k * sub_acir + glue_acir,
+            sub_compile_s + glue_compile_s,
+            witness_s, prove_s, verify_s, proof_bytes, peak_mb))
+
+        # Optional component rows: segments and glue as SEPARATE data points, so
+        # a figure can show "what the K segments cost" vs "what the binding glue
+        # costs" (the glue is the binding tax made visible; the external
+        # verify_hier_s cross-check time rides with it).  These sum back to the
+        # combined row by construction (gates/verify/proof_bytes add; peak is the
+        # max of the two; the parallel prove/witness time is the max).
+        if split_components:
+            agg = max if mode == "parallel" else sum
+            sub_w = [float(r["witness_s"]) for r in subs]
+            sub_p = [float(r["prove_s"])   for r in subs]
+            out.append(_mkrow(
+                _name("_seg"), n, run,
+                k * sub_size, k * sub_acir, sub_compile_s,
+                agg(sub_w), agg(sub_p),
+                sum(float(r["verify_s"])  for r in subs),
+                sum(int(r["proof_bytes"]) for r in subs),
+                max(float(r["peak_mb"])   for r in subs)))
+            out.append(_mkrow(
+                _name("_glue"), n, run,
+                glue_size, glue_acir, glue_compile_s,
+                float(glue["witness_s"]), float(glue["prove_s"]),
+                float(glue["verify_s"]) + verify_hier_s,
+                int(glue["proof_bytes"]), float(glue["peak_mb"])))
 
     return out
 
@@ -186,6 +240,12 @@ def main():
                     help="Append _<mode> to the variant column "
                          "(e.g. hier_a_k4_parallel) so both modes can be "
                          "plotted in the same figure")
+    ap.add_argument("--split-components", action="store_true",
+                    help="Additionally emit per-cell SEGMENT and GLUE rows "
+                         "({base}_k{K}_seg and _glue) alongside the combined "
+                         "row, so plot.py can draw segments and glue as "
+                         "separate lines (select with --variants '*_seg' / "
+                         "'*_glue').  The combined row is still emitted.")
     args = ap.parse_args()
 
     with open(args.inp, newline="") as f:
@@ -195,7 +255,7 @@ def main():
         print(f"No rows in {args.inp}")
         return
 
-    aggregated = aggregate(rows, args.mode, args.mode_in_name)
+    aggregated = aggregate(rows, args.mode, args.mode_in_name, args.split_components)
     if not aggregated:
         print("No cells survived aggregation (see warnings above).")
         return

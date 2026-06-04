@@ -68,6 +68,28 @@ Variant naming
                                row to overlay with flat_merkle / hier_fs_k2)
 Pass --mode-in-name to append _<mode> (e.g. recursion_k2_parallel).
 
+Component split (--split-components)
+------------------------------------
+With --split-components the combined row is still emitted, plus two extra rows
+per cell:
+
+  recursion_k{K}_seg     the K inner A++ SEGMENT proofs only (circuit_size =
+                         sum(inner); prove/witness = max over the segments in
+                         parallel mode / sum in total mode; peak = max).  Inner
+                         proofs are consumed by the outer, not delivered to the
+                         verifier, so this row has no verify_s / proof_bytes.
+  recursion_k{K}_outer   the OUTER recursive proof alone (its own gates, prove,
+                         verify, proof_bytes, peak).
+
+Honesty note: there is deliberately NO "_glue" row.  Recursion fuses the glue
+logic into the outer circuit together with the K in-circuit verifications, which
+dominate it (~704k gates each vs ~63k total glue at K=2); the glue is not a
+separately measured artifact.  The whole outer IS the binding layer -- the
+recursion analogue of the hierarchical glue + verifier binding tax -- so the
+split is segments vs outer.  The two rows sum back to the combined row.
+plot.py needs no change: each is a distinct `variant` (select with --variants
+'*_seg' '*_outer').
+
 Schema written (matches pipeline/run.py exactly)
 ------------------------------------------------
   variant, n, run, circuit_size, acir_opcodes, compile_s,
@@ -112,7 +134,25 @@ def _fmt(x):
     return "" if x is None else round(x, 4)
 
 
-def aggregate(rows, mode, include_mode_in_name):
+def _rrow(variant, n, run, csize, acir, compile_s,
+          witness_s, prove_s, verify_s, proof_bytes, peak_mb):
+    """Assemble one output row dict; None metrics render blank (e.g. --skip-prove)."""
+    return {
+        "variant":      variant,
+        "n":            n,
+        "run":          run,
+        "circuit_size": csize,
+        "acir_opcodes": acir,
+        "compile_s":    round(compile_s, 4),
+        "witness_s":    _fmt(witness_s),
+        "prove_s":      _fmt(prove_s),
+        "verify_s":     _fmt(verify_s),
+        "proof_bytes":  proof_bytes,
+        "peak_mb":      _fmt(peak_mb),
+    }
+
+
+def aggregate(rows, mode, include_mode_in_name, split_components=False):
     grouped = defaultdict(list)
     for row in rows:
         key = (int(row["exp"]), int(row["n"]), int(row["k"]), int(row["run"]))
@@ -163,23 +203,43 @@ def aggregate(rows, mode, include_mode_in_name):
         peaks = [x for x in inner_peak + [outer_peak] if x is not None]
         peak_mb = max(peaks) if peaks else None
 
-        variant = "recursion_1seg" if exp == 1 else f"recursion_k{k}"
-        if include_mode_in_name:
-            variant += f"_{mode}"
+        base = "recursion_1seg" if exp == 1 else f"recursion_k{k}"
 
-        out.append({
-            "variant":      variant,
-            "n":            n,
-            "run":          run,
-            "circuit_size": inner_size + outer_size,
-            "acir_opcodes": inner_acir + outer_acir,
-            "compile_s":    round(inner_compile + outer_compile, 4),
-            "witness_s":    _fmt(witness_s),
-            "prove_s":      _fmt(prove_s),
-            "verify_s":     _fmt(verify_s),
-            "proof_bytes":  proof_bytes,
-            "peak_mb":      _fmt(peak_mb),
-        })
+        def _name(suffix):
+            v = base + suffix
+            return v + f"_{mode}" if include_mode_in_name else v
+
+        # Combined row (unchanged): segments + outer folded into one data point.
+        out.append(_rrow(
+            _name(""), n, run,
+            inner_size + outer_size, inner_acir + outer_acir,
+            inner_compile + outer_compile,
+            witness_s, prove_s, verify_s, proof_bytes, peak_mb))
+
+        # Optional component rows: the inner SEGMENTS vs the OUTER proof as
+        # separate data points.  Note (honesty): recursion has no separable glue
+        # -- the glue logic is fused into the outer alongside the K in-circuit
+        # verifications, which dominate it -- so the binding component here is the
+        # whole outer ("_outer"), NOT a "glue" row.  The outer is the recursion
+        # analogue of the hierarchical binding tax.  Inner proofs are consumed by
+        # the outer (not delivered to the final verifier), so the segment row
+        # carries no verify_s / proof_bytes.  These sum back to the combined row
+        # (gates add; peak and parallel prove/witness are the max).
+        if split_components:
+            iv_w = [x for x in inner_witness if x is not None]
+            iv_p = [x for x in inner_prove   if x is not None]
+            ip   = [x for x in inner_peak    if x is not None]
+            out.append(_rrow(
+                _name("_seg"), n, run,
+                inner_size, inner_acir, inner_compile,
+                innerstep(iv_w) if iv_w else None,
+                innerstep(iv_p) if iv_p else None,
+                None, "", max(ip) if ip else None))
+            out.append(_rrow(
+                _name("_outer"), n, run,
+                outer_size, outer_acir, outer_compile,
+                _fnum(outer["witness_s"]), _fnum(outer["prove_s"]),
+                _fnum(outer["verify_s"]), proof_bytes, outer_peak))
 
     return out
 
@@ -194,6 +254,13 @@ def main():
                     help="Inner-proof aggregation: max (parallel) or sum (total) (default: parallel)")
     ap.add_argument("--mode-in-name", action="store_true",
                     help="Append _<mode> to the variant column so both modes can share a figure")
+    ap.add_argument("--split-components", action="store_true",
+                    help="Additionally emit per-cell SEGMENT and OUTER rows "
+                         "(recursion_k{K}_seg and _outer) alongside the combined "
+                         "row, so plot.py can draw inner segments and the outer "
+                         "proof as separate lines (select with --variants '*_seg' "
+                         "/ '*_outer').  NB: recursion has no separable glue -- the "
+                         "binding component is the whole outer.  Combined row kept.")
     args = ap.parse_args()
 
     with open(args.inp, newline="") as f:
@@ -202,7 +269,7 @@ def main():
         print(f"No rows in {args.inp}")
         return
 
-    aggregated = aggregate(rows, args.mode, args.mode_in_name)
+    aggregated = aggregate(rows, args.mode, args.mode_in_name, args.split_components)
     if not aggregated:
         print("No cells survived aggregation (see warnings above).")
         return

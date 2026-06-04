@@ -34,6 +34,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "pipeline"))
 from instance_gen import generate_instance
 from solver import solve, cycle_cost
+from instance_cache import get_instance_and_cycle
 from format_inputs import write_prover_toml, compute_inv_perm, merkle_depth, write_merkle_prover_toml
 
 # Path to the compiled Rust Merkle builder (used for flat_merkle_presence).
@@ -196,32 +197,34 @@ def benchmark(circuit_dir, ns, runs, out_csv, seed):
             acir_opcodes, circuit_size = parse_gates(gates_out)
             print(f"  gates: circuit_size={circuit_size}, acir_opcodes={acir_opcodes}")
 
-            # ── Steps 4-8: repeated for each run ─────────────────────────────
+            # ── One canonical instance per N (shared across runs) ────────────
+            # SNARK proving is data-oblivious, so runs on the same instance
+            # measure only system noise; instance content is irrelevant to the
+            # metrics.  get_instance_and_cycle caches the (instance, cycle) and
+            # returns the Merkle tree cache path (built once by merkle_builder).
+            instance, path, tree_cache = get_instance_and_cycle(n, seed)
+            inputs = make_prover_inputs(instance, path, variant=variant)
+
+            # Write Prover.toml inside the circuit directory (once per N -- the
+            # witness is identical for every run).  Merkle variants delegate to
+            # the Rust builder (tree, root, siblings, path bits); other variants
+            # use the Python formatter.
+            if "merkle" in variant:
+                if not MERKLE_BUILDER_BIN.exists():
+                    raise FileNotFoundError(
+                        f"merkle_builder binary not found at {MERKLE_BUILDER_BIN}.\n"
+                        "Build it first:\n"
+                        "  cargo build --release "
+                        "--manifest-path pipeline/merkle_builder/Cargo.toml"
+                    )
+                write_merkle_prover_toml(inputs, circuit_dir / "Prover.toml",
+                                         MERKLE_BUILDER_BIN, tree_cache=tree_cache)
+            else:
+                write_prover_toml(inputs, circuit_dir / "Prover.toml")
+
+            # ── Steps 4-8: repeated for each run (timing-noise samples) ──────
             for run_idx in range(1, runs + 1):
                 print(f"  run {run_idx}/{runs} ...", end=" ", flush=True)
-
-                # Use a different seed per run so each run measures a different
-                # instance, not just timing noise on the same one.
-                instance_seed = seed + (n * 1000) + run_idx
-                instance = generate_instance(n, seed=instance_seed)
-                path = solve(instance["matrix"])
-                inputs = make_prover_inputs(instance, path, variant=variant)
-
-                # Write Prover.toml inside the circuit directory.
-                # Merkle variants delegate to the Rust builder (which computes
-                # the tree, root, siblings, and path bits).  All other variants
-                # use the Python formatter.
-                if "merkle" in variant:
-                    if not MERKLE_BUILDER_BIN.exists():
-                        raise FileNotFoundError(
-                            f"merkle_builder binary not found at {MERKLE_BUILDER_BIN}.\n"
-                            "Build it first:\n"
-                            "  cargo build --release "
-                            "--manifest-path pipeline/merkle_builder/Cargo.toml"
-                        )
-                    write_merkle_prover_toml(inputs, circuit_dir / "Prover.toml", MERKLE_BUILDER_BIN)
-                else:
-                    write_prover_toml(inputs, circuit_dir / "Prover.toml")
 
                 # Witness generation
                 witness_s, _, witness_err, rc = run_cmd(

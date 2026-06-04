@@ -9,8 +9,8 @@ difference for the outer (recursive) proof:
   * A   inner -- run_recursion_a.py   -> hierarchical_segment,    sort partition,
                                          O(M) public surface
 
-Both drivers derive their TSP instance from the SAME seed formula
-(seed + N*1000 + K*100 + run), so passing one --seed here gives both variants the
+Both drivers load their TSP instance from the SAME (N, seed) cache
+(pipeline/instance_cache.py), so passing one --seed here gives both variants the
 *identical* instance, cycle, and segmentation -- a true ceteris-paribus
 comparison.  The headline is the **outer gate delta**: the O(M) public-input
 absorption cost argued in Recursive_inner_circuit_choice_explained.md.  Proof
@@ -35,8 +35,9 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-DRIVER_FS = HERE / "run_recursion.py"      # A++ inner
-DRIVER_A  = HERE / "run_recursion_a.py"    # A inner
+PROJECT_ROOT = HERE.parent.parent
+DRIVER_FS = PROJECT_ROOT / "pipeline" / "run_recursion.py"  # A++ inner (moved to pipeline/)
+DRIVER_A  = HERE / "run_recursion_a.py"                      # A inner
 
 
 def run_driver(driver, exp, n, k, runs, seed, skip_prove, out_csv):

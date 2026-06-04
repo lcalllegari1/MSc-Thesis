@@ -68,6 +68,7 @@ SHADOW_ROOT  = Path("/tmp/hier_c_shadows")
 sys.path.insert(0, str(PROJECT_ROOT / "pipeline"))
 from instance_gen import generate_instance
 from solver       import solve, cycle_cost
+from instance_cache import get_instance_and_cycle
 
 
 # ── CSV layout ────────────────────────────────────────────────────────────────
@@ -189,14 +190,16 @@ def write_inputs_json(n, k, instance, cycle, multiplier=1.1):
     }
 
 
-def build_hier_tomls(payload_dict, k, out_dir):
+def build_hier_tomls(payload_dict, k, out_dir, tree_cache=None):
     """Invoke merkle_builder --hierarchical-c K --out-dir <dir>."""
     if out_dir.exists():
         shutil.rmtree(out_dir)
     payload = json.dumps(payload_dict)
+    cmd = [str(BUILDER_BIN), "--hierarchical-c", str(k), "--out-dir", str(out_dir)]
+    if tree_cache is not None:
+        cmd += ["--tree-cache", str(tree_cache)]
     r = subprocess.run(
-        [str(BUILDER_BIN), "--hierarchical-c", str(k), "--out-dir", str(out_dir)],
-        input=payload, capture_output=True, text=True,
+        cmd, input=payload, capture_output=True, text=True,
     )
     if r.returncode != 0:
         raise RuntimeError(f"merkle_builder failed:\n{r.stderr}")
@@ -353,6 +356,9 @@ def benchmark(ns, ks, runs, out_csv, seed, isolated=False):
             writer.writeheader()
 
         for n in ns:
+            # One canonical instance per N, shared across all K and all runs.
+            instance, cycle, tree_cache = get_instance_and_cycle(n, seed)
+
             for k in ks:
                 if n % k != 0:
                     print(f"\n[N={n} K={k}] SKIP (N not divisible by K)")
@@ -370,19 +376,17 @@ def benchmark(ns, ks, runs, out_csv, seed, isolated=False):
 
                 make_shadow_dirs(k)
 
+                payload = write_inputs_json(n, k, instance, cycle)
+
                 for run_idx in range(1, runs + 1):
                     print(f"  run {run_idx}/{runs} ...", end=" ", flush=True)
-                    inst_seed = seed + (n * 1000) + (k * 100) + run_idx
-                    instance  = generate_instance(n, seed=inst_seed)
-                    cycle     = solve(instance["matrix"])
-                    payload   = write_inputs_json(n, k, instance, cycle)
 
                     cell_dir  = Path(f"/tmp/run_hier_c/n{n}_k{k}/run{run_idx}")
                     if cell_dir.exists():
                         shutil.rmtree(cell_dir)
                     hier_dir  = cell_dir / "tomls"
                     scratch   = cell_dir / "proofs"
-                    build_hier_tomls(payload, k, hier_dir)
+                    build_hier_tomls(payload, k, hier_dir, tree_cache)
 
                     res = parallel_prove_all(k, hier_dir, scratch, isolated)
                     wall_total = res.pop()["_wall_total_s"]

@@ -51,8 +51,9 @@ BUILDER_BIN  = PROJECT_ROOT / "pipeline" / "merkle_builder" / "target" / "releas
 SCRATCH_ROOT = Path("/tmp/recursion_micro_a")
 
 sys.path.insert(0, str(PROJECT_ROOT / "pipeline"))
-from instance_gen import generate_instance
-from solver       import solve, cycle_cost
+from instance_gen   import generate_instance
+from solver         import solve, cycle_cost
+from instance_cache import get_instance_and_cycle
 
 FIELDNAMES = [
     "exp", "n", "k", "m", "depth",
@@ -134,7 +135,7 @@ def configure_segment(n, k):
             "gates": size, "acir": acir, "vk_fields": vk["vk"], "key_hash": vk["hash"]}
 
 
-def build_tomls(n, k, instance, cycle, out_dir, multiplier=1.1):
+def build_tomls(n, k, instance, cycle, out_dir, tree_cache=None, multiplier=1.1):
     """merkle_builder --hierarchical K -> out_dir/{sub_0..,glue}/Prover.toml."""
     if out_dir.exists():
         shutil.rmtree(out_dir)
@@ -145,8 +146,10 @@ def build_tomls(n, k, instance, cycle, out_dir, multiplier=1.1):
         "flat_matrix": [matrix[i][j] for i in range(n) for j in range(n)],
         "cycle": cycle, "cost": cost, "threshold": math.ceil(cost * multiplier),
     })
-    r = subprocess.run([str(BUILDER_BIN), "--hierarchical", str(k), "--out-dir", str(out_dir)],
-                       input=payload, capture_output=True, text=True)
+    cmd = [str(BUILDER_BIN), "--hierarchical", str(k), "--out-dir", str(out_dir)]
+    if tree_cache is not None:
+        cmd += ["--tree-cache", str(tree_cache)]
+    r = subprocess.run(cmd, input=payload, capture_output=True, text=True)
     if r.returncode != 0:
         raise RuntimeError(f"merkle_builder failed:\n{r.stderr}")
 
@@ -299,13 +302,16 @@ def main():
             else:
                 patch_globals(outer_dir / "src" / "main.nr", N=n, K=k, M=m, DEPTH=depth)
 
+            # One canonical instance per N, shared across runs and with the A++
+            # recursion driver (same (N, seed) cache key) so compare_inner.py's
+            # head-to-head runs both variants on the identical instance.
+            instance, cycle, tree_cache = get_instance_and_cycle(n, args.seed)
+
             for run_idx in range(1, args.runs + 1):
-                print(f"  run {run_idx}/{args.runs}: instance + solve + build tomls ...", flush=True)
-                instance = generate_instance(n, seed=args.seed + n * 1000 + k * 100 + run_idx)
-                cycle    = solve(instance["matrix"])
+                print(f"  run {run_idx}/{args.runs}: build tomls ...", flush=True)
                 cell     = SCRATCH_ROOT / f"exp{args.exp}_n{n}_k{k}_run{run_idx}"
                 tomls    = cell / "tomls"
-                build_tomls(n, k, instance, cycle, tomls)
+                build_tomls(n, k, instance, cycle, tomls, tree_cache)
 
                 print("  proving inner A segment(s) (bb prove -t noir-recursive, ZK) ...", flush=True)
                 if args.exp == 1:

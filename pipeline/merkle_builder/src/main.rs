@@ -1,7 +1,11 @@
 /// pipeline/merkle_builder/src/main.rs
 ///
 /// Builds a Poseidon2 Merkle tree over the N^2 cost matrix and writes Prover.toml
-/// for the flat_merkle_presence circuit.
+/// for the flat_merkle circuits.  The same witness layout (cycle, edge_costs,
+/// siblings, path_bits, root, threshold) serves both flat_merkle_sort (now the
+/// default flat-merkle baseline -- sort matches the permutation check used in the
+/// hierarchical variants) and flat_merkle_presence: the permutation method is
+/// internal to the circuit and does not change the Prover.toml inputs.
 ///
 /// ## Interface
 ///
@@ -56,8 +60,8 @@
 use acir::{AcirField, FieldElement};
 use bn254_blackbox_solver::poseidon2_permutation;
 use serde::Deserialize;
-use std::io::{self, Read};
-use std::path::PathBuf;
+use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
 
 // ── Input schema ──────────────────────────────────────────────────────────────
 
@@ -160,9 +164,129 @@ impl MerkleTree {
     }
 }
 
+// ── Tree disk cache ───────────────────────────────────────────────────────────
+//
+// Building the Poseidon2 tree is O(N^2) hashes and is the dominant cost of this
+// binary at large N.  The tree is a pure function of `flat_matrix`, so for a
+// fixed instance every variant (flat / hier / hier-fs / hier-c / hier-cfs) and
+// every benchmark run rebuilds the *identical* tree.  With `--tree-cache <path>`
+// we build once, serialise the node array, and reload it on subsequent calls.
+//
+// Binary format (little-endian header, then the node array):
+//   [0..4)   magic   = b"MTC1"
+//   [4..8)   version : u32
+//   [8..16)  n_leaves: u64   (= N*N; the un-padded leaf count)
+//   [16..24) n_padded: u64
+//   [24..28) depth   : u32
+//   [28..36) checksum: u64   (FNV-1a over flat_matrix; guards against a stale
+//                             cache after instance_gen / matrix changes)
+//   [36..)   2*n_padded field elements, 32 big-endian bytes each
+//
+// A load that fails ANY header check (magic, version, n_leaves, checksum, or a
+// truncated body) returns None so the caller rebuilds from scratch -- a stale
+// tree must never silently corrupt a benchmark.
+const TREE_CACHE_MAGIC: &[u8; 4] = b"MTC1";
+const TREE_CACHE_VERSION: u32 = 1;
+const FIELD_BYTES: usize = 32;
+const TREE_HEADER_BYTES: usize = 36;
+
+/// Fast non-cryptographic checksum (FNV-1a) over the raw leaf values.  Cheap
+/// O(N^2) pass; only used to detect that a cached tree matches the input matrix.
+fn matrix_checksum(flat_matrix: &[u64]) -> u64 {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for &v in flat_matrix {
+        for b in v.to_le_bytes() {
+            h ^= b as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
+    }
+    h
+}
+
+impl MerkleTree {
+    /// Serialise the tree to `path` (atomic: write to `<path>.tmp`, then rename).
+    fn save(&self, path: &Path, n_leaves: usize, checksum: u64) -> io::Result<()> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let tmp = path.with_extension("tmp");
+        {
+            let f = std::fs::File::create(&tmp)?;
+            let mut w = io::BufWriter::new(f);
+            w.write_all(TREE_CACHE_MAGIC)?;
+            w.write_all(&TREE_CACHE_VERSION.to_le_bytes())?;
+            w.write_all(&(n_leaves as u64).to_le_bytes())?;
+            w.write_all(&(self.n_padded as u64).to_le_bytes())?;
+            w.write_all(&self.depth.to_le_bytes())?;
+            w.write_all(&checksum.to_le_bytes())?;
+            for node in &self.nodes {
+                let be = node.to_be_bytes(); // 32 bytes for bn254
+                w.write_all(&be)?;
+            }
+            w.flush()?;
+        }
+        std::fs::rename(&tmp, path)
+    }
+
+    /// Load a tree previously written by `save`, validating it against the input
+    /// matrix.  Returns None (caller rebuilds) on any mismatch or read error.
+    fn load(path: &Path, n_leaves: usize, checksum: u64) -> Option<MerkleTree> {
+        let bytes = std::fs::read(path).ok()?;
+        if bytes.len() < TREE_HEADER_BYTES || &bytes[0..4] != TREE_CACHE_MAGIC {
+            return None;
+        }
+        let rd_u32 = |o: usize| u32::from_le_bytes(bytes[o..o + 4].try_into().unwrap());
+        let rd_u64 = |o: usize| u64::from_le_bytes(bytes[o..o + 8].try_into().unwrap());
+        if rd_u32(4) != TREE_CACHE_VERSION
+            || rd_u64(8) != n_leaves as u64
+            || rd_u64(28) != checksum
+        {
+            return None;
+        }
+        let n_padded = rd_u64(16) as usize;
+        let depth = rd_u32(24);
+        let n_nodes = 2 * n_padded;
+        if bytes.len() != TREE_HEADER_BYTES + n_nodes * FIELD_BYTES {
+            return None; // truncated / corrupt body
+        }
+        let mut nodes = Vec::with_capacity(n_nodes);
+        let mut off = TREE_HEADER_BYTES;
+        for _ in 0..n_nodes {
+            nodes.push(FieldElement::from_be_bytes_reduce(&bytes[off..off + FIELD_BYTES]));
+            off += FIELD_BYTES;
+        }
+        Some(MerkleTree { nodes, n_padded, depth })
+    }
+}
+
+/// Build the Merkle tree, consulting the `--tree-cache <path>` argument if given.
+/// On a cache hit the O(N^2) Poseidon2 build is skipped entirely; on a miss the
+/// freshly built tree is written back (so the next variant/run reuses it).
+fn get_tree(args: &[String], flat_matrix: &[u64]) -> MerkleTree {
+    let cache_path = parse_named_arg(args, "--tree-cache").map(PathBuf::from);
+    let checksum = cache_path.as_ref().map(|_| matrix_checksum(flat_matrix));
+
+    if let (Some(path), Some(sum)) = (cache_path.as_ref(), checksum) {
+        if let Some(tree) = MerkleTree::load(path, flat_matrix.len(), sum) {
+            eprintln!("merkle_builder: tree cache HIT  ({})", path.display());
+            return tree;
+        }
+    }
+
+    let tree = MerkleTree::build(flat_matrix);
+
+    if let (Some(path), Some(sum)) = (cache_path.as_ref(), checksum) {
+        match tree.save(path, flat_matrix.len(), sum) {
+            Ok(()) => eprintln!("merkle_builder: tree cache WRITE ({})", path.display()),
+            Err(e) => eprintln!("merkle_builder: WARN could not write tree cache {}: {}", path.display(), e),
+        }
+    }
+    tree
+}
+
 // ── Prover.toml writer ────────────────────────────────────────────────────────
 
-/// Write Prover.toml for flat_merkle_presence in Noir's expected format.
+/// Write Prover.toml for the flat_merkle circuits (sort/presence) in Noir's expected format.
 ///
 /// Follows the same commenting style as pipeline/format_inputs.py.
 /// Field values (siblings, root) are written as "0x<64-hex-char>" strings.
@@ -695,7 +819,7 @@ fn run_hierarchical_c(args: &[String], input: Input, k: usize) {
     }
     let m = n / k;
 
-    let tree = MerkleTree::build(&input.flat_matrix);
+    let tree = get_tree(args, &input.flat_matrix);
     let root = tree.root();
     let depth = tree.depth;
 
@@ -800,7 +924,7 @@ fn run_hierarchical_cfs(args: &[String], input: Input, k: usize) {
     }
     let m = n / k;
 
-    let tree = MerkleTree::build(&input.flat_matrix);
+    let tree = get_tree(args, &input.flat_matrix);
     let root = tree.root();
     let depth = tree.depth;
 
@@ -1101,7 +1225,7 @@ fn run_flat(args: &[String], input: Input) {
     }));
 
     let n = input.n;
-    let tree = MerkleTree::build(&input.flat_matrix);
+    let tree = get_tree(args, &input.flat_matrix);
     let root = tree.root();
     let depth = tree.depth;
 
@@ -1152,7 +1276,7 @@ fn run_hierarchical(args: &[String], input: Input, k: usize) {
     }
     let m = n / k;
 
-    let tree = MerkleTree::build(&input.flat_matrix);
+    let tree = get_tree(args, &input.flat_matrix);
     let root = tree.root();
     let depth = tree.depth;
 
@@ -1255,7 +1379,7 @@ fn run_hierarchical_fs(args: &[String], input: Input, k: usize) {
     }
     let m = n / k;
 
-    let tree = MerkleTree::build(&input.flat_matrix);
+    let tree = get_tree(args, &input.flat_matrix);
     let root = tree.root();
     let depth = tree.depth;
 
