@@ -1,620 +1,431 @@
 # Thesis Outline — Zero-Knowledge Proofs for the Travelling Salesman Problem
 
-**Working title (draft):** *Zero-Knowledge Proofs for the Travelling Salesman Problem:
-A Family of Statements, a Structural Dualism, and a Privacy-Cost Frontier*
+**Candidate titles** *(pending supervisor — final TBD):*
+1. *Flat, Hierarchical, Recursive: Mapping the Performance and Privacy Trade-offs of
+   Zero-Knowledge Proofs for the Travelling Salesman Problem* — the colon-hook form;
+   leads with the three architectures as a standalone opener.
+2. *Mapping Performance and Privacy Trade-offs of Flat, Hierarchical and Recursive
+   Zero-Knowledge Proofs for the Travelling Salesman Problem* — the same content as a
+   single flowing clause (no colon); more conventional.
 
-**Alternative subtitle (2026-05-29 reframe):** *…a Structural Dualism, and the Binding
-Tax of Decomposed Proofs* — surfaces the binding-tax spine (see new §8.8). Decide
-during drafting; both subtitles are on the table.
+*(Acronym alternates riffed but not shortlisted: PARETO, COMPASS, WITNESS, SECRET, DETOUR —
+see session notes. "Performance" is the agreed umbrella for the cost/parallelism/verifier
+axes, chosen over "Cost" to avoid collision with TSP tour cost.)*
 
-**Author:** [author]
-**Programme:** MSc Cybersecurity
-**Supervisor:** [supervisor]
-**Last updated:** 2026-05-26
+**Author:** [author] · **Programme:** MSc Cybersecurity · **Supervisor:** [supervisor]
 
----
-
-## Working assumptions for this outline
-
-These are the structural choices made during the 2026-05-26 outline brainstorm. They
-can be revisited as drafting progresses; for now they shape the chapter list and the
-page budget.
-
-1. **Discovery narrative.** The thesis is written in the order the work actually
-   unfolded: original framing → gate-count analysis → reframing → reframed
-   contributions. The negative result (no hierarchical-Merkle gate-count benefit) is
-   foregrounded and explained, not buried.
-2. **Self-contained background, flexibly.** Chapter 2 explains ZKP, SNARKs, Plookup,
-   Poseidon2, Merkle commitments, and the TSP-relevant complexity background from
-   scratch, written for an examiner who is *not* a ZKP specialist. Where a topic only
-   matters for one later result (e.g., Plookup as it bears on the ~87 gates finding),
-   the explanation can stay concise rather than full-textbook.
-3. **Dedicated Related Work chapter, provisionally.** Chapter 3 is included as a
-   conventional standalone chapter. If it turns out thin or forced during drafting,
-   it can be folded into Chapter 2 (background) and Chapter 8 (dualism), with the
-   folding-schemes literature ending up alongside its natural discussion point in
-   Chapter 8.5.
-4. **No notation chapter.** Notation is introduced inline as variables appear. If the
-   density grows uncomfortable during drafting, a short notation index can be added
-   as front-matter or as Appendix D.
-5. **Threat model as a section, not a chapter.** Section §4.5 carries the formal
-   threat model for the flat circuits; the hierarchical chapters reference it and add
-   per-variant disclosure considerations in §9.6. This gives the cybersecurity
-   perspective explicit framing without inflating it into a standalone chapter.
-6. **Clustered TSP solver as Appendix B + separate document.** The solver is for a
-   different specific TSP application and is documented in its own report. Appendix B
-   gives a short integration overview so the combined-pipeline analysis in Chapter 11
-   is reproducible.
+*This is the current, canonical outline. It supersedes the earlier "crossover" and
+"three-variants-as-statements" framings (preserved in git history, checkpoint
+`ec5932a`). Source notes consolidated here: `FRONTIER_REFRAME.md` (binding tax),
+`NARRATIVE_FRAMING.md` §11 (monotone flow) + §8.4–8.5 (factorial + witness inversion),
+`HIERARCHICAL_EXPLAINED.md` (technical detail), and the 2026-06-04 framing discussion
+(the fingerprint lever + the gp-as-permutation-mechanism resolution).*
 
 ---
 
-## Page budget (rough — to be refined)
+# Part 0 — The framing (the spine of the whole document)
 
-| Part | Chapters | Estimated pages |
+Read this before the chapter list; every structural choice below follows from it.
+
+## 0.1 What the thesis actually contributes — the map, not the variants
+
+The variants use **standard techniques** (Merkle commitments, grand products, blinded
+commitments, in-circuit verification). "I built hierarchical TSP-ZK variants" is the
+weak, exposed claim. The durable contribution is the **framework**, and the variants are
+the **evidence that instantiates it**:
+
+1. **The dualism** — decomposing a non-local problem gives *no* ZK speedup; the only
+   payoff is parallelism / per-prover memory. (A negative result with a structural cause:
+   the partition check the glue must restore exactly cancels the per-segment saving — NP
+   asymmetry between *finding* and *checking*; ZK does no searching.)
+2. **The binding tax** — recombining K independent segment-proofs into one sound, private
+   statement is a single artifact with three coupled symptoms: **partition leakage**,
+   **O(K) verifier cost**, **verifier-side bookkeeping**. Generated by two decisions:
+   *where* binding lives (external / in-circuit / deferred) × *what* is bound (plaintext /
+   hiding commitment / witness).
+3. **The frontier** — the **pick-two triangle** at fixed privacy: **P** (parallel + low
+   per-prover memory) / **V** (O(1) verifier) / **C** (low prover overhead). Each built
+   architecture gives exactly two; folding (future) is the predicted empty corner.
+4. **The methodology** — controlled, equal-privacy comparison; one variable per step; the
+   2×2 factorial that de-confounds mechanism from aggregation.
+
+## 0.2 The variant set — one axis is the spine, one is a forced lever
+
+The in-scope set is a small grid. **The vertical axis is the contribution; the horizontal
+axis is a lever the vertical axis forces you to pull.**
+
+| Binding family (↓ = the binding tax) | **sort** version | **grand-product + FS** version |
 |---|---|---|
-| Front matter (abstract, TOC, lists) | — | 6–10 |
-| Part I — Foundations | Ch 1–3 | 35–50 |
-| Part II — Flat Baseline | Ch 4–7 | 35–45 |
-| Part III — Hierarchical Decomposition | Ch 8–10 | 30–40 |
-| Part IV — Conclusion | Ch 11–12 | 10–15 |
-| Appendices | A–C | 15–25 |
-| **Total body** | | **130–170 pages** |
+| flat, monolithic (K=1) | `flat_merkle_sort` | `flat_merkle_grand_product` |
+| hierarchical, **plaintext** binding | **A** | **A++** |
+| hierarchical, **committed** binding | **committed-A** | **committed-A++** |
+| recursive, **in-circuit** binding | recursive-A *(control)* | **recursive-A++** *(shipped)* |
 
-Higher end of the MSc range, justified by significant empirical content (benchmarks
-to N=500 + hierarchical frontier figure) and the need for thorough background.
+- **Vertical = the binding tax** (*where binding lives*: plaintext → committed →
+  in-circuit). This is the focus, the privacy axis, the frontier.
+- **Horizontal = the fingerprint lever** (*how the partition is checked*: deterministic
+  sort vs probabilistic grand-product + Fiat–Shamir). **Not** a co-equal axis — it is a
+  consequence of the vertical axis (see §0.3).
 
----
+Out of scope for the narrative (kept in the repo, mentioned only as alternatives tried):
+`flat_full_presence`, `flat_full_invperm`, `flat_merkle_presence`, Variant B.
+`flat_full_pairwise` / `flat_full_sort` survive only as the flat permutation-mechanism
+study (Ch 5). `flat_merkle_grand_product` and `recursive-A` are **instrumental controls**
+(Ch 10 factorial), off the frontier figure.
 
-## Front matter
+## 0.3 The fingerprint lever — the second structural finding, subordinate to the first
 
-- **Title page**
-- **Abstract** (≤ 1 page) — the reframed thesis pitch from supervisor report §1.2,
-  compressed.
-- **Acknowledgements**
-- **Table of contents** + **list of figures** + **list of tables**
-- **Notation index** (optional; add only if needed during drafting)
+Nobody set out to compare two permutation mechanisms. The grand product *appears* as a
+**forced response to the binding tax**, and its different soundness *falls out* as the
+price — it was never an independent design goal:
+
+1. Decompose → each segment must **publish and bind a partition fingerprint**.
+2. The naive fingerprint is the **sorted node set**, inherited from flat's sort check. But
+   under decomposition it costs **O(M) public surface per segment** (the segment must
+   expose its M nodes) and a **serial** O(N) merge in the glue — i.e. it *worsens* the
+   O(K)-verifier symptom.
+3. The **grand product is the lever on that symptom**: it collapses each segment's shared
+   surface from **O(M) → O(1)** (one field) and is **distributable** (each segment
+   multiplies locally; the glue/outer combines K fields).
+4. **The price is not sought, it falls out:** the exact, structural multiset check becomes
+   a probabilistic one (Schwartz–Zippel over a Fiat–Shamir challenge, sound only in the
+   ROM). **Structural soundness → computational soundness is the cost of the surface win.**
+
+> **One-sentence statement (the named subsection §8.x):** the sort→grand-product move is the
+> prover's lever on the surface / O(K) symptom of the binding tax — it buys an O(1),
+> distributable fingerprint and pays in soundness flavor; the same lever, the same trade,
+> at every level of decomposition.
+
+**Why flat is the perfect control, not a retroactive add-on.** At K=1 the surface is
+already O(1) = `{root, T}`, so the grand product's surface benefit is **zero** — pulling
+the lever there is a *strictly worse* trade (you pay the soundness cost for no surface
+gain). So gp is never *chosen* at flat; it is introduced there only as **the next
+permutation mechanism** in the flat GROUP-2 study (pairwise → sort → … → grand-product),
+where it isolates the mechanism's *bare cost* (the witness-time inversion, §0.5) with its
+benefit switched off. Its later relevance to decomposition is a **callback, not a
+forward-reference debt** — which dissolves the "retroactive justification" problem: gp is
+independently motivated as a permutation mechanism, and the factorial simply *benefits*
+from a circuit we would have built anyway.
+
+## 0.4 The lever's meaning changes down the binding axis (this is what makes it not repetition)
+
+The lever is read four times under four different conditions; each reading is a distinct
+result, which is why it earns a named subsection rather than a footnote:
+
+| Binding level | What the sort↔gp lever *means here* |
+|---|---|
+| **flat (K=1)** | Pure mechanism cost (witness inversion). Surface benefit = 0 ⟹ gp is a *strictly worse* trade ⟹ the clean control. |
+| **hierarchical plaintext (A↔A++)** | Lever goes *live*: O(M)→O(1) surface + distributable, paid in soundness. **F7: neither dominates** (A cheaper total gates + deterministic; A++ compact + recurses flat). |
+| **hierarchical committed (cA↔cA++)** | **Equal-privacy finding:** both reach the *same* privacy rung ⟹ the lever is now a **privacy-neutral pure cost/soundness choice**. |
+| **recursive (recA↔recA++)** | Hiding is *off the table* (both partitions are witness) ⟹ the lever is **soundness-only + outer-surface**: O(M) inner → outer grows with N; O(1) inner → outer stays flat at ~704k. **This is why A++ is the shipped inner.** |
+
+## 0.5 The two comparison readings + the forbidden move (the methodology)
+
+Every comparison changes exactly one variable. The grid (§0.2) makes the discipline literal:
+
+- **Down a column = the binding tax** (mechanism held fixed ⟹ a cost delta is pure
+  aggregation/binding, never secretly a mechanism delta).
+- **Across a row = the fingerprint lever** (binding held fixed ⟹ pure sort-vs-gp: the
+  witness inversion + the F7 non-domination result).
+- **The diagonal is forbidden** — e.g. `flat_merkle_sort ↔ recursive-A++` confounds *both*
+  changes. Naming this as off-limits is half the methodology contribution.
+
+The **2×2 factorial** {flat, recursive} × {sort, grand-product} is the device that proves
+the two axes are **separable** (≈additive, no interaction) — the dualism, quantified. The
+clean headline comparison is `flat_merkle_grand_product ↔ recursive-A++` (differ in
+*exactly* structure, no soundness caveat to carry).
+
+**The witness-time inversion (the row finding at flat).** `flat_merkle_sort` and
+`flat_merkle_grand_product` share GROUP 3 (Merkle) and GROUP 4 (threshold) byte-for-byte,
+take the identical Prover.toml, expose the identical `{root, T}`. Measured (from
+`results/flat.csv`): gp compiles to **more** constraints (+3.5–7.9%, shrinking with N) yet
+solves its witness **faster** (up to **−44%** at N=1000, widening with N). Cause: the sort
+path's `check_shuffle` does ~2N **dynamic-ROM** array reads (data-dependent indices →
+memory-consistency machinery the witness solver must resolve); the grand product is pure
+straight-line, statically-indexed arithmetic. Both land in the same UltraHonk dyadic
+bucket, so proof size (14 656 B), prove time, and memory are unchanged. *Gate count and
+witness-solving cost are not the same currency* — this row makes that legible.
+
+## 0.6 Refrains to repeat throughout Part III (honesty caveats)
+
+- **Total work is conserved** — hierarchical never beats flat on *total* gates; the win is
+  *parallelizability* of the same work (the dualism).
+- **A++ is never motivated on hiding** — it still leaks (the `P_i` oracle); it earns its
+  place on surface + soundness + the recursion bridge.
+- **"Perfect hiding" of flat/recursion is *structural*, not information-theoretic** — the
+  public surface carries no partition info. UltraHonk-ZK is computational/statistical and
+  *identical across all variants*; it is not a discriminator.
+- **The K× parallel speedup is PROJECTED, not yet measured** — the isolation benchmark
+  (`ISOLATION_BENCHMARK.md`, `--isolated` harness flag) closes this; the one gap before
+  final submission.
 
 ---
 
 # Part I — Foundations
 
-## Chapter 1 — Introduction *(~10 pages)*
+## Chapter 1 — Introduction *(~10 pp)*
+- §1.1 Motivation — privacy-preserving combinatorial optimisation (worked logistics
+  scenario: prove route quality without disclosing route or cost matrix).
+- §1.2 The original question — *"at what N does hierarchical beat flat?"* — and why it was
+  the wrong question (it presupposed a single cost dimension).
+- §1.3 What we found instead — the dualism, the binding tax, the frontier (Part 0, compressed).
+- §1.4 Contributions — the four-point list (§0.1).
+- §1.5 What this thesis does **not** claim — no NP-asymmetry overclaim; structural ≠ IT-ZK.
+- §1.6 Structure — short tour of Parts I–IV; **the intro signpost** for the flat↔recursion
+  dilemma lives here (one paragraph of orientation, no construction, no asserted cost).
 
-**Purpose.** Open the discovery narrative; motivate the work; state contributions;
-preview structure.
+**Drafting note — the discovery narrative (the "how the idea came up" thread).** Ch 1 is the
+one place that runs in *discovery-narrative mode* (the rest of the body presents the framework
+crisply per §0.1). Three beats: §1.1 the application pull (why anyone cares — independent of
+how we got here) → §1.2 the original premise (*"at what N does hierarchical beat flat?"*; it
+was natural because classical hierarchical TSP gives a speedup, so surely hierarchical ZK does
+too) → §1.3 the pivot. **State the "how" concretely in §1.3:** a total-gate-cost analysis of
+hierarchical-Merkle found it ~1.5% *worse* than flat-Merkle — the crossover doesn't exist,
+because the glue's partition check exactly cancels the per-segment saving — and that *negative
+result forced* the reframe to the binding tax / frontier. **No contradiction with "lead with
+the framework":** the discovery story *is* the motivation for the framework. **Trailer-vs-film
+split:** §1.3 previews the pivot in ~1 page (question → cancellation → reframe); the rigorous
+gate accounting is developed in **§8.3**. Ch 1 is the trailer, Ch 8 the film. *(Decide during
+drafting whether §1.3 wants more room; if so it borrows from §8, not the reverse.)*
 
-- §1.1 Motivation — privacy-preserving combinatorial optimisation as a real
-  application class. Concrete example: a logistics operator wanting to demonstrate
-  route quality without disclosing the route or the cost matrix.
-- §1.2 The original research question — *"at what N does hierarchical beat flat?"*
-  How it was chosen, what answer was anticipated.
-- §1.3 What we found instead — preview the variant-as-statement reframe, the dualism,
-  the negative result. Section ends with the reframed thesis pitch from
-  `supervisor_report_draft.md` §1.2.
-- §1.4 Contributions — the four-point list from supervisor report §1.3: empirical
-  flat baseline, negative result with structural explanation, variant-as-statement
-  reframe, frontier-mapping methodology.
-- §1.5 What this thesis does not claim — pre-empt NP-asymmetry overclaiming
-  (supervisor report §1.4).
-- §1.6 Thesis structure — short tour of Parts I–IV.
+## Chapter 2 — Background *(~30–40 pp)*
+- §2.1 Zero-knowledge proofs — interactive game; completeness/soundness/ZK; Fiat–Shamir;
+  worked toy example.
+- §2.2 SNARKs — arithmetic circuits over a prime field; R1CS/AIR/ACIR; PLONK; UltraHonk +
+  Plookup *(concise — only what the ~87-gates finding needs)*.
+- §2.3 Primitives — Poseidon2 (ZK-friendly hashing); Merkle commitments in the ZK context.
+- §2.4 TSP — definition, applications; NP-hardness and the finder/checker asymmetry (the
+  seed of the dualism); heuristic + clustered solvers.
+- §2.5 Tooling — Noir + Barretenberg; ACIR opcodes vs UltraHonk gates; the metric set
+  (circuit_size, compile/witness/prove/verify_s, proof_bytes, peak_mb).
 
-**Open questions for drafting:** length of the motivation example in §1.1 — a single
-paragraph or a worked operational scenario? Probably the latter, but kept tight.
-
-## Chapter 2 — Background *(~30–40 pages)*
-
-**Purpose.** Make the thesis self-contained for an examiner who knows applied
-cryptography but not ZK specifically.
-
-- §2.1 Zero-knowledge proofs
-  - §2.1.1 The interactive prover-verifier game
-  - §2.1.2 Completeness, soundness, zero-knowledge
-  - §2.1.3 Non-interactive proofs and the Fiat-Shamir transform
-  - §2.1.4 Worked toy example (graph 3-colouring or sudoku)
-- §2.2 SNARKs and circuit-based proof systems
-  - §2.2.1 Arithmetic circuits over a prime field
-  - §2.2.2 R1CS, AIR, and the ACIR intermediate representation
-  - §2.2.3 PLONK and the polynomial commitment paradigm
-  - §2.2.4 UltraHonk and Plookup *(concise — only what's needed for the ~87 gates
-    finding to make sense)*
-- §2.3 Cryptographic primitives in this work
-  - §2.3.1 ZK-friendly hashing and Poseidon2
-  - §2.3.2 Merkle commitments in the ZK context
-- §2.4 The Travelling Salesman Problem
-  - §2.4.1 Problem definition and applications
-  - §2.4.2 NP-hardness, the verifier/finder asymmetry, and the implications for ZK
-  - §2.4.3 Heuristic solvers (nearest-neighbour, 2-opt) and hierarchical / clustered
-    approaches
-- §2.5 Tooling: Noir and Barretenberg
-  - §2.5.1 The Noir DSL and the proving pipeline
-  - §2.5.2 ACIR opcodes vs UltraHonk gates *(forward reference to Finding 3)*
-  - §2.5.3 Performance metrics: circuit size, proving time, proof size, verifier
-    cost, peak memory
-
-**Length flex.** Section 2.1 should be self-contained; 2.2 can lean concise where it
-only services later findings; 2.4 should be tight because TSP is well-known
-territory.
-
-## Chapter 3 — Related Work *(~5–10 pages, provisional)*
-
-**Purpose.** Position the contributions against existing literature.
-
-- §3.1 ZK proofs over graph problems — what exists, what's missing for TSP
-  specifically
-- §3.2 Recursive and folding proof systems — Halo, Nova, ProtoStar, SuperNova; their
-  natural problem classes; why they are out of scope here
-- §3.3 Privacy-preserving combinatorial optimisation — MPC approaches, garbled
-  circuits, TEEs as alternative trust models
-- §3.4 Empirical methodology in ZK benchmarking — how others have measured and
-  reported circuit costs; what this thesis does differently *(forward to Finding 4 on
-  ACIR opcode count)*
-
-**Provisional.** Drafted as a standalone chapter; if material is thin during writing,
-fold §3.2 into Ch 8.5 (folding-schemes future direction) and §3.4 into Ch 7
-(methodology) and remove this chapter.
+## Chapter 3 — Related Work *(~5–10 pp, provisional)*
+- §3.1 ZK over graph problems; what's missing for TSP.
+- §3.2 Recursive + folding proof systems (Halo, Nova, ProtoStar, SuperNova) — their natural
+  problem classes; why folding is the future-work corner, not built here.
+- §3.3 Privacy-preserving combinatorial optimisation — MPC, garbled circuits, TEEs.
+- §3.4 Empirical methodology in ZK benchmarking — what this thesis measures differently
+  (forward to the ACIR-opcode finding).
+- *Provisional: fold into Ch 2 + Ch 8 if thin.*
 
 ---
 
 # Part II — Flat Baseline
 
-## Chapter 4 — Problem Formulation *(~8 pages)*
+## Chapter 4 — Problem Formulation *(~8 pp)*
+- §4.1 The TSP-ZKP statement — Hamiltonian cycle, cost ≤ T against a committed matrix.
+- §4.2 Public/private separation — flat-full (matrix public) vs flat-Merkle (committed).
+- §4.3 Trust anchors for the Merkle commitment (the five mechanisms).
+- §4.4 Threshold vs optimality — why cost ≤ T, not "minimum".
+- §4.5 **Threat model** — adversary (cheating polynomial-bounded prover; honest verifier);
+  guarantees (completeness, knowledge soundness, ZK); non-guarantees (input validity needs
+  an external anchor); side-channels out of scope. **§4.5.6 placement rule:** the adversary
+  is defined *once here*; the per-circuit group↔cheat argument lives in each soundness
+  subsection (§5.x, §9.3.3, …); the formal proofs in §9.8; the negative-test results in
+  §10.1a. Three artifacts, three homes — never conflated.
 
-**Purpose.** State the cryptographic claim precisely; establish public/private
-separation; introduce the threat model.
+## Chapter 5 — Flat Circuit Design *(~12–15 pp)*
+- §5.1 The four-group structure (range / permutation / edge-cost / threshold).
+- §5.2 Type rationale (u32, u64, Field, bool).
+- §5.3 **Permutation-check mechanisms — the GROUP-2 study.** pairwise → sort → invperm →
+  presence → **grand-product + FS**. The grand product enters *here, as a permutation
+  mechanism* (§0.3), not as a future control. Analytical cost comparison; set up the
+  sort↔grand-product pair as the sharpest contrast (the witness inversion, measured in Ch 7).
+- §5.4 Matrix representation — flat-full vs flat-Merkle; the privacy/cost trade named.
+  Produces `flat_merkle_sort`, the **monolithic perfect-hiding baseline** Part III builds on.
+- §5.5 Merkle proof verification — the leaf-index check; why it is soundness-critical.
+- §5.6 Alternatives considered and rejected (Verkle, leaf domain separation, …).
 
-- §4.1 The TSP ZKP statement — Hamiltonian cycle existence with cost ≤ T against a
-  committed cost matrix
-- §4.2 Public-private separation — flat-full (matrix public) vs flat-Merkle (matrix
-  committed)
-- §4.3 Trust anchors for the Merkle commitment — the five mechanisms (authority
-  signature, trusted oracle, cross-attestation, public timestamping,
-  decommitment-on-dispute) from supervisor report §2.2
-- §4.4 Threshold vs optimality — why cost ≤ T rather than "minimum cost"
-- §4.5 **Threat model** *(cybersecurity perspective)*
-  - §4.5.1 Adversary capabilities — malicious prover model (cheating-prover with
-    polynomial computation); verifier honesty assumption
-  - §4.5.2 What the proof system must guarantee — completeness, knowledge soundness,
-    zero-knowledge
-  - §4.5.3 What the proof system does *not* guarantee — input validity (the cost
-    matrix must be bound by an external trust anchor; §4.3)
-  - §4.5.4 Side-channel and metadata leaks — out of scope but acknowledged
-  - §4.5.5 Forward reference to per-variant threat-model considerations in §9.6
-  - §4.5.6 **Where soundness is argued / validated** *(placement decision, 2026-06)* — the
-    dishonest-prover *adversary* is defined **once**, here. The per-circuit **constraint-group
-    ↔ cheat** mapping + soundness argument live in each circuit's soundness subsection
-    (§5.x, §9.3.3, §9.4.3, §9.5, §9.6); the **formal proofs** in §9.8; the **negative-test**
-    method + consolidated results in §10.1a. Three artifacts (adversary / argument / empirical
-    validation), three homes — do not conflate.
+## Chapter 6 — Implementation Details *(~10 pp)*
+- §6.1 Noir circuit organisation. §6.2 The Rust Merkle builder. §6.3 Rust↔Noir Poseidon2
+  cross-validation. §6.4 The Python pipeline (instance gen, solver, format_inputs, run.py,
+  instance_cache). §6.5 Worked examples (N=4, N=8 flat-Merkle).
 
-## Chapter 5 — Flat Circuit Design *(~12–15 pages)*
-
-**Purpose.** Walk through the design decisions that produced the five flat variants.
-
-- §5.1 Four-group structure (range, permutation, edge cost, threshold)
-- §5.2 Type rationale (u32, u64, Field, bool) — why each is chosen
-- §5.3 Permutation check strategies — pairwise, sort, invperm, presence; analytical
-  cost comparison
-- §5.4 Matrix representation — flat-full vs flat-Merkle, with the privacy/cost
-  trade-off named explicitly
-- §5.5 Merkle proof verification — the leaf-index check and why it is
-  soundness-critical
-- §5.6 Design alternatives considered and rejected — Verkle trees, leaf domain
-  separation, polynomial encoding, etc. (mirrors supervisor report §3.6)
-
-## Chapter 6 — Implementation Details *(~10 pages)*
-
-**Purpose.** Show enough engineering detail that the work is reproducible without
-overwhelming the reader.
-
-- §6.1 Noir circuit organisation — five circuit directories, shared structure
-- §6.2 The Rust Merkle builder — purpose, JSON interface, Poseidon2 compression
-- §6.3 Hash compatibility cross-validation — Rust ↔ Noir Poseidon2 testing
-- §6.4 The Python pipeline — instance generation, solver, format_inputs, run.py
-- §6.5 Worked examples — N=4 and N=8 walk-throughs of flat-Merkle (mirrors
-  supervisor report §4.5–4.6)
-
-## Chapter 7 — Flat Baseline Evaluation *(~12 pages)*
-
-**Purpose.** Present the empirical findings on the flat circuits.
-
-- §7.1 Methodology — N range, number of runs, hardware, what was measured
-- §7.2 Circuit-size models per variant (the 7.25·N² + linear-coefficient fits)
-- §7.3 The ~87 gates/Poseidon2-call finding — Plookup amortisation; comparison with
-  the ~264 literature value; methodological implication
-- §7.4 Proving time, verification time, peak memory
-- §7.5 The N≈175 flat-full ↔ flat-Merkle crossover — empirical and theoretical match
-- §7.6 ACIR opcodes as a misleading metric — the N≈30 vs N≈175 discrepancy
+## Chapter 7 — Flat Baseline Evaluation *(~12 pp)*
+- §7.1 Methodology — N range to ~1000, runs, hardware, what's measured; the
+  deterministic→noisy timer funnel.
+- §7.2 Circuit-size models per variant (7.25·N² + linear fits).
+- §7.3 The ~87 gates/Poseidon2-call finding (Plookup amortisation; vs the ~264 literature value).
+- §7.4 **The sort↔grand-product row — the witness-time inversion** (§0.5): the controlled
+  flat-row experiment; gp more gates, faster witness; same dyadic bucket. The clean
+  introduction of the grand-product gadget's behaviour *before* decomposition adds confounds.
+- §7.5 Proving time, verification time, peak memory; the N≈175 flat-full↔flat-Merkle crossover.
+- §7.6 ACIR opcodes as a misleading metric (the N≈30 vs N≈175 discrepancy).
 
 ---
 
-# Part III — Hierarchical Decomposition
+# Part III — Decomposition: the Binding Tax and the Frontier
 
-## Chapter 8 — The Optimisation-ZK Dualism *(~12 pages)*
+## Chapter 8 — The Dualism and the Binding Tax *(the contribution; ~14 pp)*
 
-**Purpose.** Make the central conceptual contribution — explain why hierarchical ZK
-does not give the algorithmic speedup that classical hierarchical TSP gives.
-
-- §8.1 Hierarchical decomposition in classical TSP — what clustering does, why it
-  works (search-space shrinkage)
-- §8.2 The naive hierarchical ZK design — split the cycle into K segments, prove
-  each independently, stitch with a glue circuit. What we expected (parallel
+- §8.1 Hierarchical decomposition in classical TSP — search-space shrinkage.
+  **Drafting note — callback, not fresh lecture.** The optimization half of the dualism must
+  already be in the reader's hands from **Ch 2 §2.4.3** (heuristic + clustered/hierarchical
+  solvers; *why* clustering speeds classical TSP: search shrinks N! → ~K·(N/K)!·K!). §8.1 *recalls*
+  that ("recall from §2.4.3 that decomposition is a win for an optimizer…") and then §8.3 shows
+  the *same* move cancels in ZK — that contrast is the dualism, and it only lands if the
+  optimization side was taught neutrally earlier. The **root cause** runs as its own thread:
+  the NP finder/checker asymmetry is *seeded* in §2.4.2 and *developed* in §8.4 (classical
+  hierarchy trades verification overhead for search reduction; ZK does no searching, so there
+  is nothing to reduce). Keep the **generic solver background** (§2.4.3) distinct from the
+  project's **own clustered solver** (Appendix B + §11.4) — the first motivates the dualism,
+  the second is the applied artifact integrated later; conflating them muddies both.
+- §8.2 The naive hierarchical ZK design — K segments + glue; what we expected (parallel
   speedup AND gate savings).
-- §8.3 The gate-count cancellation — why hierarchical Merkle does *not* reduce total
-  gates over flat Merkle. The O(N) partition check + K boundary Merkle proofs in
-  the glue exactly absorb the per-segment savings.
-- §8.4 NP asymmetry and how it transfers (or doesn't) under decomposition —
-  classical hierarchical exploits the asymmetry by trading verification overhead for
-  search reduction; in ZK there is no search to reduce.
-- §8.5 Embarrassingly-parallel vs algorithmic speedup — careful distinction; the
-  parallelism benefit is real but is not what "hierarchical decomposition" usually
-  means in algorithm design.
-- §8.6 Folding schemes as a future direction — Nova/ProtoStar/SuperNova as the
-  research direction that would test whether the dualism is intrinsic to TSP or to
-  the proof system. Out of scope for this thesis.
-- §8.7 Implications for proof-system design — the predictive heuristic: "does this
-  problem factor locally?"
-- §8.8 **The binding tax — the second structural result** *(added 2026-05-29 reframe)*
-  - §8.8.1 One artifact, three symptoms — decomposition forces a binding step to
-    recombine K independent segment-proofs; that binding manifests as *partition
-    leakage*, *O(K) verifier cost*, and *verifier-side bookkeeping*, all of which are
-    the shared public surface of independent proofs. They dissolve together by folding
-    the binding into a proof.
-  - §8.8.2 Two decisions generate the family — *where* binding lives (verifier-side /
-    in-circuit / deferred) × *what* is bound (plaintext / hiding commitment / witness).
-  - §8.8.3 The pick-two triangle — P (parallel + low per-prover mem) / V (O(1) verifier)
-    / C (low prover overhead); each architecture gives exactly two; folding is the
-    missing corner. The frontier is this triangle *at fixed privacy*.
-  - §8.8.4 Relation to the dualism — §8 explains *why decompose* (parallelism is the
-    only payoff); §8.8 explains *how the variants pay* for it. Source:
-    `FRONTIER_REFRAME.md` / DESIGN.md §9.
+- §8.3 **The gate-count cancellation** — hierarchical Merkle saves no total gates; the O(N)
+  partition check + K boundary Merkle proofs absorb the per-segment saving.
+- §8.4 NP asymmetry and why it does *not* transfer — classical hierarchy trades verification
+  overhead for search reduction; ZK has no search to reduce.
+- §8.5 Embarrassingly-parallel vs algorithmic speedup — the only payoff of decomposition is
+  parallelism / per-prover memory.
+- §8.6 **The binding tax** — one artifact, three symptoms (partition leak / O(K) verifier /
+  bookkeeping); the two generating decisions (*where* × *what*). **Seed the reveal:** the
+  O(K)-verifier "symptom" will turn out to be the *cheap* way to pay.
+- §8.7 **The fingerprint lever** *(named subsection — the second structural finding)* — §0.3
+  in full: decomposition forces a partition fingerprint; sort = structural + O(M)/segment +
+  serial; grand-product = O(1) + distributable + computational; the price falls out of the
+  surface win. State the lever once; Ch 9 collects its four readings (§0.4).
+- §8.8 **The pick-two triangle** — P / V / C; each architecture gives two; folding the empty
+  corner. The frontier *is* this triangle at fixed privacy.
+- §8.9 Folding as future direction — the only design that breaks the triangle (§12.2.1).
 
-**Cross-refs.** §8.3 ↔ Finding 6; §8.4 ↔ Finding 8; §8.7 ↔ §10.5 and §11.2; §8.8 ↔
-§9.1, §9.6, §10.5, §12.2.1.
+## Chapter 9 — The Variants: a Controlled Walk Down the Binding Axis *(~16 pp)*
 
-## Chapter 9 — Three Hierarchical Variants *(~15–18 pages)*
+**Organizing principle (state once, up front):** the chapter is a controlled walk — each
+consecutive step changes *exactly one* design dimension, so every cost/privacy delta is
+attributable to a single cause. Presentation order ≠ implementation order.
 
-**Purpose.** Present the variant-as-statement reframe and the variants as *points in
-the binding-tax design space* (§8.8) on the privacy/cost frontier.
+| # | step | the ONE thing that changes | isolates |
+|---|---|---|---|
+| — | `flat_merkle_sort` (from Ch 5) | — | the K=1 monolithic perfect-hiding endpoint Part III builds on |
+| 1 | → **decomposition** | structure: monolithic → K segments + binding | the move that buys parallelism (no gate savings); forces the binding question |
+| 2 | → **Variant A** | binding: external, **plaintext**, sort | the binding tax *raw* (partition disclosed, O(K), bookkeeping); cheapest total gates, deterministic — the **diagnosis** + disclosure-regime point |
+| 3 | → **Variant A++** | mechanism/surface: sort/O(M) → **grand-product/O(1)** | the fingerprint lever, live; honestly **not cheaper** (relocates O(N) into segments); motivated on surface + soundness + the recursion bridge, **never hiding** |
+| 4 | → **committed-A / committed-A++** | what is bound: plaintext → **blinded commitment** | the blinding; leak closes (`C_i`, reveals only K); bookkeeping becomes ZK. **Equal-privacy finding** — present both together; only the O(K) verifier remains |
+| 5 | → **recursion (A++-inner)** | where binding lives: external → **in-circuit (witness)** | the last symptom (O(K) verifier) falls + structural hiding restored; the faithful recombination; prover pays 704k×K; A++'s O(1) surface pays off |
+| 5c | recursion(A++) ↔ **recursive-A** | the inner: A++ → A | **control** for Ch 10: holds mechanism matched to flat, isolating aggregation cost. Off-frontier. Soundness/surface trade, *not* hiding (both partitions witness) |
+| 6 | → **folding** | when binding happens: eager → deferred | the empty P+V+C corner; future work (a different backend ⟹ would break the single-backend comparison) |
 
-**Note (2026-05-29 reframe; committed-* implemented 2026-05-31).** This chapter was
-titled "Three Hierarchical Variants" (A, A++, B). It now presents the family as **one
-progression line**, not a flat catalogue: A and A++ are the **diagnosis** (A discloses
-the partition; A++ hides the node-sets but only behind confirmation oracles) *and* the
-low-cost **disclosure-regime** points; **committed-A / committed-A++** are the **cure**
-(bind on blinded commitments — partition hidden computationally, reveals only K);
-**recursion** is the perfect-hiding endpoint (partition structurally absent, at the
-≈704k×K cost). Each step removes exactly one binding-tax symptom (§8.8). The chapter
-title may be relaxed to "Hierarchical Variants" during drafting. See DESIGN.md §9,
-`FRONTIER_REFRAME.md`, and `HIERARCHICAL_EXPLAINED.md` §9b.
+Per-variant subsections each carry: construction, worked N=8/K=2 example, the
+**row-reading** (sort↔gp at this level, per §0.4), soundness argument, gate-count prediction.
 
-- §9.1 The variant-as-statement reframe — variants don't compete on cost; they prove
-  different statements. Mirrors supervisor report §7.7 / Finding 10. *Now subordinated
-  to the binding-tax spine: each variant is a choice of where binding lives and what is
-  bound (§8.8.2).*
-- §9.2 Common architecture — K sub-proofs + glue, independent composition (model
-  (i)), N divisibility discipline, K parameterisation, glue sharing between A/B
-- §9.3 Variant A — Merkle, sorted-nodes-public
-  - §9.3.1 Sub-circuit (five constraint groups) and glue interface
-  - §9.3.2 Worked example at N=8, K=2 (the example from supervisor report §8)
-  - §9.3.3 Soundness argument
-  - §9.3.4 Gate-count prediction
-- §9.4 Variant A++ — Merkle, grand product + in-circuit Fiat-Shamir
-  - §9.4.1 The grand-product multiset commitment
-  - §9.4.2 The hash-chain construction and challenge derivation
-  - §9.4.3 Soundness chain (Fiat-Shamir + Schwartz-Zippel)
-  - §9.4.4 Cost analysis: ~5.5% sub-circuit overhead; O(N) → O(K) glue
-- §9.5 Variant B — flat-full, sub-matrix public
-  - §9.5.1 Sub-circuit (sub-matrix as public input) and glue (reuses A's logic)
-  - §9.5.2 Gate-count analysis: O(N²/K)
-- §9.5a **Committed-A / Committed-A++** *(implemented 2026-05-31)* — the leak-closing
-  move (the *cure* for the diagnosis A/A++ provide): bind on hiding commitments instead
-  of plaintext, glue checks openings in-circuit (G0), verifier compares opaque
-  commitments. Closes the partition leak while keeping the non-recursive architecture
-  (stays in the O(K)-verifier corner — parallelism + low per-prover memory preserved).
-  - §9.5a.1 Construction — `C_i = fold(r_i, [values])` over the 2-input Poseidon2;
-    committed-A++ folds the A++ aggregates `[P_i, h_in, h_out, start, end, partial_cost]`
-    (drops the sub's G7); committed-A folds `[cycle_segment…, partial_cost]` (drops the
-    per-segment sort). Public surface `{root, X, C_i}` / `{root, C_i}`; bookkeeping is ZK.
-  - §9.5a.2 Hiding type — computational (Poseidon, implemented) vs unconditional-content
-    (Pedersen, analytical: costlier in-circuit, computational binding). See §9.6.6.
-  - §9.5a.3 **Equal-privacy finding** — committed-A and committed-A++ reach the *same*
-    privacy class (multiset computational, interior order info-theoretic, reveal K); they
-    differ only in glue cost/mechanism (O(N) sort + O(N) commit-fold vs distributed
-    grand-product + O(K) commit-fold). The equal-privacy restatement of the F7 "A not
-    dominated by A++" result.
-  - §9.5a.4 Status — **built + validated**: circuits `hierarchical_{segment,glue}_{c,cfs}`,
-    builder `--hierarchical-{c,cfs}`, verifiers/harnesses `verify_hier_*` / `run_hier_*`,
-    correctness suites `test_hierarchical_{c,cfs}.py` (7/7 each). Sweeps pending.
-    Source: `HIERARCHICAL_EXPLAINED.md` §9b, `FRONTIER_REFRAME.md` Part 4–5.
-- §9.5b **Recursion as a first-class variant** *(added 2026-05-29 reframe)* — in-circuit
-  binding: the outer verifies the K inner proofs, their public inputs become witness,
-  public surface collapses to `(root, threshold)`. Implemented + benchmarked.
-  - §9.5b.1 Why it is the perfect-hiding endpoint — partition structurally absent
-    (assumption-free), same surface as flat_merkle.
-  - §9.5b.2 Inner-circuit choice as a **soundness step (not a hiding step)** — present it
-    as the three-step arc **flat_merkle_sort → recursive-A → recursive-A++**
-    (`NARRATIVE_FRAMING.md` §7). recursive-A keeps the deterministic sort-partition in the
-    outer (matched to flat), isolating the pure aggregation cost; recursive-A++ swaps to the
-    grand product for an `O(1)` public surface (outer M-independent), at the price of a
-    *probabilistic* partition argument. **Correction to flag explicitly:** inside recursion
-    the partition is perfectly hidden either way (A's `sorted_nodes` and A++'s `P_i` both
-    become outer witness), so A↔A++ here trades **partition-check soundness** (exact sort vs
-    Schwartz–Zippel + FS), not hiding. The `O(M)=M+4` vs `O(1)=9` surface is the cost lever.
-    Sources: `Recursive_inner_circuit_choice_explained.md`, `NARRATIVE_FRAMING.md` §7.1–7.2.
-  - §9.5b.3 Cost — ~704k gates per in-circuit verification, ~K× total (≈1.47M at K=2, ≈3.0M
-    at K=4); the prover-side price of collapsing the binding tax (the C corner of the §8.8.3
-    triangle).
-  - §9.5b.4 **The Fiat–Shamir floor — recursion's unavoidable cost.** An UltraHonk proof is
-    a public-coin IOP compiled with Fiat–Shamir (challenges = transcript hashes, sound in the
-    ROM); in-circuit verification forces the outer to **recompute those challenges in-circuit**
-    (hash the inner transcript) + run the PCS opening checks — which is the *bulk* of the
-    ~704k-gate verifier. Three points to state: (i) FS/ROM is not unique to A++ and is not
-    introduced by recursion — flat's single proof is already FS-in-ROM; recursion adds a
-    *second, in-circuit* FS layer; (ii) that layer is unavoidable for **any** recursive design
-    (A- or A++-inner), so recursive-A is "deterministic at the partition check," never
-    "FS-free end-to-end"; (iii) the FS floor **is** recursion's binding tax — the gates that
-    collapse the surface to `{root, T}` are the in-circuit FS-verifier. Caveat: recursive FS
-    composition in the ROM is delicate (RO instantiated by a concrete in-circuit hash) →
-    soundness = FS-in-ROM + recursion KS (ties to §9.8.5/§9.8.7), not unconditional.
-    Source: `NARRATIVE_FRAMING.md` §7.3.
-- §9.6 Privacy analysis and per-variant threat-model considerations
-  - §9.6.1 Quantitative privacy bound for Variant A — the worked example
-    (10.3 bits at N=8) and the general formula
-  - §9.6.2 Threat-model dependence — matrix-private vs matrix-public regimes;
-    cycle-recovery feasibility under each
-  - §9.6.3 What A++ buys back vs A
-  - §9.6.4 B's privacy profile — partition + sub-matrix disclosure
-  - §9.6.5 **The privacy ladder** *(added 2026-05-29; committed-* implemented 2026-05-31)*
-    — assumption-decreasing ordering: B → A → A++ → committed-A/committed-A++ (Poseidon,
-    same rung) → committed(Pedersen) → recursion/folding/flat. Two mechanisms: *commit to
-    hide it* vs *don't put it there at all*
-    (assumption-free). Clarify that flat/recursion "perfect hiding" is **structural**
-    (public surface carries no partition info), not information-theoretic ZK — the
-    SNARK's ZK is identical across all variants and is not a discriminator. Per-variant
-    table in DESIGN.md §9.6.
-  - §9.6.6 **Commitment taxonomy box** *(added 2026-05-29 reframe)* — the hiding/binding
-    tradeoff: Poseidon (computational hiding, cheap) vs Pedersen (unconditional content
-    hiding, costly, computational binding). A++'s `P_i` framed as a binding-but-
-    unblinded commitment (oracle, ~C(N,M)); the commitment fix = adding blinding.
-- §9.7 Use-case mapping — which variant for which real-world scenario (mirrors
-  supervisor report §7.7 use-case table)
-- §9.8 **Soundness of the constructions** *(TODO — proof plan captured 2026-06; write later)*
-  Target = **knowledge soundness** stated as a **reduction**: assuming UltraHonk KS + Poseidon2
-  collision-resistance (and, where needed, Poseidon2-as-RO, commitment binding, the backend's
-  recursion KS), each construction is knowledge-sound for R_TSP with an explicit error bound.
-  **Deliverable = one theorem per variant** of the form *KS with error ε ≤ ε_SNARK + ε_FS +
-  ε_SZ (+ ε_bind)*. You do NOT reprove UltraHonk — you compose.
-  - §9.8.1 Formalize the relations — R_TSP (instance `(root, T)`; witness `(cycle, openings)`)
-    and, per construction, R_sub / R_glue and the full verification predicate V **including the
-    external cross-checks** for the hierarchical variants.
-  - §9.8.2 Assumptions, named — UltraHonk KS (AGM/idealized group + Plookup soundness);
-    Poseidon2 CR / ROM; commitment binding; recursion KS.
-  - §9.8.3 Encoding lemma per circuit (deterministic) — the rigorous form of the group↔cheat
-    table: each constraint group blocks its forgery; jointly ⟹ R_TSP. *(flat, A, committed-A
-    are fully provable at this level.)*
-  - §9.8.4 Composition / binding — hierarchical: extract from the K+1 proofs, cross-checks force
-    agreement on shared public inputs ⟹ global witness; committed-*: + commitment binding;
-    recursion: + recursion KS + the glue relation on now-trusted inner public inputs.
-  - §9.8.5 Probabilistic error (A++ / committed-A++) — Schwartz–Zippel (≤ N/|F| per check) +
-    Fiat–Shamir in the ROM (~q·N/|F|), negligible for |F| ≈ 2²⁵⁴.
-  - §9.8.6 Two structural soundness stories to make explicit: **(a) hierarchical** = in-circuit
-    groups **+ external cross-checks** — the binding tax's "bookkeeping" symptom *is* a soundness
-    mechanism (links §8.7); **(b) recursion** = **all in-circuit** — glue cheats caught at
-    `nargo execute`, tampered proof/VK deferred to `bb prove`, `key_hash` non-binding (the VK
-    commitments bind) — empirically established in `tests/correctness/test_recursion.py`.
-    Make explicit that recursion carries **two distinct Fiat–Shamir uses**: (1) the
-    *structural* in-circuit recomputation of the inner verifier's transcript challenges —
-    present for **any** inner, the ~704k-gate floor (§9.5b.4); and (2) — only with the A++
-    inner — the partition-level grand-product challenge (§9.8.5). recursive-A drops (2) but
-    never (1); hence "deterministic partition check," not "FS-free."
-  - §9.8.7 Honest scope — *fully provable at paper rigor:* flat, A, committed-A. *Provable modulo
-    cited assumptions (give reduction + ε):* A++, committed-A++, recursion (FS-in-ROM, recursion
-    KS). *Out of scope, name as limitations:* ROM-free FS, mechanized proofs (EasyCrypt/Coq),
-    formal verification of the Noir circuits (= implementation correctness, distinct from
-    construction soundness). Negative tests **validate** §9.8.3's encoding lemmas (falsification
-    attempts) but are **not** a proof. Source: session 2026-06 discussion.
+- §9.1 Common architecture — K sub-proofs + glue; independent composition; N-divisibility;
+  K parameterisation; the external cross-check as a minimal sound binding layer (and why it
+  expands the *trusted-code* surface, not the *cryptographic* trust base).
+- §9.2 Variant A. §9.3 Variant A++ (the grand-product fingerprint; the hash-chain challenge;
+  the recursion-bridge motivation). §9.4 committed-A / committed-A++ (the `C_i = fold(r, …)`
+  construction; computational vs unconditional-content hiding; the equal-privacy finding).
+- §9.5 Recursion — the perfect-hiding endpoint; the inner-circuit choice as a *soundness*
+  step (recursive-A ↔ recursive-A++ trade partition-check soundness + outer surface, not
+  hiding); the **Fiat–Shamir floor** (the in-circuit recomputation of the inner transcript
+  is the bulk of the ~704k gates; present for *any* inner; *is* recursion's binding tax).
+- §9.6 **Privacy analysis** *(the privacy ladder lives here, as the local axis)* — per-variant
+  quantitative bound (10.3 bits at N=8 for A; the general formula); the assumption-decreasing
+  ladder B → A → A++ → committed (Poseidon) → committed (Pedersen) → recursion/folding/flat;
+  the commitment taxonomy box (Poseidon computational-cheap vs Pedersen unconditional-costly).
+- §9.7 Use-case mapping — which variant for which scenario.
+- §9.8 **Soundness of the constructions** *(TODO — proof plan)* — knowledge soundness as a
+  *reduction* (assume UltraHonk KS + Poseidon2 CR/ROM + commitment binding + recursion KS;
+  compose, do not reprove UltraHonk). One ε-bound theorem per variant: ε ≤ ε_SNARK + ε_FS +
+  ε_SZ (+ ε_bind). Honest scope: flat/A/committed-A fully provable; A++/committed-A++/recursion
+  modulo cited FS-in-ROM + recursion KS; ROM-free FS + mechanized proofs + Noir-circuit formal
+  verification named as limitations.
 
-**Note on order.** Variants are presented A → A++ → B in this chapter, even though
-the implementation order is A → B → A++ (since B reuses A's glue and is the cheaper
-second variant — see DESIGN.md §8 architectural commitments). The presentation order
-follows the conceptual progression (simple baseline → privacy refinement → gate
-optimisation), not the implementation order.
+## Chapter 10 — Empirical Comparison and the Frontier *(~12 pp)*
 
-## Chapter 10 — Hierarchical Empirical Results *(~10 pages)*
+- §10.1 **Two principles, up front** (§0.5): compare only *within* a privacy class; change
+  *exactly one* thing. State the column/row/**forbidden-diagonal** discipline.
+- §10.1a Soundness-validation methodology *(TODO)* — the uniform negative-test technique +
+  one consolidated table (group × circuit × cheat × layer caught: `execute` vs `prove`);
+  framed as validating §9.8.3's encoding lemmas, not as proof. Full dump → Appendix C.
+- §10.2 Per-variant gate counts vs analytical predictions.
+- §10.3 Parallel proving time (single-machine vs K-process; the isolation benchmark) +
+  per-prover peak memory. **The K× speedup measurement** (closes the projected-vs-measured gap).
+- §10.4 **The 2×2 factorial** {flat, recursive} × {sort, grand-product} — *here*
+  `flat_merkle_grand_product` and `recursive-A` do their only job (de-confounding), flagged
+  as controls. Column delta = aggregation cost; row delta = mechanism cost; separability =
+  the dualism quantified. Headline: `flat_merkle_grand_product ↔ recursive-A++`.
+- §10.5 Equal-privacy slices — structural {flat, recursion}; computational-commit
+  {committed-A, committed-A++}; disclosing {A}.
+- §10.6 **The frontier figure** — the pick-two triangle at fixed privacy (N=480). Two
+  candidate designs under decision (see §0.7 below); choose at figure-drawing time.
 
-**Purpose.** Present the frontier figure and supporting evidence.
+## 0.7 Frontier figure — the two candidates (decide at draw time)
 
-- §10.1 Methodology — N ∈ {48, 96, 192, 480}, K ∈ {2, 4, 8}, runs per cell. The full
-  sweep recipe (the deterministic→noisy funnel; concurrent vs isolated; aggregation modes) is
-  canonical in `HOWTO.md` "Full comparison sweep recipe" + `HIER_MEASUREMENT_AND_PLOTS.md`.
-- §10.1a **Soundness-validation methodology** *(TODO)* — state **once** the uniform negative-test
-  technique (construct a witness violating exactly one constraint group / cross-check, confirm
-  rejection — at `nargo execute` for glue-logic asserts, at `bb prove` for the recursion
-  in-circuit verifier), then one **consolidated results table** (group × circuit × cheat × layer
-  caught). Full per-test dump → Appendix C. Frame tests as validating the §9.8.3 encoding
-  lemmas, **not** as a substitute for proof.
-- §10.2 Per-variant gate counts vs analytical predictions
-- §10.3 Parallel proving time — single-machine vs K-process timing
-- §10.4 Per-prover peak memory
-- §10.5 **The frontier figure** — (total gates, parallel wall-clock, per-prover
-  memory) panels × (Variant A, A++, B, flat-Merkle baseline). Privacy bits
-  annotated.
-  - §10.5a **Reframe (2026-05-29; committed-* implemented 2026-05-31):** redesign as the
-    **pick-two triangle at fixed privacy** (§8.8.3) with **recursion as the perfect-hiding
-    endpoint** and **committed-A / committed-A++** as the equal-privacy non-recursive
-    points. Equal-privacy comparison panel: flat / committed-A / committed-A++ / recursion
-    all at the "partition hidden" slice, reading the P/V/C triangle directly; A / A++ drawn
-    as the upstream *disclosure / oracle-leak* points on the same progression line (arrows,
-    not co-equal markers). Folding shown as the empty (P+V+C) corner. Cost coordinates from
-    the `results/hier_c.csv` / `results/hier_cfs.csv` sweeps. Source:
-    `FRONTIER_REFRAME.md` Part 2/5, `HIERARCHICAL_EXPLAINED.md` §9b/§14.5.
-- §10.6 Comparison with flat baseline — anchored at N=480 against flat-Merkle's
-  N=500
+Axes: x = total prover work (gates); y = parallel wall-clock; marker = privacy class. Fixed N=480.
+
+**Option (a): gp column canonical, sort as a side control.** One point per binding level
+(the gp version) + flat; clean Pareto front; F7 non-domination lives in a separate control
+table. *Reads cleanest; implies gp is "the" decomposed choice; hides F7 off-figure.*
+
+**Option (b): both columns, the lever drawn as a bar.** Each binding level is a sort○–gp●
+pair joined by a bar = mechanism Δcost annotated with the soundness flip; binding tax read
+by cluster position, lever by bar. *Honest about F7 (neither dominates); busier; privacy
+encoding competes with the sort/gp channel.*
+
+**Working recommendation:** (a) as the **headline** figure + a (b)-style "lever bars" figure
+in §10.4 where the factorial is discussed. Headline stays clean; the lever gets its own
+honest figure. *Not locked — revisit when the `results/hier_{c,cfs}.csv` sweeps land.*
 
 ---
 
 # Part IV — Conclusion
 
-## Chapter 11 — Discussion *(~8 pages)*
+## Chapter 11 — Discussion *(~8 pp)*
+- §11.1 The framework in retrospect — was the binding-tax/frontier framing the right one?
+- §11.2 Practical guidance — a decision tree: given a use case, which point on the grid?
+- §11.3 Limitations / threats to validity — single proof system; single-machine parallel
+  claims (the isolation extrapolation); specific TSP variant; soundness proofs argued by
+  reduction (A++/recursion rest on FS-in-ROM + recursion KS, cited not reproved); no
+  mechanized/circuit-level formal verification.
+- §11.4 Combined pipeline with the clustered solver (Appendix B + separate solver document).
 
-**Purpose.** Step back and interpret.
-
-- §11.1 The variant-as-statement reframe in retrospect — was it the right framing?
-  what alternative framings remained on the table?
-- §11.2 Practical guidance — a decision tree for "given my use case, which variant?"
-  Building on §9.7 with more granular guidance.
-- §11.3 Limitations and threats to validity
-  - §11.3.1 Single proof system (UltraHonk only); generalisation unclear
-  - §11.3.2 Single hardware (single machine); parallel-prover claims are
-    extrapolations from sub-circuit timings
-  - §11.3.3 Specific TSP variant (symmetric/asymmetric/Euclidean — clarify)
-  - §11.3.4 Soundness proofs — the constructions are argued knowledge-sound *by reduction*
-    (plan in §9.8); A++/recursion rest on Fiat-Shamir-in-ROM and the backend's recursion KS
-    (cited, not reproved), and no mechanized / circuit-level formal verification is given.
-    **TODO:** write the §9.8 per-variant ε-bound theorems before final submission.
-- §11.4 Combined pipeline with the clustered solver — the cross-domain comparison
-  promised in §1.3; refers to the separate solver document and Appendix B
-
-## Chapter 12 — Conclusion and Future Work *(~5 pages)*
-
-**Purpose.** Close the loop.
-
-- §12.1 Summary of contributions — restated from §1.4 with the supporting evidence
-  for each
-- §12.2 Future work
-  - §12.2.1 Folding-scheme variant (Nova/ProtoStar) — the only unimplemented
-    frontier corner; would remove the ~704k×K per-step verifier overhead measured
-    for recursion (Ch 10 / report §7.8). *Reframe (2026-05-29): folding is precisely
-    the corner that breaks the §8.8.3 pick-two triangle — it targets P + V + C
-    simultaneously (parallel proving, O(1) verifier, and low prover overhead). Frame it
-    as the single design that collapses the binding tax (§8.8.1) at low cost on every
-    axis.*
-  - §12.2.2 Other graph problems with non-local constraints (k-clique, graph
-    colouring) — does the dualism apply?
-  - §12.2.3 Threat-model extensions — actively malicious verifier, network
-    adversary
-- §12.3 Closing reflections — what the discovery process suggests about ZK
-  applied research more generally
+## Chapter 12 — Conclusion and Future Work *(~5 pp)*
+- §12.1 Summary of contributions (restated from §1.4 with the evidence for each).
+- §12.2 Future work — (1) **folding** as the corner that breaks the pick-two triangle
+  (P+V+C at once; removes recursion's 704k×K tax); (2) other non-local graph problems
+  (k-clique, colouring) — does the dualism apply?; (3) threat-model extensions (malicious
+  verifier, network adversary).
+- §12.3 Closing reflection — what the discovery process suggests about applied ZK research.
 
 ---
 
 # Appendices
-
-## Appendix A — Circuit Code Listings *(~10 pages)*
-
-Selected main.nr files for the most important variants. Cross-referenced from
-Chapters 5, 6, 9. Full code available in the repository.
-
-- A.1 flat_merkle_presence (annotated)
-- A.2 hierarchical_segment (Variant A) — once implemented
-- A.3 hierarchical_glue (Variant A) — once implemented
-- A.4 hierarchical_segment_fs (Variant A++)
-- A.5 hierarchical_segment_cfs / hierarchical_glue_cfs (committed-A++) — the commitment
-  fold (G8/G0) + dropped sub-G7 are the diff worth showing against A.4
-- A.6 hierarchical_segment_c / hierarchical_glue_c (committed-A) — the glue-side O(N) sort
-  over witnessed nodes + commitment recompute
-
-## Appendix B — Clustered TSP Solver Integration *(~5 pages)*
-
-Cross-references the separate solver document. Short summary so this thesis is
-self-contained for the combined-pipeline analysis in Chapter 11.
-
-- B.1 What the solver does — clustering, local optimisation, stitching
-- B.2 Pipeline integration — solver output as ZKP input
-- B.3 Empirical observations from combined runs
-- B.4 Pointer to the separate solver document
-
-## Appendix C — Full Benchmark Tables *(~10 pages)*
-
-The full numerical tables underlying the figures in Chapters 7 and 10. Per-variant,
-per-N, per-K, per-run, with mean ± std.
-
-## Appendix D — Notation Index *(optional, add if needed)*
-
-Single-page glossary of symbols (N, K, M, DEPTH, T, c, X, P_i, h_i, …) introduced
-throughout the thesis.
+- **A — Circuit code listings** (annotated): flat_merkle_sort, the A/A++/committed-* segments
+  + glues, recursion outer; the diffs worth showing (commitment fold G8/G0; dropped sub-G7).
+- **B — Clustered TSP solver integration** (cross-references the separate solver document).
+- **C — Full benchmark tables** (per-variant, per-N, per-K, per-run; mean ± std) + the full
+  negative-test dump.
+- **D — Notation index** (optional; N, K, M, DEPTH, T, c, X, P_i, h_i, C_i, r).
 
 ---
 
-# Mapping: outline ↔ existing materials
+# Open structural questions (not blocking)
 
-This is for the drafting phase — each chapter has a starting point in already-written
-material.
+1. **Frontier figure (a) vs (b)** — §0.7. Decide once the hier sweeps land.
+2. **Does Chapter 3 survive** as a standalone, or fold into Ch 2 + Ch 8?
+3. **Does Appendix D appear** — likely yes (K, M, P_i, h_i, X, C_i compound fast in Part III).
+4. **Title subtitle** — keep all three nouns (dualism / binding tax / frontier) or trim to two?
+5. **Variant B** — mention only as the disclosing gate-saver alternative, or cut entirely?
+
+# Drafting order (no-block sequence)
+
+Ch 5–7 (flat, settled) → Ch 8–9 conceptual (settled; gate analyses mostly done) → Ch 4 +
+threat model → Ch 2 background → Ch 1 + Ch 3 → Ch 10 (blocked on the hier sweeps + isolation
+benchmark) → Ch 11–12 → appendices.
+
+---
+
+# Mapping: outline ↔ source notes (for drafting)
 
 | Chapter | Starting material |
 |---|---|
-| Ch 1 Introduction | supervisor_report §1 |
-| Ch 2 Background | new writing; some material from supervisor_report §3.5 (Poseidon2), §3.1 (UltraHonk), §2.3 (threshold) |
-| Ch 3 Related Work | new writing |
-| Ch 4 Problem Formulation | supervisor_report §2.1, §2.2, §2.3; new §4.5 threat model |
-| Ch 5 Flat Circuit Design | supervisor_report §3 (most subsections) |
-| Ch 6 Implementation | supervisor_report §4; circuit source comments |
-| Ch 7 Flat Evaluation | supervisor_report §5, §6 (Findings 1–5) |
-| Ch 8 Dualism | supervisor_report §7; **§8.8 binding tax → DESIGN.md §9 + FRONTIER_REFRAME.md Part 1–2** |
-| Ch 9 Hierarchical Variants | supervisor_report §7.7, §8; SESSION_SUMMARY hierarchical sections; **§9.5a/b + §9.6.5/6 → DESIGN.md §9 + FRONTIER_REFRAME.md Part 3** |
-| Ch 10 Hierarchical Empirical | new writing once benchmarks are run; **§10.5a triangle → FRONTIER_REFRAME.md Part 2/5** |
-| Ch 11 Discussion | supervisor_report §6 (Findings 8, 10, 11); new writing |
-| Ch 12 Conclusion | supervisor_report §8 future work; new writing |
-| Appendix A | repository source |
-| Appendix B | separate solver document + new integration text |
-| Appendix C | results/*.csv post-processed |
-
----
-
-# Deferred analytical work (captured 2026-06 — return later)
-
-Not blocking the build/benchmarks; to be written during the analysis / write-up phase.
-
-1. **Full soundness proofs (§9.8).** Formalize R_TSP + per-variant relations; name assumptions;
-   prove encoding lemmas (flat / A / committed-A fully; A++ / committed-A++ / recursion modulo
-   cited FS-in-ROM + recursion KS); deliver one ε-bound knowledge-soundness theorem per variant.
-2. **Consolidated soundness-validation table (§10.1a).** One table mapping every constraint group
-   / cross-check → its cheat → the layer that catches it (`execute` vs `prove`), across all
-   circuits. Per-test dump in Appendix C.
-3. **Three-artifact placement is decided (§4.5.6):** adversary defined once (§4.5); group↔cheat
-   argument per circuit (§5.x, §9.3.3, §9.4.3, §9.5, §9.6); test method + table in §10.1a. Carry
-   this into drafting; do not scatter or conflate.
-
-# Open structural questions
-
-These are things the outline does not yet resolve. They are not blocking — drafting
-can start with the structure as-is and resolve them as material accumulates.
-
-1. **Does Chapter 3 survive?** If during drafting it turns out to be ~3 pages of
-   forced references, fold its material into Chapters 2 and 8 and delete the
-   chapter. If it grows to 8+ pages of substantive comparison, keep it.
-2. **Does Appendix D appear?** Decide once the notation density of the body is
-   visible. Likely yes — the hierarchical chapters introduce K, M, P_i, h_i, X, c
-   which compound quickly.
-3. **How much of the original discovery narrative goes in §1 vs §8?** Current plan:
-   §1 previews briefly, §8 develops fully. If §1 feels too thin without the
-   discovery story it can absorb more; conversely, if §8 feels redundant after §1
-   it can be trimmed.
-4. **Variant order in Chapter 9.** Current plan: A → A++ → B (conceptual order).
-   Alternative: A → B → A++ (implementation order, easier writing flow). Decide
-   when drafting Chapter 9.
-5. **Does the cybersecurity perspective need more space than §4.5 + §9.6?** If yes,
-   add a §11.5 "Cybersecurity perspective synthesis" before §11.4.
-
----
-
-# Drafting order suggestion
-
-Not strictly the order chapters should be read in, but the order they can be drafted
-without blocking on missing material:
-
-1. **Ch 5, Ch 6, Ch 7** — flat baseline material is settled and ready
-2. **Ch 8, Ch 9 (without §9.6.2 quantitative bounds)** — hierarchical conceptual
-   material is settled; per-variant gate analyses are mostly done
-3. **Ch 4 (with threat model §4.5)** — problem formulation can be written once the
-   variant material is fresh
-4. **Ch 2** — background, written for the audience the rest already targets
-5. **Ch 1, Ch 3** — introduction and related work; both benefit from knowing the
-   final shape of the contributions
-6. **Ch 10** — empirical hierarchical results; blocked on running the actual
-   benchmarks
-7. **Ch 11, Ch 12** — discussion and conclusion; written last
-8. **Appendices** — compiled at the end
-
-This order also matches roughly the order in which the actual research will conclude
-its remaining work: hierarchical implementation → benchmarks → write-up.
+| Ch 1 | this Part 0 + the dilemma signpost |
+| Ch 2 | new writing; Poseidon2 / UltraHonk / threshold notes |
+| Ch 5 (incl. §5.3 GROUP-2 study) | flat design notes; the grand-product-as-mechanism framing (§0.3) |
+| Ch 7 §7.4 | `NARRATIVE_FRAMING.md` §8.5 (witness inversion, measured) |
+| Ch 8 (dualism + binding tax + §8.7 lever) | `FRONTIER_REFRAME.md` F1–F10; Part 0 §0.3 |
+| Ch 9 (the controlled walk) | `HIERARCHICAL_EXPLAINED.md` (constructions, §9b committed); `Recursive_inner_circuit_choice_explained.md`; Part 0 §0.4 |
+| Ch 10 (factorial + frontier) | `NARRATIVE_FRAMING.md` §8.2–8.4; `FIGURES_AND_METRICS.md`; `ISOLATION_BENCHMARK.md`; §0.5/§0.7 |
+| Ch 9.8 / 10.1a (soundness) | proof plan (this outline) + `MOTIVATION_AND_OBJECTIONS.md` |
+| Appendices | repository source; `results/*.csv`; separate solver document |

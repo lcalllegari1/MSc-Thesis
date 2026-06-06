@@ -3,6 +3,12 @@
 This document records design decisions, alternatives considered, and rationale.
 It is updated incrementally as the project evolves.
 
+> **The unchosen → `DESIGN_SPACE.md`.** This log records *what we picked and why*;
+> `DESIGN_SPACE.md` is the honest alternatives ledger — the full road-not-taken space per
+> decision (incl. options stronger than ours), with viva-defense lines and the smart things
+> we may have missed (committed-table lookups, folding/STARK recursion, approximation proofs,
+> tree aggregation). Consult it before drafting any "alternatives considered" section.
+
 ---
 
 ## Problem Statement
