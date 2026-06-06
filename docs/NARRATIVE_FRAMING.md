@@ -8,10 +8,10 @@ micro-benchmarks. Use it as the starting point when drafting the variant chapter
 
 > **UPDATE (2026-06-03) — the open choices are now resolved.** §6 below is
 > superseded by **§9 (the locked spine + full connective map)**, the product of
-> a working session that settled: (i) the spine = **binding tax**, with the
+> a working session that settled: (i) the spine = **stitching tax**, with the
 > perfect-hiding dilemma as its **cold-open** and the privacy ladder demoted to a
 > §9.6 section; (ii) recursion order = **result-first, build-last**; (iii) the
-> recursion sub-arc presentation = **A++ first (the shipped construction), A second
+> recursion sub-arc presentation = **plain-product first (the shipped construction), plain-sort second
 > (the fairness control)**; (iv) the verification→ZK separation enters as the
 > **statement–witness boundary** (a restatement of "what is bound", not a fifth
 > frame); plus the per-variant motivations, the two connective hinges, the
@@ -42,7 +42,7 @@ axis. This is the equal-privacy slice at the **structural-hiding** level.
 
 Ask: the decomposition is what buys parallelism; the *in-circuit* binding is what
 costs 704k*K. **What if we keep the decomposition but bind EXTERNALLY (cheap)?**
-That is exactly the hierarchical family (A / A++ / committed-A / committed-A++):
+That is exactly the hierarchical family (plain-sort / plain-product / committed-sort / committed-product):
 K independent segment proofs + a glue proof, bound by verifier-side cross-checks
 instead of an in-circuit verifier.
 
@@ -52,7 +52,7 @@ The pick-two triangle, now with the third corner:
 |---|:--:|:--:|:--:|
 | flat | ✗ | ✓ | ✓ |
 | recursion | ✓ | ✓ | ✗ |
-| **hierarchical (A/A++/committed-*)** | ✓ | ✗ | ✓ |
+| **hierarchical (plain-sort/plain-product/committed-*)** | ✓ | ✗ | ✓ |
 | folding (future) | ✓ | ✓ | ✓ |
 
 The hierarchical family combines **flat's low total cost + recursion's parallelism**.
@@ -67,9 +67,9 @@ It is a **third corner of a triangle, not a dominating reconciliation.** The two
 prices:
 
 1. **O(K) verifier** — K+1 proofs, so `proof_bytes` and `verify_s` grow ~K (the
-   binding-tax symptom that only recursion/folding remove).
-2. **Privacy relaxation** — drops from structural hiding to: disclosed (A),
-   computational-with-confirmation-oracle (A++), or computational + reveals-K
+   stitching-tax symptom that only recursion/folding remove).
+2. **Privacy relaxation** — drops from structural hiding to: disclosed (plain-sort),
+   computational-with-confirmation-oracle (plain-product), or computational + reveals-K
    (committed-*). The committed variants are precisely the construction that makes
    this relaxation as small as possible (one assumption below structural).
 
@@ -86,22 +86,22 @@ prices:
 ## 4. The integrated spine (entry point folds into the existing machine)
 
 flat-vs-recursion-first is a different *entry point* into the same dualism /
-binding-tax / privacy-ladder story, and it motivates each later step:
+stitching-tax / privacy-ladder story, and it motivates each later step:
 
 1. **Perfect hiding, two ways** — flat (monolithic) vs recursion (decompose + bind
    *in-circuit*). The decomposition buys parallelism; the in-circuit binding costs
    704k*K.
-2. **The question** — keep the decomposition, bind **externally** (cheap)? -> A / A++.
-3. **The catch = the binding tax** — external binding leaks the partition (+ O(K)
+2. **The question** — keep the decomposition, bind **externally** (cheap)? -> plain-sort / plain-product.
+3. **The catch = the stitching tax** — external binding leaks the partition (+ O(K)
    verifier + bookkeeping). This is the dualism made concrete: decomposition gives
    no ZK speedup, only redistribution; the binding removed from the circuit
    reappears as a leak.
-4. **The fix** — committed-A/A++ close the leak (computational hiding, reveals only
+4. **The fix** — committed-sort/plain-product close the leak (computational hiding, reveals only
    K), recovering near-flat privacy *without* recursion's tax.
 5. **The frontier** — folding as the missing all-three corner (future work).
 
 **Dependency to handle in the ordering:** recursion is *built from* the hierarchical
-segments (it recurses on the A++ sub-circuits), so the decomposition concept must be
+segments (it recurses on the plain-product sub-circuits), so the decomposition concept must be
 introduced before/with recursion. Clean fix: present decomposition up front as
 shared, and frame the distinction as **where the binding lives** —
 in-circuit (recursion, expensive) vs external (hierarchical, cheap-but-leaky).
@@ -135,11 +135,11 @@ in-circuit (recursion, expensive) vs external (hierarchical, cheap-but-leaky).
 Two viable spines for Chapters 8-10:
 
 - **(A) Perfect-hiding dilemma first** (this note): flat vs recursion -> escape via
-  decomposition -> binding tax -> committed cure -> folding. Vivid hook; sets up a
+  decomposition -> stitching tax -> committed cure -> folding. Vivid hook; sets up a
   true cost/parallelism dilemma; recommended as the *opening*.
-- **(B) Privacy progression first** (current `FRONTIER_REFRAME.md` Part 2): B -> A ->
-  A++ -> committed -> recursion/flat, each step removing one binding-tax symptom.
-  Monotone; matches the documented "binding tax as second structural result."
+- **(B) Privacy progression first** (current `FRONTIER_REFRAME.md` Part 2): B -> plain-sort ->
+  plain-product -> committed -> recursion/flat, each step removing one stitching-tax symptom.
+  Monotone; matches the documented "stitching tax as second structural result."
 
 They are compatible — (A) is an entry point, (B) is the systematic backbone.
 **Recommendation:** open with (A) for the hook, then settle into (B)'s progression
@@ -151,20 +151,20 @@ chapter structure is fixed.
 ## 7. The recursion sub-arc: two inner circuits and the Fiat–Shamir floor
 
 The headline comparison in §1 is *recursion vs flat_merkle_sort* — both perfect-hiding,
-both publish `{root, T}`. But the recursion we benchmark uses the **A++ segment** as its
+both publish `{root, T}`. But the recursion we benchmark uses the **plain-product segment** as its
 inner, which swaps flat's deterministic sort-partition for a grand-product + Fiat–Shamir
 partition check. So "recursion vs flat" silently changes **two** things at once:
 (i) monolithic → decompose-and-verify-in-circuit, and (ii) **deterministic → probabilistic
-partition argument**. Insert **recursive-A** (A segments inner; the sort-partition is
+partition argument**. Insert **recursive-sort** (plain-sort segments inner; the sort-partition is
 reconstructed in the *outer*) as an intermediate step to separate them.
 
 ### 7.1 The correction: this is a *soundness* step, not a *hiding* step
 
-It is tempting to call the A++-inner's grand product a hiding cost. It is not. **Inside
-recursion the partition is perfectly hidden either way** — A's `sorted_nodes[M]` and A++'s
+It is tempting to call the plain-product-inner's grand product a hiding cost. It is not. **Inside
+recursion the partition is perfectly hidden either way** — plain-sort's `sorted_nodes[M]` and plain-product's
 `P_i`/chain anchors both become *witness of the outer circuit*, so the final verifier sees
 neither (`Recursive_inner_circuit_choice_explained.md`, §"Privacy is *not* the motivation").
-Hiding is identical across flat_merkle_sort, recursive-A, and recursive-A++ — it is the
+Hiding is identical across flat_merkle_sort, recursive-sort, and recursive-product — it is the
 SNARK's ZK, common to all and therefore not a discriminator (cf. §5, third bullet). What
 differs is whether the partition **check** is *exact* (sort) or *probabilistic*
 (grand product + Fiat–Shamir, error ≤ N/|F| ≈ 2⁻²⁵⁴). State the trade on the soundness
@@ -175,13 +175,13 @@ axis or it will not survive a careful reading.
 | step | construction | partition check | inner public surface | what the step isolates |
 |---|---|---|---|---|
 | 1 | **flat_merkle_sort** | deterministic sort | — (monolithic) | the perfect-hiding baseline |
-| 2 | **recursive-A** | deterministic sort (in the outer) | `O(M) = M+4` / segment | the **aggregation cost** at a *matched* (deterministic) partition check; surfaces the `O(M)` absorption penalty |
-| 3 | **recursive-A++** | grand product + Fiat–Shamir | `O(1) = 9` fields | the **inner-circuit win** (outer stays flat, ~1.47M at K=2, *M-independent*) bought with a probabilistic partition argument |
+| 2 | **recursive-sort** | deterministic sort (in the outer) | `O(M) = M+4` / segment | the **aggregation cost** at a *matched* (deterministic) partition check; surfaces the `O(M)` absorption penalty |
+| 3 | **recursive-product** | grand product + Fiat–Shamir | `O(1) = 9` fields | the **inner-circuit win** (outer stays flat, ~1.47M at K=2, *M-independent*) bought with a probabilistic partition argument |
 
 Reading: **1 → 2** answers *"what does recursion cost?"* — the K in-circuit verifiers at
 ~704k gates each (≈1.47M at K=2, ≈3.0M at K=4) — while holding the partition check
 deterministic like flat, so nothing but the aggregation has changed. **2 → 3** answers
-*"what does the A++ inner buy?"* — its `O(1)` public surface keeps the outer
+*"what does the plain-product inner buy?"* — its `O(1)` public surface keeps the outer
 segment-size-independent (the measured "outer flat across N=48→480"), and the price is
 moving the partition argument from exact to Schwartz–Zippel + Fiat–Shamir. Cost is
 otherwise ~identical either way (the K verifications dominate; sort-vs-grand-product in the
@@ -199,16 +199,16 @@ inner transcript) and run the polynomial-commitment opening checks. That transcr
 + opening arithmetic is the **bulk of the ~704k-gate inner verifier**. Three consequences,
 which must be stated whenever recursion's cost is discussed:
 
-1. **FS/ROM is not unique to A++, nor introduced by recursion** — flat_merkle_sort's single
+1. **FS/ROM is not unique to plain-product, nor introduced by recursion** — flat_merkle_sort's single
    proof is *already* Fiat–Shamir-in-ROM. What recursion adds is a **second, in-circuit
    layer** of FS hashing (the outer hashing the inner transcript).
-2. **That layer is unavoidable for *any* recursive design** — A-inner or A++-inner, sort or
+2. **That layer is unavoidable for *any* recursive design** — plain-sort-inner or plain-product-inner, sort or
    grand product. The ~704k×K gates are the price of recursion *as a technique*, independent
-   of the partition-check choice. So recursive-A is **not "Fiat–Shamir-free"**: it removes
+   of the partition-check choice. So recursive-sort is **not "Fiat–Shamir-free"**: it removes
    the grand-product FS *at the partition level* but keeps the structural recursion FS. The
    precise claim is "**deterministic at the partition check**," never "unconditionally sound
    end-to-end."
-3. **The FS floor *is* recursion's binding tax.** The gates that collapse the public surface
+3. **The FS floor *is* recursion's stitching tax.** The gates that collapse the public surface
    to `{root, T}` are exactly the in-circuit FS-verifier. The dualism, all the way down:
    binding removed from the public surface reappears as in-circuit transcript-hashing cost.
 
@@ -231,14 +231,14 @@ perfect-hiding treatment:
 2. **Decomposition** (introduced once, shared) — K segments + glue; the organising question
    is *where the binding lives*: in-circuit (recursion) vs external (hierarchical).
 3. **Recursion (in-circuit binding)** — the perfect-hiding endpoint:
-   - **3a. recursive-A** — deterministic sort-partition in the outer; matched to flat's
+   - **3a. recursive-sort** — deterministic sort-partition in the outer; matched to flat's
      soundness flavor; isolates the **aggregation cost**; surfaces the `O(M)` penalty and the
      **Fiat–Shamir floor** (§7.3).
-   - **3b. recursive-A++** — grand-product inner; the `O(1)`-surface win, paid for with a
+   - **3b. recursive-product** — grand-product inner; the `O(1)`-surface win, paid for with a
      probabilistic partition argument (§7.2).
 4. **Hierarchical (external binding)** — the cheaper-but-leaky escape and its cure:
-   **A** (partition disclosed) → **A++** (multiset hidden, `P_i` an unblinded oracle) →
-   **committed-A / committed-A++** (blinded `C_i`; leak closed, computational hiding, reveals K).
+   **A** (partition disclosed) → **plain-product** (multiset hidden, `P_i` an unblinded oracle) →
+   **committed-sort / committed-product** (blinded `C_i`; leak closed, computational hiding, reveals K).
    *(Variant B — sub-matrix public — sits at the disclosing end as the gate-saver.)*
 5. **Folding** — the missing all-three corner (future work).
 
@@ -249,11 +249,11 @@ Every claim is a *controlled* comparison: change exactly one thing.
 | compare | holds fixed | isolates |
 |---|---|---|
 | flat_merkle_sort ↔ **recursion** | perfect hiding `{root,T}` | **cost vs parallelism** at perfect hiding (the §1 dilemma) |
-| flat_merkle_sort ↔ **recursive-A** | perfect hiding **+ deterministic partition** | the **aggregation cost** alone (no soundness confound) |
-| **recursive-A ↔ recursive-A++** | recursion + perfect hiding | inner-circuit choice: `O(M)`→`O(1)` surface **+** deterministic→probabilistic partition soundness |
-| **A++ ↔ recursion(A++ inner)** | the A++ statement | aggregation cost of trading external `O(K)`-verifier binding for in-circuit perfect hiding |
-| **A ↔ A++** (standalone) | Merkle commitment, K | the **partition leak** (hiding) — A++ hides the multiset A discloses |
-| **A++ ↔ committed-A++** | the A++ aggregates | the **blinding** — turns `P_i` (unblinded oracle) into a hiding commitment |
+| flat_merkle_sort ↔ **recursive-sort** | perfect hiding **+ deterministic partition** | the **aggregation cost** alone (no soundness confound) |
+| **recursive-sort ↔ recursive-product** | recursion + perfect hiding | inner-circuit choice: `O(M)`→`O(1)` surface **+** deterministic→probabilistic partition soundness |
+| **plain-product ↔ recursion(plain-product inner)** | the plain-product statement | aggregation cost of trading external `O(K)`-verifier binding for in-circuit perfect hiding |
+| **plain-sort ↔ plain-product** (standalone) | Merkle commitment, K | the **partition leak** (hiding) — plain-product hides the multiset plain-sort discloses |
+| **plain-product ↔ committed-product** | the plain-product aggregates | the **blinding** — turns `P_i` (unblinded oracle) into a hiding commitment |
 | flat ↔ **hierarchical** (any) | — | cost/parallelism at *relaxed* privacy (the third triangle corner) |
 
 ### 8.3 Equal-privacy slices (the honest panels)
@@ -261,11 +261,11 @@ Every claim is a *controlled* comparison: change exactly one thing.
 Compare *only within a privacy class*, so a cost/parallelism delta is not secretly a privacy
 delta:
 
-- **Structural-hiding slice:** `{flat, recursion}` (incl. recursive-A / recursive-A++) — the
+- **Structural-hiding slice:** `{flat, recursion}` (incl. recursive-sort / recursive-product) — the
   §1 dilemma and the recursion sub-arc.
-- **Computational-commit slice:** `{committed-A, committed-A++}` — the equal-privacy finding
+- **Computational-commit slice:** `{committed-sort, committed-product}` — the equal-privacy finding
   (§9.5a.3); same class, differ only in glue mechanism/cost.
-- **Disclosing slice:** `{A, B}` — partition (and, for B, sub-matrix) public.
+- **Disclosing slice:** `{plain-sort, B}` — partition (and, for B, sub-matrix) public.
 
 ### 8.4 The {flat, recursive} × {sort, grand-product} factorial
 
@@ -275,14 +275,14 @@ four cells are a clean factorial:
 
 | | **sort** (deterministic) | **grand-product + FS** (probabilistic) |
 |---|---|---|
-| **flat** | `flat_merkle_sort` | **`flat_merkle_grand_product`** *(= A++ collapsed to K=1)* |
-| **recursive** | recursion-A | recursion-A++ |
+| **flat** | `flat_merkle_sort` | **`flat_merkle_grand_product`** *(= plain-product collapsed to K=1)* |
+| **recursive** | recursion-A | recursion-plain-product |
 
 Reading the grid:
 - **mechanism cost** = a *row* delta. The flat row (`flat_merkle_sort ↔ flat_merkle_grand_product`)
   isolates the gadget's **intrinsic** cost with **zero privacy delta** (both expose only
   `{root, T}`; flat has no partition, so sort-vs-grand-product is purely cost/soundness). The
-  recursive row adds the recursion-specific **surface** effect (A's `O(M)` vs A++'s `O(1)`
+  recursive row adds the recursion-specific **surface** effect (plain-sort's `O(M)` vs plain-product's `O(1)`
   public-input absorption).
 - **aggregation cost** = a *column* delta (flat→recursive at a fixed mechanism).
 - **separability** = checking the two are ~additive with no interaction — itself a result (the
@@ -290,9 +290,9 @@ Reading the grid:
   quantified).
 
 `flat_merkle_grand_product` also gives the **most direct headline**: `flat_merkle_grand_product
-↔ recursion-A++` differ in *exactly* structure (both grand-product + FS), so it's the cleanest
+↔ recursion-plain-product` differ in *exactly* structure (both grand-product + FS), so it's the cleanest
 "what does recursion cost" comparison against the shipped variant — with **no** soundness
-disclaimer to carry (unlike `flat_merkle_sort ↔ recursion-A++`, which mixes in the sort→GP
+disclaimer to carry (unlike `flat_merkle_sort ↔ recursion-plain-product`, which mixes in the sort→GP
 change). Soundness-wise the flat grand product is the *simplest* setting of the Fiat–Shamir
 challenge (one circuit, one cycle, X derived and consumed in place — no distributed stitching,
 no recursion-FS layer), so it's also the right place to *introduce* the gadget.
@@ -389,7 +389,7 @@ dependency build, not signal.)
 
 ---
 
-*Related: `FRONTIER_REFRAME.md` (pick-two triangle F4, binding tax, privacy ladder),
+*Related: `FRONTIER_REFRAME.md` (pick-two triangle F4, stitching tax, privacy ladder),
 `HIERARCHICAL_EXPLAINED.md` §9b/§14.5 (committed variants, privacy classes),
 `Recursive_inner_circuit_choice_explained.md` (inner-circuit choice, the O(1) surface),
 `FIGURES_AND_METRICS.md` (how to plot the frontier), `Thesis_Outline.md` Ch 8-10,
@@ -411,7 +411,7 @@ without cross-jumping.*
 > "zigzag", and the realization that "poles" is not enough to justify front-loading recursion)
 > showed that the **dilemma-as-cold-open / result-first-build-last** ordering *fights the
 > material*. The current recommended spine is the **monotone flow in §11**: it keeps the
-> binding-tax backbone but reaches recursion as the natural *endpoint* (no deferral, no zigzag)
+> stitching-tax backbone but reaches recursion as the natural *endpoint* (no deferral, no zigzag)
 > and demotes the flat↔recursion dilemma to an intro signpost + a derived synthesis. **§9 is
 > retained for reference and comparison.** Its *analyses* remain valid and are reused by §11 —
 > frame subordination (§9.1/§9.3), P/V/C (§9.3.2), the verification→ZK / statement-witness lens
@@ -424,30 +424,30 @@ without cross-jumping.*
 
 Four decisions, locked:
 
-1. **The spine = the binding tax** (a named conceptual contribution). The dualism is
+1. **The spine = the stitching tax** (a named conceptual contribution). The dualism is
    its prologue; the perfect-hiding dilemma is its cold-open *scene*; the pick-two
    triangle and the privacy ladder are its two *projections*. One design space, several
    lenses — not four competing theses (§9.1, §9.3).
 2. **Recursion order = result-first, build-last.** State the flat-vs-recursion dilemma
    as a *finding* in the cold-open (no construction), present constructions in
-   dependency order, and *build* recursion last — after A++ exists to recurse on (§9.4,
+   dependency order, and *build* recursion last — after plain-product exists to recurse on (§9.4,
    §9.5).
-3. **The recursion sub-arc presentation = A++ first, A second.** recursive-A++ is the
-   shipped construction (the "free inner"); recursive-A is introduced afterwards as the
+3. **The recursion sub-arc presentation = plain-product first, plain-sort second.** recursive-product is the
+   shipped construction (the "free inner"); recursive-sort is introduced afterwards as the
    *fairness control* that de-confounds the comparison (§9.7).
 4. **verification → ZK enters as the statement–witness boundary**, a precise restatement
-   of the binding tax's "what is bound" axis — used as a Background on-ramp and a
+   of the stitching tax's "what is bound" axis — used as a Background on-ramp and a
    sharpening of the variant-as-statement reframe, **not** promoted to a fifth organizing
    frame (§9.3.3).
 
-The big idea that fuses spine (binding tax) and cold-open (dilemma): **flat is the
-binding tax never incurred (K=1, nothing to bind); recursion is the binding tax fully
+The big idea that fuses spine (stitching tax) and cold-open (dilemma): **flat is the
+stitching tax never incurred (K=1, nothing to bind); recursion is the stitching tax fully
 folded into the prover (all three symptoms gone, 704k×K paid). Every hierarchical
 variant is an interior point — a different way of paying.** So the cold-open dilemma is
 the spine viewed at its two extremes, and Chapter 9 runs as a *loop*: open on the poles
 → fill the interior → return to one pole (recursion) to build it.
 
-## 9.1 The spine decision — why the binding tax, with the dilemma as cold-open
+## 9.1 The spine decision — why the stitching tax, with the dilemma as cold-open
 
 The three candidates are **not** coequal; two are components of the first.
 
@@ -462,7 +462,7 @@ symptom; folding removes all three cheaply.*
 | Strengths | Weaknesses |
 |---|---|
 | **Generative, not a catalogue** — gives the reader a machine that *produces* the variants; each earns its place by removing a named symptom. | **Abstract up front** — the reader meets a "tax with three symptoms" before seeing one hierarchical construction in detail; risk of feeling imposed top-down. |
-| **A named, ownable contribution** — examiners remember "the binding tax"; theses are rewarded for one crisp conceptual handle. | **The unifying claim must hold** — "three symptoms, one artifact, dissolve together" is a claim; if an examiner finds a symptom that does not co-dissolve, the frame weakens. |
+| **A named, ownable contribution** — examiners remember "the stitching tax"; theses are rewarded for one crisp conceptual handle. | **The unifying claim must hold** — "three symptoms, one artifact, dissolve together" is a claim; if an examiner finds a symptom that does not co-dissolve, the frame weakens. |
 | **Absorbs everything** — dualism = prologue, triangle = cost projection, ladder = privacy projection. Unifies all four frames. | **Not standard literature** — must pre-empt "isn't this just the known cost of aggregation / no free lunch?" Answer: the *specific* 3-symptom decomposition that dissolves together is the contribution. |
 | **Dissolves the recursion-dependency trap** — "where binding lives" *is* the axis (in-circuit vs external) distinguishing recursion from hierarchical. | **Buries the vivid result** — the flat-vs-recursion dilemma becomes one comparison inside a systematic treatment rather than the headline (fixed by using it as the cold-open). |
 
@@ -474,28 +474,28 @@ characterized price (O(K) verifier + one privacy notch, which committed-\* minim
 
 | Strengths | Weaknesses |
 |---|---|
-| **Immediate, vivid hook** — "cost XOR parallelism, here's how I break it" lands in one breath; reads like problem→resolution. | **Built on a 2-point comparison** — a whole spine on one dichotomy under-organizes 5+ variants; the systematic middle still needs a generative principle, which *is* the binding tax. So **(b) collapses into (a) for the body.** |
-| **Clear protagonist move** — the hierarchical family breaks the deadlock; memorable. | **Dependency trap bites hardest** — opening on the dilemma forces recursion up front, but recursion is built from A++; must present recursion as a black-box result and defer its construction. |
+| **Immediate, vivid hook** — "cost XOR parallelism, here's how I break it" lands in one breath; reads like problem→resolution. | **Built on a 2-point comparison** — a whole spine on one dichotomy under-organizes 5+ variants; the systematic middle still needs a generative principle, which *is* the stitching tax. So **(b) collapses into (a) for the body.** |
+| **Clear protagonist move** — the hierarchical family breaks the deadlock; memorable. | **Dependency trap bites hardest** — opening on the dilemma forces recursion up front, but recursion is built from plain-product; must present recursion as a black-box result and defer its construction. |
 | **Front-loads equal-privacy honesty** — privacy held fixed in the opener; methodologically clean. | **"Best of both worlds" temptation** — the "escape" framing pulls toward overclaim; needs heavy caveat maintenance. It is a triangle *corner*, not a domination. |
 
 ### 9.1.3 Spine (c) — Privacy ladder  *(DEMOTED to the §9.6 privacy section)*
 
 **Through-line:** *Order the constructions by the assumption their partition-hiding rests on:
-disclosed (B/A) → computational-with-oracle (A++) → computational-commitment (committed-\*) →
+disclosed (B/plain-sort) → computational-with-oracle (plain-product) → computational-commitment (committed-\*) →
 structural/assumption-free (recursion/flat/folding). Cost/parallelism annotate each rung.*
 
 | Strengths | Weaknesses |
 |---|---|
 | **Native to MSc Cybersecurity** — assumptions/privacy is home turf; examiners may expect a security-centric axis. | **Blind to the headline result** — recursion and flat sit at the *same* top rung, so the spine cannot see the cost-vs-parallelism dilemma, the most interesting comparison. |
 | **Principled, near-monotone** — assumption-decreasing is a clean ordering. | **Backwards relative to effort** — the strongest empirical contribution is the cost/parallelism frontier; making privacy the spine demotes it to annotation. |
-| Puts threat model / §9.6 at the centre. | **Not a clean line** — committed-A and committed-A++ land on the *same* rung (the equal-privacy finding F7) and differ only in cost; "commit to hide" vs "don't put it there" are two mechanisms, a small lattice linearized by force. |
+| Puts threat model / §9.6 at the centre. | **Not a clean line** — committed-sort and committed-product land on the *same* rung (the equal-privacy finding F7) and differ only in cost; "commit to hide" vs "don't put it there" are two mechanisms, a small lattice linearized by force. |
 
 ### 9.1.4 The verdict and what was *really* being decided
 
 (b) is the opening *scene* of (a); (c) is the right organizing principle for the privacy
 *section* (§9.6), not for the chapters. So the real, narrow decision was: **do you NAME
-"the binding tax" as a coined contribution and defend it, or keep the vivid dilemma on the
-surface and leave the binding-tax structure implicit underneath?** We chose to name it —
+"the stitching tax" as a coined contribution and defend it, or keep the vivid dilemma on the
+surface and leave the stitching-tax structure implicit underneath?** We chose to name it —
 it unifies all four frames, neutralizes the dependency trap, and gives a contribution
 examiners remember — *and* to keep the dilemma as the cold-open, because the hook and the
 machine are not in conflict (the hook is the machine's first scene). The one legitimate
@@ -507,13 +507,13 @@ the cost of burying the best empirical result.
 ## 9.2 The unifying reframe and the loop structure
 
 **The reframe (load-bearing):** the dilemma's two poles ARE the progression's two
-endpoints. flat = K=1, binding tax never incurred. recursion = binding tax fully folded
+endpoints. flat = K=1, stitching tax never incurred. recursion = stitching tax fully folded
 into the prover (704k×K). The hierarchical variants are the interior — each a different
 *way of paying* the tax. This turns the cold-open dilemma into the spine's own extremes,
 so the chapter is not "hook, then unrelated systematic treatment" but a single arc.
 
 **The loop:** open on the poles (§9.0 cold-open) → introduce shared decomposition once →
-fill the interior (A → A++ → committed) → **return** to one pole (recursion) to build it →
+fill the interior (plain-sort → plain-product → committed) → **return** to one pole (recursion) to build it →
 point past the map (folding). The reader ends where they started — now with the whole
 space in hand. The loop is *productive*, not circular (the full defense is §9.10).
 
@@ -546,7 +546,7 @@ Each architecture gets exactly **two**:
 | | P | V | C | which axis it sacrifices |
 |---|:--:|:--:|:--:|---|
 | flat | ✗ | ✓ | ✓ | P (serial, one prover, high memory) |
-| hierarchical (A / A++ / committed) | ✓ | ✗ | ✓ | V (O(K) verifier) |
+| hierarchical (plain-sort / plain-product / committed) | ✓ | ✗ | ✓ | V (O(K) verifier) |
 | recursion | ✓ | ✓ | ✗ | C (704k×K prover tax) |
 | **folding** (future) | ✓ | ✓ | ✓ | — (breaks the triangle) |
 
@@ -567,21 +567,21 @@ guarantees nothing beyond it leaks).
 **Good use #2 — sharpen the variant-as-statement reframe.** Make the varying axis the
 **statement–witness boundary**: *the verification relation R_TSP is constant; the SNARK's ZK
 is constant; what every variant chooses is the boundary between what is in the public
-statement and what is left in the witness.* A puts the partition in the statement
+statement and what is left in the witness.* plain-sort puts the partition in the statement
 (discloses), committed-\* put a commitment to it (hides computationally), recursion leaves it
-in the witness (absent). This **is** the binding tax's "what is bound" decision (plaintext /
+in the witness (absent). This **is** the stitching tax's "what is bound" decision (plaintext /
 commitment / witness) — so it reinforces the spine rather than competing with it, and it
-justifies A correctly: A's disclosure is a *statement choice*, not a ZK weakness.
+justifies plain-sort correctly: plain-sort's disclosure is a *statement choice*, not a ZK weakness.
 
 **The trap (do not fall in).** There are THREE distinct notions hiding under
 "verification vs ZK":
 1. the **argument** (soundness/completeness);
 2. the **SNARK's ZK** (the `-no-zk` toggle) — **identical across all variants**, not a
    discriminator;
-3. **what the public statement discloses** — the axis A/A++/committed/recursion vary on.
+3. **what the public statement discloses** — the axis plain-sort/plain-product/committed/recursion vary on.
 
-The A→A++→committed story lives in #3, **not** #2. Never write "A++ adds more
-zero-knowledge than A" — A and A++ have *identical* SNARK ZK; A++'s **statement** discloses
+The A→plain-product→committed story lives in #3, **not** #2. Never write "plain-product adds more
+zero-knowledge than plain-sort" — plain-sort and plain-product have *identical* SNARK ZK; plain-product's **statement** discloses
 less. An examiner who knows ZK catches that instantly.
 
 **Two guardrails:**
@@ -609,8 +609,8 @@ less. An examiner who knows ZK catches that instantly.
   buries the most memorable result as the last station; reader lacks momentum. (A) = (B) + a
   free hook, so (A) dominates.
 - **(C) Recursion as full opener.** *Ruled out — strictly dominated.* Constructing recursion
-  first means explaining A++'s grand product + Fiat–Shamir before A++ is motivated (recursion
-  recurses on the A++ segment) — the most sophisticated artifact taught to a reader who has
+  first means explaining plain-product's grand product + Fiat–Shamir before plain-product is motivated (recursion
+  recurses on the plain-product segment) — the most sophisticated artifact taught to a reader who has
   not seen one segment. (A) gets the same front-loaded *result* with none of the inversion.
 
 ### 9.4.2 How to motivate "recursion costs a lot" in the cold-open, before any construction
@@ -699,17 +699,17 @@ deviation tolerated to dodge its price.
 
 ## 9.5 The full chapter flow (Ch 8 → 9 → 10), beat by beat
 
-### Chapter 8 — setup (dualism → binding tax)
+### Chapter 8 — setup (dualism → stitching tax)
 
 - **§8.1–8.5 Dualism.** Classical hierarchical TSP shrinks search; naive hierarchical ZK
   saves no gates (the O(N) partition check + K boundary Merkle proofs absorb the per-segment
   savings) → **decomposition's only payoff is parallelism.**
-- **§8.8 The binding tax (the engine).** K independent proofs must be rebound; name it —
+- **§8.8 The stitching tax (the engine).** K independent proofs must be rebound; name it —
   one artifact, three coupled symptoms (partition leak / O(K) verifier / bookkeeping),
   generated by two decisions (*where* binding lives × *what* it binds); the pick-two triangle
   as the cost geometry. **Seed the reveal here:** one line that the O(K)-verifier "symptom"
   will turn out to be the *cheap* way to pay.
-- **Exit sentence:** *"The binding tax is paid differently by every construction; the
+- **Exit sentence:** *"The stitching tax is paid differently by every construction; the
   sharpest way to see its two extremes is a single comparison — which opens the next chapter."*
 
 ### Chapter 9 — the variants (the loop)
@@ -717,19 +717,19 @@ deviation tolerated to dodge its price.
 - **§9.0 Cold open — the perfect-hiding dilemma.** flat vs recursion, both publish
   `{root, T}`; flat ~782k serial, recursion 704k×K parallel; *at perfect hiding you can't
   have both.* Recursion as **result only** (cost + surface). Pivot: *these are the two poles
-  of the binding tax; the chapter fills the interior, then returns to build recursion.*
+  of the stitching tax; the chapter fills the interior, then returns to build recursion.*
 - **§9.1 Shared decomposition** — K segments + glue, introduced once. Organizing question:
   **where does binding live, external or in-circuit?**
-- **§9.2 Variant A** — *buy parallelism → the tax appears in full* (leak + O(K) + bookkeeping);
+- **§9.2 plain-sort** — *buy parallelism → the tax appears in full* (leak + O(K) + bookkeeping);
   cheapest total gates, deterministic; the disclosure-regime endpoint + the diagnosis.
-- **§9.3 Variant A++** — *shrink surface O(M)→O(1) + un-serialize the check*; **honestly not
+- **§9.3 plain-product** — *shrink surface O(M)→O(1) + un-serialize the check*; **honestly not
   cheaper** (relocates O(N) into segments); a surface/critical-path investment whose payoff is
   deferred to recursion; motivate on surface/soundness, **never** on hiding.
-- **§9.4 committed-A / committed-A++** — *close the leak* (blinded C_i, reveals only K); the
+- **§9.4 committed-sort / committed-product** — *close the leak* (blinded C_i, reveals only K); the
   equal-privacy finding (same rung, differ only in glue cost/mechanism); **only the O(K)
   verifier remains.**
 - **§9.5 Recursion** — *built last; cheque cashed.* In-circuit/witness binding; surface →
-  `{root, T}`; all three symptoms collapse; prover pays 704k×K; A++'s O(1) surface pays off.
+  `{root, T}`; all three symptoms collapse; prover pays 704k×K; plain-product's O(1) surface pays off.
   Contains the recursion sub-arc (§9.7 below) and the prover/verifier reveal (§9.8 below) and
   the Fiat–Shamir floor.
 - **§9.6 Privacy analysis** — the **privacy ladder** lives here as the local axis (spine-c in
@@ -740,28 +740,28 @@ deviation tolerated to dodge its price.
 - **§10.1 Two principles, up front.** (1) Compare only *within* a privacy class. (2) Every
   claim changes *exactly one* thing.
 - **§10.2 Equal-privacy slices** — structural {flat, recursion}; computational-commit
-  {committed-A, committed-A++}; disclosing {A, B}.
+  {committed-sort, committed-product}; disclosing {plain-sort, B}.
 - **§10.3 The 2×2 factorial** {flat, recursive} × {sort, grand-product}: column delta =
   aggregation cost; row delta = mechanism cost (flat row = strict controlled experiment, the
   witness-time inversion); separability = the dualism quantified. **Headline:**
-  `flat_merkle_grand_product ↔ recursive-A++` (differ in exactly structure, no soundness
+  `flat_merkle_grand_product ↔ recursive-product` (differ in exactly structure, no soundness
   caveat).
-- **§10.4 Cross-class cost/benefit** — flat↔hierarchical (the third corner); A↔A++; A++↔committed.
+- **§10.4 Cross-class cost/benefit** — flat↔hierarchical (the third corner); A↔plain-product; plain-product↔committed.
 - **§10.5 The frontier figure** — the pick-two triangle at fixed privacy: recursion the
-  perfect-hiding endpoint, committed-A/A++ the equal-privacy non-recursive points, A/A++ as
+  perfect-hiding endpoint, committed-sort/plain-product the equal-privacy non-recursive points, plain-sort/plain-product as
   upstream disclosure/oracle markers (arrows, not co-equal), folding the empty corner.
 - **The refrain, repeated:** *total work is conserved* — hierarchical never beats flat on
   total gates; the win is parallelizability of the same work.
 
 ## 9.6 Order of variant introduction & per-variant motivation
 
-**Order:** flat → A → A++ → committed-A/A++ → recursion → folding (monotone, symptom-removal).
-Hold two things: (i) recursive-A / recursive-A++ are **not** in this list — they are the
+**Order:** flat → plain-sort → plain-product → committed-sort/plain-product → recursion → folding (monotone, symptom-removal).
+Hold two things: (i) recursive-sort / recursive-product are **not** in this list — they are the
 recursion *sub-arc* inside §9.5 (§9.7); (ii) presentation order ≠ implementation order
-(A → B → A++ in code). Variant B, if built, sits at the **disclosing end** beside A
+(plain-sort → B → plain-product in code). Variant B, if built, sits at the **disclosing end** beside plain-sort
 (sub-matrix public) as the gate-saver.
 
-### 9.6.1 The links flat → decomposition → A → A++ (transition prose)
+### 9.6.1 The links flat → decomposition → plain-sort → plain-product (transition prose)
 
 **flat → decomposition** *(motivation + problem):*
 > *Flat proves the whole cycle in one circuit — one prover, serially, holding the entire
@@ -772,82 +772,82 @@ recursion *sub-arc* inside §9.5 (§9.7); (ii) presentation order ≠ implementa
 > set. Decomposition forces a binding step — and the rest of this chapter is organised by
 > where that binding lives and what it binds.*
 
-**decomposition → A** *(the minimal, diagnostic instantiation):*
+**decomposition → plain-sort** *(the minimal, diagnostic instantiation):*
 > *The most direct answer is to bind externally, on the plaintext values: K segment proofs
-> plus a glue proof, with the verifier running equality cross-checks. That is Variant A — and
-> because it binds plaintext, it exhibits the binding tax in its rawest form (the partition is
+> plus a glue proof, with the verifier running equality cross-checks. That is plain-sort — and
+> because it binds plaintext, it exhibits the stitching tax in its rawest form (the partition is
 > simply disclosed). We start here precisely because it makes the tax visible.*
 
-**A → A++** *(driven by A's concrete inefficiencies, not privacy):*
-> *A's glue exposes O(M) per segment and runs a serial O(N) sort. A++ attacks both — a
+**plain-sort → plain-product** *(driven by plain-sort's concrete inefficiencies, not privacy):*
+> *plain-sort's glue exposes O(M) per segment and runs a serial O(N) sort. plain-product attacks both — a
 > grand-product multiset check shrinks the public surface to O(1) and distributes the work. It
 > is not cheaper overall; it is a surface and critical-path move whose payoff we defer.*
 
-### 9.6.2 Why A and A++ before committed-\* — the hidden premise refuted
+### 9.6.2 Why plain-sort and plain-product before committed-\* — the hidden premise refuted
 
 The question "why not just use committed-\* directly?" assumes committed-\* **dominate**
-A/A++. They do not: committed-\* are better on **privacy** but cost more (blinding, in-circuit
+plain-sort/plain-product. They do not: committed-\* are better on **privacy** but cost more (blinding, in-circuit
 opening checks, the commitment fold) and remain a notch below flat/recursion (reveal K, hiding
 rests on the scheme). "Just use committed" is only correct *when you need partition privacy and
 can pay for it* — a regime, not the default. The motivations are **asymmetric**:
 
-- **A is a genuine endpoint, not a stepping stone.** Cheapest total gates, deterministic check
+- **plain-sort is a genuine endpoint, not a stepping stone.** Cheapest total gates, deterministic check
   (no Schwartz–Zippel error), simplest soundness. The motivating scenario is real: in many
   deployments the partition is public anyway (known territory/cluster assignment; federated
-  node ownership), where blinding is pure waste. A is the **disclosure-regime** frontier point.
-- **A++ is a waypoint — admit it.** It is weakly motivated *as a standalone deployed variant*
-  (not cheaper than A; standalone hiding only computational-with-oracle). Motivate it on what it
+  node ownership), where blinding is pure waste. plain-sort is the **disclosure-regime** frontier point.
+- **plain-product is a waypoint — admit it.** It is weakly motivated *as a standalone deployed variant*
+  (not cheaper than plain-sort; standalone hiding only computational-with-oracle). Motivate it on what it
   actually earns: (i) **the design you recurse on** — its O(1) surface keeps the recursive outer
-  segment-size-independent (an A inner, M+4 fields, makes the outer grow with N); (ii) the
-  **high-K / distributed-check corner** (O(K) glue removes A's O(N) memory floor); (iii) the
+  segment-size-independent (a plain-sort inner, M+4 fields, makes the outer grow with N); (ii) the
+  **high-K / distributed-check corner** (O(K) glue removes plain-sort's O(N) memory floor); (iii) the
   **de-confounding control** below.
 
-**The decisive argument (de-confounding).** committed-A++ differs from A in *two* independent
-ways: (i) the surface/check change (A → A++) and (ii) the blinding (A++ → committed-A++). Skip
+**The decisive argument (de-confounding).** committed-product differs from plain-sort in *two* independent
+ways: (i) the surface/check change (plain-sort → plain-product) and (ii) the blinding (plain-product → committed-product). Skip
 the intermediates and the two changes are conflated — you cannot attribute which cost/benefit
-came from which decision. A++ isolates (i), so A++ → committed-A++ cleanly isolates (ii), the
-cost of the blinding alone. **A++ is to committed-A++ what recursive-A is to recursive-A++:** the
+came from which decision. plain-product isolates (i), so plain-product → committed-product cleanly isolates (ii), the
+cost of the blinding alone. **plain-product is to committed-product what recursive-sort is to recursive-product:** the
 control that holds one variable fixed.
 
 **Two more reasons the intermediates must be exhibited:**
 - **Diagnosis before cure.** The blinding is only legible as a fix if the reader has seen the
-  leak it closes (A shows it raw; A++ shows the subtler oracle leak). Present committed-\* cold
+  leak it closes (A shows it raw; plain-product shows the subtler oracle leak). Present committed-\* cold
   and the commitment fold looks like unmotivated machinery.
 - **The progression *is* the contribution + the equal-privacy finding needs the backdrop.** Each
-  step removes one symptom (a structural result requiring visible rungs); and "committed-A and
-  committed-A++ reach the *same* rung" is only meaningful against A and A++ being *unequal* (A
-  discloses; A++ computational-oracle). committed-\* **equalize** what A/A++ left unequal.
+  step removes one symptom (a structural result requiring visible rungs); and "committed-sort and
+  committed-product reach the *same* rung" is only meaningful against plain-sort and plain-product being *unequal* (A
+  discloses; plain-product computational-oracle). committed-\* **equalize** what plain-sort/plain-product left unequal.
 
-**Chapter stance (per resolved C6).** Draw A/A++ as the upstream *diagnosis / disclosure* points
+**Chapter stance (per resolved C6).** Draw plain-sort/plain-product as the upstream *diagnosis / disclosure* points
 on the progression line, with arrows into committed-\* — not as co-equal frontier markers — and
-*say out loud* that A++ standalone is a waypoint. That honesty is stronger than a forced
+*say out loud* that plain-product standalone is a waypoint. That honesty is stronger than a forced
 standalone justification an examiner would see through.
 
-## 9.7 The recursion sub-arc — A++ first (shipped), A second (the fairness control)
+## 9.7 The recursion sub-arc — plain-product first (shipped), plain-sort second (the fairness control)
 
-recursive-A++ and recursive-A play two different roles: **A++ is the construction you ship; A is
-a measurement instrument.** Leading with A++ matches the build order (the "free inner" the
-hierarchical arc just handed you) and avoids making A++ look like a destination climbed toward.
+recursive-product and recursive-sort play two different roles: **plain-product is the construction you ship; plain-sort is
+a measurement instrument.** Leading with plain-product matches the build order (the "free inner" the
+hierarchical arc just handed you) and avoids making plain-product look like a destination climbed toward.
 
-**Why A++ leads (and isn't a thing you "improve to").** You arrive at recursion via the
-hierarchical arc, which hands you the A++ segment as the free inner; its O(1) surface is *why* it
-is the smart choice (outer stays segment-size-independent). So recursive-A++ falls out of the
+**Why plain-product leads (and isn't a thing you "improve to").** You arrive at recursion via the
+hierarchical arc, which hands you the plain-product segment as the free inner; its O(1) surface is *why* it
+is the smart choice (outer stays segment-size-independent). So recursive-product falls out of the
 construction — don't motivate it, it *is* the recursion.
 
-**The transition to A — fairness forces a control:**
-> *We now ask what recursion **cost**. The obvious comparison is recursive-A++ against
+**The transition to plain-sort — fairness forces a control:**
+> *We now ask what recursion **cost**. The obvious comparison is recursive-product against
 > flat_merkle_sort — both perfect-hiding, both `{root, T}`. But it is not fair: flat_merkle_sort
-> → recursive-A++ changes **two** things at once — the **structure** (monolithic →
+> → recursive-product changes **two** things at once — the **structure** (monolithic →
 > decompose-and-verify-in-circuit) and the **partition mechanism** (deterministic sort →
 > grand-product + Fiat–Shamir). A cost delta could be either. To isolate the cost of recursion
 > **as a technique**, we hold the mechanism fixed: recurse on the **A** segment, keeping the
-> deterministic sort, matched to flat. That is recursive-A — built not as a variant to deploy,
+> deterministic sort, matched to flat. That is recursive-sort — built not as a variant to deploy,
 > but as an experimental control, exactly as flat_merkle_grand_product was a control on the flat
 > side.*
 
-This frames recursive-A as an **instrument, not a competitor** (so introducing it after A++ is
+This frames recursive-sort as an **instrument, not a competitor** (so introducing it after plain-product is
 forward motion toward rigor, not backtracking), and pre-states its handicap honestly (its O(M)
-inner surface makes the outer grow with N — the very thing A++ fixed), reinforcing that it is a
+inner surface makes the outer grow with N — the very thing plain-product fixed), reinforcing that it is a
 measurement tool.
 
 **How to move from there — the factorial, then the headline:**
@@ -855,25 +855,25 @@ measurement tool.
 | | sort (deterministic) | grand-product + FS |
 |---|---|---|
 | **flat** | `flat_merkle_sort` | `flat_merkle_grand_product` |
-| **recursive** | **recursive-A** | **recursive-A++** |
+| **recursive** | **recursive-sort** | **recursive-product** |
 
 - **Column delta** (flat → recursive, mechanism fixed) = **pure aggregation cost** (the K
-  in-circuit verifiers ~704k each) — what recursive-A was built to measure.
+  in-circuit verifiers ~704k each) — what recursive-sort was built to measure.
 - **Row delta** (sort → grand-product, structure fixed) = **pure mechanism cost** — flat row at
   zero privacy delta (the witness-time inversion), recursive row adding the O(M)→O(1)
   surface-absorption effect.
 - **Separability** (deltas ~additive, no interaction) = a result in itself; the dualism
   quantified.
-- **Headline:** *the sharpest single statement is `flat_merkle_grand_product ↔ recursive-A++`
-  (both grand product, differ in exactly the structure — no soundness caveat); recursive-A's
+- **Headline:** *the sharpest single statement is `flat_merkle_grand_product ↔ recursive-product`
+  (both grand product, differ in exactly the structure — no soundness caveat); recursive-sort's
   role was to prove that delta is attributable to structure alone, by showing the same column
-  delta at the sort mechanism too.* Then **retire recursive-A** (it is off the frontier figure).
+  delta at the sort mechanism too.* Then **retire recursive-sort** (it is off the frontier figure).
 
 **The correction to carry through the whole sub-arc (state once, loudly):** inside recursion,
-A vs A++ is **not** a hiding difference — both partitions (A's `sorted_nodes`, A++'s `P_i`) become
+plain-sort vs plain-product is **not** a hiding difference — both partitions (plain-sort's `sorted_nodes`, plain-product's `P_i`) become
 witness of the outer circuit, so the verifier sees neither. The choice is purely **soundness +
 surface** (exact sort vs Schwartz–Zippel + Fiat–Shamir; O(M) vs O(1) surface). Hiding is identical
-across flat, recursive-A, recursive-A++ — it is the SNARK's ZK, constant, not a discriminator.
+across flat, recursive-sort, recursive-product — it is the SNARK's ZK, constant, not a discriminator.
 
 ## 9.8 The prover/verifier reveal — setup→reveal, not problem→relief
 
@@ -894,7 +894,7 @@ than introducing recursion's pain first:
 
 **Three touch-points:**
 1. **Seed (§8.8 / §9.2):** *"This O(K) verifier looks expensive now; §9.5 shows it is the cheap
-   way to pay the binding tax."*
+   way to pay the stitching tax."*
 2. **Reveal (§9.5):** *"Recursion eliminates the O(K) verifier — back to one succinct proof — but
    pays for it on the prover: 704k×K (~1.47M at K=2, ~3.0M at K=4). The hierarchical family paid
    for the **same** binding with an O(K) verifier: K×14.6 KB of proof and K×~10 ms of
@@ -929,7 +929,7 @@ naturally becomes; Hinge 1 is the decision to *forgo* it, externally and cheaply
 > parallelism — but **not** verify the proofs in-circuit? We can. Bind the K proofs **externally**,
 > with verifier-side cross-checks, instead of folding them into one circuit. External binding is
 > cheap. The catch is that it cannot hide the values it binds on: the partition surfaces, the
-> verifier now handles K+1 proofs, and the checks must be bookkept. This is the binding tax — and
+> verifier now handles K+1 proofs, and the checks must be bookkept. This is the stitching tax — and
 > the family that pays it externally is the hierarchical family, which sits between the two poles:
 > it keeps recursion's parallelism and flat's low prover cost, and pays instead with an O(K)
 > verifier and a privacy relaxation.*
@@ -940,7 +940,7 @@ having built recursion.
 
 ### 9.9.2 The middle (one line)
 
-The interior walks the *what-is-bound* sub-axis: **A** (plaintext, leak raw) → **A++** (plaintext,
+The interior walks the *what-is-bound* sub-axis: **A** (plaintext, leak raw) → **plain-product** (plaintext,
 surface shrunk — the deferred investment) → **committed** (commitment, leak closed). After
 committed-\*, **only the O(K) verifier remains.**
 
@@ -955,10 +955,10 @@ Triggered by the *last surviving symptom*; a promise kept, not a new introductio
 > deferred it because it is built **from the segments we have just developed**, and we can now
 > build it.*
 
-The **free-inner** payoff (closes the loop, cashes the §9.3/A++ promise):
+The **free-inner** payoff (closes the loop, cashes the §9.3/plain-product promise):
 
-> *The outer circuit needs an inner proof to verify — and we already have one. It reuses the A++
-> segment unchanged; A++'s O(1) public surface, which earlier looked like an unmotivated
+> *The outer circuit needs an inner proof to verify — and we already have one. It reuses the plain-product
+> segment unchanged; plain-product's O(1) public surface, which earlier looked like an unmotivated
 > optimisation, is precisely what keeps the outer circuit segment-size-independent. The hierarchical
 > detour was not only the cheaper alternative to recursion — it produced the component recursion is
 > built from. (We do not even commit the inner: the outer already turns every inner public input
@@ -1007,8 +1007,8 @@ characterize, not because it wins.
 1. "in-circuit proof verification is expensive" — literature; depends on nothing in the thesis.
 2. "recursion costs ~704k×K" = (1) + your measurement.
 3. "hierarchical is worth exploring" — motivated by (2) + the binding-location insight.
-4. "the A/A++ segment circuits exist" — built to realize (3).
-5. "recursion can be constructed" — its inner *is* the A++ segment (4) + the in-circuit binding choice.
+4. "the plain-sort/plain-product segment circuits exist" — built to realize (3).
+5. "recursion can be constructed" — its inner *is* the plain-product segment (4) + the in-circuit binding choice.
 6. "recursion's cost is derived and contextualized" — (5) + (2).
 
 No node depends on itself; in particular **(2), the cost, stands on (1) + measurement and never
@@ -1066,13 +1066,13 @@ implemented = no, and for a reason that protects the thesis's rigor rather than 
 |---|---|---|---|
 | `flat_full_*` | n/a / matrix public | matrix disclosed | Part II baseline (pre-Merkle); not in the hierarchical arc |
 | `flat_merkle_{presence,sort}` | n/a (K=1) | `{root,T}` | the monolithic pole; perfect-hiding baseline |
-| `flat_merkle_grand_product` | n/a (K=1) | `{root,T}` | **control** — A++ at K=1; the factorial's flat-grand-product cell |
-| **Variant A** | external / plaintext | partition disclosed | diagnosis + disclosure endpoint; cheapest, deterministic |
-| **Variant A++** | external / plaintext (`P_i` oracle) | partition computational-oracle | recursion bridge + control isolating surface/check |
-| **committed-A / A++** | external / commitment | partition hidden (reveal K) | the cure; equal-privacy non-recursive points |
-| **recursion** (A++-inner) | in-circuit / witness | partition absent | perfect-hiding endpoint; the C-corner cost |
-| recursive-A | in-circuit / witness | partition absent | **control** (sub-arc); aggregation-cost isolator; off-frontier |
-| Variant B *(unbuilt)* | external / plaintext + sub-matrix | partition + sub-matrices disclosed | most-disclosing gate-saver; attaches beside A |
+| `flat_merkle_grand_product` | n/a (K=1) | `{root,T}` | **control** — plain-product at K=1; the factorial's flat-grand-product cell |
+| **plain-sort** | external / plaintext | partition disclosed | diagnosis + disclosure endpoint; cheapest, deterministic |
+| **plain-product** | external / plaintext (`P_i` oracle) | partition computational-oracle | recursion bridge + control isolating surface/check |
+| **committed-sort / plain-product** | external / commitment | partition hidden (reveal K) | the cure; equal-privacy non-recursive points |
+| **recursion** (plain-product-inner) | in-circuit / witness | partition absent | perfect-hiding endpoint; the C-corner cost |
+| recursive-sort | in-circuit / witness | partition absent | **control** (sub-arc); aggregation-cost isolator; off-frontier |
+| Variant B *(unbuilt)* | external / plaintext + sub-matrix | partition + sub-matrices disclosed | most-disclosing gate-saver; attaches beside plain-sort |
 | folding *(future)* | deferred / witness | partition absent | the empty P+V+C corner |
 
 ## 9.13 Refrains and honesty caveats (repeat throughout Ch 8-10)
@@ -1081,22 +1081,22 @@ implemented = no, and for a reason that protects the thesis's rigor rather than 
   the win is *parallelizability of the same work*, never less work.
 - **K× parallelism is projected, not measured** — say "projected / estimated from circuit-size
   ratios" until the isolation benchmark is run. The #1 defense vulnerability.
-- **A++ is motivated on surface/soundness, never on hiding** — inside recursion the partition is
+- **plain-product is motivated on surface/soundness, never on hiding** — inside recursion the partition is
   hidden either way.
 - **"Negligible verifier cost" is conditional** — true off-chain at low K; at large K or on-chain it
   stops being negligible, and that boundary *is* the use-case mapping.
 - **"Perfect hiding" is structural**, not IT-ZK — the SNARK's ZK is identical across all variants and
   is not a discriminator.
 - **Keep the SNARK-ZK property (constant) rigidly distinct from statement-disclosure (varies)** —
-  never write "A++ adds more ZK"; A++'s *statement* discloses less (§9.3.3).
+  never write "plain-product adds more ZK"; plain-product's *statement* discloses less (§9.3.3).
 
 ### 9.14 The shape in one breath
 
 **flat (no binding) → decompose (binding forced; dualism) → name the two poles (flat / recursion) →
-walk the interior by *what is bound* (A discloses → A++ shrinks the surface → committed hides) →
+walk the interior by *what is bound* (plain-sort discloses → plain-product shrinks the surface → committed hides) →
 return to build recursion (binds in the witness; collapses everything; prover pays) → folding (defer
 the cost).** Each arrow is one move across the statement–witness / binding-location axes; each variant
-is the cheapest-or-necessary point at its rung; the O(K)-verifier "symptom" met at A is re-framed as
+is the cheapest-or-necessary point at its rung; the O(K)-verifier "symptom" met at plain-sort is re-framed as
 the bargain when recursion's prover bill lands; and the loop closes productively because the detour
 manufactured the inner that recursion is built from.
 
@@ -1268,9 +1268,9 @@ middle links; the two ends (VK↔source, root↔matrix) are deliberate, named tr
 ## 10.7 The two project-specific binding layers (where the variants differ)
 
 Everything above is *one* proof. The decomposed variants add a layer binding *K+1* proofs to one
-instance — the binding tax made operational:
+instance — the stitching tax made operational:
 
-- **External binding (hierarchical A/A++/committed — `verify_hier*.py`).** Each segment proof and
+- **External binding (hierarchical plain-sort/plain-product/committed — `verify_hier*.py`).** Each segment proof and
   the glue proof verify *internally* with their own `bb verify`, but that never forces a shared
   instance. So the verifier runs **K+1 `bb verify` calls, then pure Field-equality cross-checks**
   on the parsed `public_inputs`: same `root` across all proofs; `glue.starts[i] ==
@@ -1284,7 +1284,7 @@ instance — the binding tax made operational:
   those now-trusted private values. The cross-checks become *in-circuit asserts* (binding folded
   into one proof) and the inner public inputs never reach the outer surface (only `root, threshold`
   remain → structural hiding). The verifier runs **one `bb verify`, zero cross-checks** — the
-  binding tax collapsed, at ~704k gates/inner. This is §9.4.3's "faithful recombination" in code.
+  stitching tax collapsed, at ~704k gates/inner. This is §9.4.3's "faithful recombination" in code.
 
 **Two-layer catch (validated in `tests/correctness/test_recursion.py`):** glue-logic cheats die at
 `nargo execute` (the assert fails during witness generation); a tampered inner proof or VK
@@ -1314,8 +1314,8 @@ the natural endpoint, with the dilemma demoted to an intro signpost + a derived 
 kept for reference and for the deeper treatment of any analysis cited here. **Scope note:** per the
 2026-06-03 decision, this flow ignores `flat_full_presence`, `flat_full_invperm`,
 `flat_merkle_presence`, and Variant B; the in-scope set is `flat_full_pairwise`, `flat_full_sort`,
-`flat_merkle_sort`, `flat_merkle_grand_product`, A, A++, committed-A, committed-A++, recursion
-(A++-inner), recursive-A (control), and folding (future).*
+`flat_merkle_sort`, `flat_merkle_grand_product`, plain-sort, plain-product, committed-sort, committed-product, recursion
+(plain-product-inner), recursive-sort (control), and folding (future).*
 
 ## 11.1 The root decision that tips monotone over the cold-open: the contribution is the *map*, not the variants
 
@@ -1327,7 +1327,7 @@ contributes*. Resolving that is what settles the order:
   exposed** claim — an examiner answers "those are known techniques applied to TSP."
 - The **original, durable** contribution is the **framework**: (1) the **dualism** (decomposing a
   non-local problem gives *no* ZK speedup, only parallelism — a negative result with a structural
-  explanation); (2) the **binding tax** (recombining K decomposed proofs is one artifact, three
+  explanation); (2) the **stitching tax** (recombining K decomposed proofs is one artifact, three
   coupled symptoms); (3) the **frontier** (the pick-two triangle; flat/hierarchical/recursion are
   *points*, folding the predicted empty corner); (4) the **methodology** (controlled, equal-privacy
   comparison). **The variants are evidence that instantiates the map.**
@@ -1336,7 +1336,7 @@ The cold-open *spotlights the invention of hierarchical* (the weak claim); the m
 *foregrounds the framework* (the strong claim) and lets every variant — flat, hierarchical,
 recursion alike — be a point of one map. That is why monotone wins here: it matches the contribution
 the thesis can actually defend. (Corollary already drawn for the title: lead with the framework —
-"binding tax / cost–privacy frontier" — not with "novel constructions".)
+"stitching tax / cost–privacy frontier" — not with "novel constructions".)
 
 ## 11.2 Variant roles (the regroup — the in-scope set, by job)
 
@@ -1345,8 +1345,8 @@ Not "many variants" — a small set with three distinct jobs:
 | Role | In-scope variants | Why it exists |
 |---|---|---|
 | **Baselines** (Part II, Ch 5–7) | `flat_full_pairwise`, `flat_full_sort`, `flat_merkle_sort` | Establish the problem, the four-group structure, the permutation-check axis, and the public→committed matrix move. `flat_merkle_sort` is carried into Part III as the **K=1 monolithic endpoint**. |
-| **Frontier points** (Part III — *the contribution*) | A, A++, committed-A, committed-A++, recursion(A++-inner), [`flat_merkle_sort` as K=1], [folding = future] | The points that **instantiate the map** along the binding-tax progression. |
-| **Instrumental controls** (Ch 10, for rigor) | `flat_merkle_grand_product` (= A++ at K=1), recursive-A (A-inner) | Exist **only to de-confound comparisons** (mechanism vs aggregation in the 2×2 factorial). **Off the frontier figure.** |
+| **Frontier points** (Part III — *the contribution*) | plain-sort, plain-product, committed-sort, committed-product, recursion(plain-product-inner), [`flat_merkle_sort` as K=1], [folding = future] | The points that **instantiate the map** along the stitching-tax progression. |
+| **Instrumental controls** (Ch 10, for rigor) | `flat_merkle_grand_product` (= plain-product at K=1), recursive-sort (plain-sort-inner) | Exist **only to de-confound comparisons** (mechanism vs aggregation in the 2×2 factorial). **Off the frontier figure.** |
 
 ## 11.3 The monotone order, step by step — and the reason for *every* position
 
@@ -1363,27 +1363,27 @@ The dimensions, and the single one that moves at each step:
 | 1 | — → **flat_full_pairwise** | (the starting point) | The simplest correct statement: public matrix, O(N²) **pairwise** permutation check. Establishes the **four-group structure** (range / permutation / edge-cost / threshold). Naivest permutation check = the baseline to improve. |
 | 2 | flat_full_pairwise → **flat_full_sort** | permutation check: pairwise → **sort** (O(N²)→O(N)) | Public matrix held fixed ⟹ isolates the **permutation-check cost axis**. Why second: it's the one-variable improvement of step 1. |
 | 3 | flat_full_sort → **flat_merkle_sort** | matrix representation: **public → committed** (root) | Sort held fixed ⟹ isolates the **cost of committing the matrix** (the O(N·log N) Merkle overhead vs the O(N²) public-input cost; the crossover). Why third: it's the privacy-relevant move (matrix hidden, surface = `{root,T}`), and it produces the **monolithic perfect-hiding baseline** Part III builds on. |
-| 4 | flat_merkle_sort → **flat_merkle_grand_product** | permutation mechanism: **sort → grand-product + FS** | Committed matrix + surface `{root,T}` held fixed, zero privacy delta ⟹ isolates the **permutation-mechanism cost** (the witness-time inversion). **Instrumental:** it is A++ collapsed to K=1, introduced here as the flat-row **control** for the Ch 10 factorial. Why here: it completes the permutation-mechanism study at K=1 *before* decomposition adds the structure variable. |
-| — | **(Ch 8: the framework)** | — | Between the flat study and the points, declare the contribution: **dualism** (decompose ⟹ no speedup, only parallelism) → **binding tax** (one artifact, three symptoms; two decisions: *where* binding lives × *what* it binds) → the **pick-two triangle**. The points in Ch 9 are read against this. |
+| 4 | flat_merkle_sort → **flat_merkle_grand_product** | permutation mechanism: **sort → grand-product + FS** | Committed matrix + surface `{root,T}` held fixed, zero privacy delta ⟹ isolates the **permutation-mechanism cost** (the witness-time inversion). **Instrumental:** it is plain-product collapsed to K=1, introduced here as the flat-row **control** for the Ch 10 factorial. Why here: it completes the permutation-mechanism study at K=1 *before* decomposition adds the structure variable. |
+| — | **(Ch 8: the framework)** | — | Between the flat study and the points, declare the contribution: **dualism** (decompose ⟹ no speedup, only parallelism) → **stitching tax** (one artifact, three symptoms; two decisions: *where* binding lives × *what* it binds) → the **pick-two triangle**. The points in Ch 9 are read against this. |
 | 5 | flat_merkle_sort → **decomposition** | structure: **monolithic → K segments + binding** | The move that buys parallelism (dualism: no gate savings). Binding forced ⟹ the organizing question for all that follows: *where does binding live (external / in-circuit), what does it bind (plaintext / commitment / witness)?* Introduced once, shared. |
-| 6 | decomposition → **Variant A** | binding realized: **external, plaintext, sort** | The *simplest* binding (external + plaintext) ⟹ exhibits the **binding tax raw** (partition disclosed, O(K) verifier, bookkeeping). Cheapest total gates, deterministic. Why first among hierarchical: minimal external binding, the **diagnosis** + the **disclosure-regime** point — show the tax plainly before optimizing. |
-| 7 | A → **Variant A++** | partition mechanism/surface: **sort/O(M) → grand-product+FS/O(1)** | External + plaintext held fixed ⟹ isolates the **surface/check refinement**. Honestly **not cheaper** (relocates O(N) into the segments). Motivated on **surface + soundness + the recursion bridge**, *never on hiding* (still leaks, now via the `P_i` oracle). Why second: it is the one-variable efficiency move on A, and the segment recursion will later reuse. |
-| 8 | A++ → **committed-A++** (and A → **committed-A**) | what is bound: **plaintext → blinded commitment** | Structure/mechanism held fixed ⟹ isolates the **blinding**. Closes the leak (`C_i`, reveals only K); bookkeeping becomes ZK. **Equal-privacy finding:** committed-A and committed-A++ reach the *same* rung, differing only in glue cost — so present them together; the finding *needs* both. After this, **only the O(K)-verifier symptom remains.** Why before recursion: monotone — committed removes *one* symptom (the leak); recursion then removes the *last* (the verifier). Jumping A++→recursion would remove two at once and destroy the clean attribution. |
-| 9 | committed → **recursion (A++-inner)** | where binding lives: **external → in-circuit (witness)** | The only binding that removes the **last** symptom (O(K) verifier) *and* restores structural hiding — the **faithful recombination** (§9.4.3): verify the K segment proofs in-circuit, their public inputs become witness, surface → `{root,T}`. Built on the **A++** segment (its O(1) surface keeps the outer segment-size-independent — A++'s deferred payoff). Prover pays **704k×K**. Why last among built variants: it is the endpoint the progression converges on; reaching it here makes the **flat↔recursion dilemma a *derived synthesis*** (§11.5). |
-| 9c | recursion(A++) ↔ **recursive-A** | the inner: **A++ → A** (grand-product → sort) | **Instrumental control**, introduced *with* recursion for the Ch 10 factorial: recurse on the A (sort) segment to hold the mechanism matched to flat, isolating **aggregation cost** from mechanism. Off-frontier. Inside recursion this is a **soundness/surface** trade, *not* hiding (both partitions are witness either way). |
+| 6 | decomposition → **plain-sort** | binding realized: **external, plaintext, sort** | The *simplest* binding (external + plaintext) ⟹ exhibits the **stitching tax raw** (partition disclosed, O(K) verifier, bookkeeping). Cheapest total gates, deterministic. Why first among hierarchical: minimal external binding, the **diagnosis** + the **disclosure-regime** point — show the tax plainly before optimizing. |
+| 7 | plain-sort → **plain-product** | partition mechanism/surface: **sort/O(M) → grand-product+FS/O(1)** | External + plaintext held fixed ⟹ isolates the **surface/check refinement**. Honestly **not cheaper** (relocates O(N) into the segments). Motivated on **surface + soundness + the recursion bridge**, *never on hiding* (still leaks, now via the `P_i` oracle). Why second: it is the one-variable efficiency move on plain-sort, and the segment recursion will later reuse. |
+| 8 | plain-product → **committed-product** (and plain-sort → **committed-sort**) | what is bound: **plaintext → blinded commitment** | Structure/mechanism held fixed ⟹ isolates the **blinding**. Closes the leak (`C_i`, reveals only K); bookkeeping becomes ZK. **Equal-privacy finding:** committed-sort and committed-product reach the *same* rung, differing only in glue cost — so present them together; the finding *needs* both. After this, **only the O(K)-verifier symptom remains.** Why before recursion: monotone — committed removes *one* symptom (the leak); recursion then removes the *last* (the verifier). Jumping plain-product→recursion would remove two at once and destroy the clean attribution. |
+| 9 | committed → **recursion (plain-product-inner)** | where binding lives: **external → in-circuit (witness)** | The only binding that removes the **last** symptom (O(K) verifier) *and* restores structural hiding — the **faithful recombination** (§9.4.3): verify the K segment proofs in-circuit, their public inputs become witness, surface → `{root,T}`. Built on the **plain-product** segment (its O(1) surface keeps the outer segment-size-independent — plain-product's deferred payoff). Prover pays **704k×K**. Why last among built variants: it is the endpoint the progression converges on; reaching it here makes the **flat↔recursion dilemma a *derived synthesis*** (§11.5). |
+| 9c | recursion(plain-product) ↔ **recursive-sort** | the inner: **plain-product → plain-sort** (grand-product → sort) | **Instrumental control**, introduced *with* recursion for the Ch 10 factorial: recurse on the plain-sort (sort) segment to hold the mechanism matched to flat, isolating **aggregation cost** from mechanism. Off-frontier. Inside recursion this is a **soundness/surface** trade, *not* hiding (both partitions are witness either way). |
 | 10 | recursion → **folding** | when binding happens: **eager → deferred** | The predicted **empty corner** (P+V+C): defers the in-circuit verification, removing recursion's prover tax. Future work — a *different backend*, so building it would break the controlled single-backend comparison (§9.11). Closes the map by naming what would break the triangle. |
 
-**Reading the table as a chain:** steps 1→4 walk the *flat* study, changing one of {permutation check, matrix representation, permutation mechanism} at a time. Step 5 introduces the *structure* variable (decomposition). Steps 6→9 walk the *binding* decisions — first *what is bound* held external (A plaintext → A++ surface-refined → committed blinded), then *where binding lives* (committed external → recursion in-circuit). Step 10 changes *when*. Every link is one variable; the narrative order **is** the controlled experiment.
+**Reading the table as a chain:** steps 1→4 walk the *flat* study, changing one of {permutation check, matrix representation, permutation mechanism} at a time. Step 5 introduces the *structure* variable (decomposition). Steps 6→9 walk the *binding* decisions — first *what is bound* held external (A plaintext → plain-product surface-refined → committed blinded), then *where binding lives* (committed external → recursion in-circuit). Step 10 changes *when*. Every link is one variable; the narrative order **is** the controlled experiment.
 
 ## 11.4 The three-chapter mapping
 
-- **Ch 8 — declare the framework (the contribution).** Dualism → binding tax → pick-two triangle.
+- **Ch 8 — declare the framework (the contribution).** Dualism → stitching tax → pick-two triangle.
 - **Ch 9 — walk the points (monotone evidence).** `flat_merkle_sort` (K=1 endpoint) → decomposition →
-  A → A++ → committed-A/A++ → recursion → folding. Each a worked construction; each transition the
+  plain-sort → plain-product → committed-sort/plain-product → recursion → folding. Each a worked construction; each transition the
   one-variable step from §11.3.
 - **Ch 10 — measure + compare.** The frontier figure (triangle, real coordinates); the equal-privacy
   slices; the **2×2 factorial** {flat, recursive} × {sort, grand-product} — *here*
-  `flat_merkle_grand_product` and recursive-A do their only job (de-confounding), explicitly flagged
+  `flat_merkle_grand_product` and recursive-sort do their only job (de-confounding), explicitly flagged
   as controls. (Reuses §9.7's factorial reading and §9.8's reveal verbatim.)
 - *(Part II / Ch 5–7 carries the flat study — steps 1–4 — as the empirical baseline.)*
 
@@ -1409,24 +1409,24 @@ defense largely unnecessary — there is no result-first/build-last loop to defe
 The monotone frame changes *order*, not *analysis*. These §9 pieces are reused as-is:
 - **§9.3.2 P/V/C** and the triangle — the cost geometry the synthesis (§11.5) crystallizes.
 - **§9.3.3 verification→ZK / statement–witness boundary** — the precise lens for *what is bound*
-  (steps 6–9); the guardrails (never "A++ adds more ZK") still bind.
+  (steps 6–9); the guardrails (never "plain-product adds more ZK") still bind.
 - **§9.4.3 recursion = the natural recombination** — now the *synthesis line* at step 9, not a deferred
   promise.
-- **§9.6.2 why A/A++ before committed** (diagnosis-before-cure, de-confounding, A as disclosure
-  endpoint, A++ as recursion bridge) — these *are* the step-6/7/8 reasons, restated in §11.3.
-- **§9.7 the recursion sub-arc + 2×2 factorial** — step 9c + Ch 10; A++ first (shipped), recursive-A
+- **§9.6.2 why plain-sort/plain-product before committed** (diagnosis-before-cure, de-confounding, plain-sort as disclosure
+  endpoint, plain-product as recursion bridge) — these *are* the step-6/7/8 reasons, restated in §11.3.
+- **§9.7 the recursion sub-arc + 2×2 factorial** — step 9c + Ch 10; plain-product first (shipped), recursive-sort
   the fairness control.
-- **§9.8 the prover/verifier reveal** — fires at the synthesis (§11.5); seed it at step 6 (A's O(K)
+- **§9.8 the prover/verifier reveal** — fires at the synthesis (§11.5); seed it at step 6 (plain-sort's O(K)
   verifier), pay it off at step 9.
 - **§9.12 placement map** and **§9.13 refrains/caveats** — unchanged (total work conserved; projected
-  parallelism; A++ never motivated on hiding; structural ≠ IT-ZK).
+  parallelism; plain-product never motivated on hiding; structural ≠ IT-ZK).
 
 ## 11.7 The shape in one breath (monotone)
 
 **flat_full_pairwise → flat_full_sort** (change the permutation check) **→ flat_merkle_sort** (commit
 the matrix) **→ flat_merkle_grand_product** (change the mechanism — a K=1 control) **→ [Ch 8: dualism +
-binding tax + triangle] → decompose** (add structure; binding forced) **→ A** (external/plaintext —
-the tax, raw) **→ A++** (refine the surface/check; the recursion bridge) **→ committed-A/A++** (blind it
+stitching tax + triangle] → decompose** (add structure; binding forced) **→ plain-sort** (external/plaintext —
+the tax, raw) **→ plain-product** (refine the surface/check; the recursion bridge) **→ committed-sort/plain-product** (blind it
 — close the leak) **→ recursion** (bind in-circuit — the faithful recombination; the last symptom falls;
 prover pays) **→ folding** (defer the cost — the empty corner). One variable per step; the framework is
 the claim; the variants are the evidence; the dilemma is the synthesis, not the opening.

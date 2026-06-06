@@ -26,11 +26,11 @@ chapters). Sources: `FRONTIER_REFRAME.md`, `NARRATIVE_FRAMING.md`, `HIERARCHICAL
 | **flat_merkle_sort** | The Incumbent | the monolithic, perfect-hiding baseline everyone is measured against | *"Hide everything in one proof — succinct verifier, but serial and unparallelizable."* |
 | flat_full_pairwise / _sort | The Ancestors | establish the four-group structure + the permutation-check axis | *"Here is the statement, and the naïvest way to check a permutation — now improve me."* |
 | **flat_merkle_grand_product** | The Body Double | a stunt double for flat_sort wearing the gp mask; a control, off the frontier | *"At K=1 I'm a strictly worse trade — which is exactly why I'm the clean control."* |
-| **A** (hierarchical_segment) | The Honest Fool | the simplest binding (external, plaintext) → exposes the binding tax raw | *"Decompose and bind plainly: cheapest and deterministic — but I disclose the partition."* |
-| **A++** (hierarchical_segment_fs) | The Chekhov's Gun | refines the surface but isn't cheaper; its payoff is deferred to recursion | *"I shrink the surface O(M)→O(1); I cost more, not less — trust me, you'll see why."* |
-| **committed-A / committed-A++** | The Twins | the cure (blind the commitment); secretly the same privacy rung | *"Blind the binding: the leak closes, and despite our different mechanisms we are equals."* |
-| **recursion** (A++-inner) | The Final Form | bind in-circuit → all three symptoms collapse, at a heroic prover cost | *"Verify the pieces inside the proof; the partition vanishes — and I pay 704k×K for it."* |
-| recursive-A | The Control Twin | shadows recursion to isolate aggregation from mechanism | *"Recurse on the sort inner so the mechanism matches flat — read the pure aggregation cost off me."* |
+| **plain-sort** (hierarchical_segment) | The Honest Fool | the simplest binding (external, plaintext) → exposes the stitching tax raw | *"Decompose and bind plainly: cheapest and deterministic — but I disclose the partition."* |
+| **plain-product** (hierarchical_segment_fs) | The Chekhov's Gun | refines the surface but isn't cheaper; its payoff is deferred to recursion | *"I shrink the surface O(M)→O(1); I cost more, not less — trust me, you'll see why."* |
+| **committed-sort / committed-product** | The Twins | the cure (blind the commitment); secretly the same privacy rung | *"Blind the binding: the leak closes, and despite our different mechanisms we are equals."* |
+| **recursion** (plain-product-inner) | The Final Form | bind in-circuit → all three symptoms collapse, at a heroic prover cost | *"Verify the pieces inside the proof; the partition vanishes — and I pay 704k×K for it."* |
+| recursive-sort | The Control Twin | shadows recursion to isolate aggregation from mechanism | *"Recurse on the sort inner so the mechanism matches flat — read the pure aggregation cost off me."* |
 | **folding** | The Ghost | the corner that breaks the triangle; named, never built | *"I could give you all three at once — but I'm a different backend, and a different thesis."* |
 
 ## The Forces (the drama, not the cast)
@@ -38,7 +38,7 @@ chapters). Sources: `FRONTIER_REFRAME.md`, `NARRATIVE_FRAMING.md`, `HIERARCHICAL
 - **The Law of the World — the dualism.** Decompose a non-local problem and you get *no*
   algorithmic ZK speedup; the only payoff is parallelism. *Seeded* Ch 2 §2.4.2 (NP
   finder/checker asymmetry), *pronounced* Ch 8 §8.3–8.5.
-- **The Antagonist — the binding tax.** Recombining K independent proofs is one artifact with
+- **The Antagonist — the stitching tax.** Recombining K independent proofs is one artifact with
   three coupled symptoms: **partition leak / O(K) verifier / bookkeeping**. Every decomposed
   character must contend with it. Revealed Ch 8 §8.6.
 - **The Two Masks — the fingerprint lever** (deterministic **sort** vs probabilistic
@@ -53,7 +53,7 @@ chapters). Sources: `FRONTIER_REFRAME.md`, `NARRATIVE_FRAMING.md`, `HIERARCHICAL
 1. **Compare to motivate (Ch 9) vs compare to measure (Ch 10).** Ch 9's transitions *are*
    pairwise, qualitative comparisons ("why this variant exists"); Ch 10 gathers the quantitative,
    cross-cutting comparisons ("what it costs"). No magnitude claims in Ch 9 beyond a forward-ref.
-2. **The per-variant template (6 beats), used identically for A, A++, committed-\*, recursion:**
+2. **The per-variant template (6 beats), used identically for plain-sort, plain-product, committed-\*, recursion:**
    *(i)* the transition (one variable changed) · *(ii)* construction · *(iii)* the row-reading
    (the lever's meaning here) · *(iv)* soundness consequence · *(v)* what it buys/costs
    (qualitative) · *(vi)* privacy class. Sameness is what makes the walk read as a controlled
@@ -64,7 +64,7 @@ chapters). Sources: `FRONTIER_REFRAME.md`, `NARRATIVE_FRAMING.md`, `HIERARCHICAL
    **(3) aggregation model** — report *total* (CPU work, conserved) and *parallel* (wall-clock,
    the win) both, labeled, never silently one.
 4. **The lever's four readings** (Ch 8 §8.7 plants; each Ch 9 scene collects one): flat = pure
-   cost (benefit-zero) · A/A++ = live trade (neither dominates) · committed = privacy-neutral ·
+   cost (benefit-zero) · plain-sort/plain-product = live trade (neither dominates) · committed = privacy-neutral ·
    recursion = soundness-only + outer-surface.
 5. **The reveal is earned, not asserted.** The flat↔recursion dilemma is a *derived synthesis*
    at the Ch 10 climax, after both poles are built — never a Ch 1 cold open (only a one-line signpost there).
@@ -78,14 +78,14 @@ flat_merkle_sort    .   .   o   ███ █   ██ | █   █    █   .   
 flat_full_*         .   .   .   ██  .   █  | .   .    .   .   .     ancestors
 flat_merkle_gp      .   .   .   o   .   ██ | .   .    █   .   .     body double (Ch7 twist, Ch10 control)
 A                   .   .   .   .   .   .  | .   ██   █   .   .     the Fool (diagnosis)
-A++                 .   .   .   .   .   .  | .   ██╌╌╌█→  .   .     the Gun (fires in Scene 11)
-committed-A/A++     .   .   .   .   .   .  | .   ██   █   .   .     the Twins
+plain-product                 .   .   .   .   .   .  | .   ██╌╌╌█→  .   .     the Gun (fires in Scene 11)
+committed-sort/plain-product     .   .   .   .   .   .  | .   ██   █   .   .     the Twins
 recursion           (·)  .   .   .   .   . | (·) ███  █   █   █     the Final Form (S1 promise → S11 climax)
-recursive-A         .   .   .   .   .   .  | .   o    █   .   .     control twin
+recursive-sort         .   .   .   .   .   .  | .   o    █   .   .     control twin
 folding             .   .   .   .   .   .  | o   .    .   o   ██    the Ghost
 ─────────────────────────────────────────────────────────────────
 dualism (Law)       .   o   .   .   .   .  | ██  ·    ·   ·   .     seeded §2.4, pronounced Ch8
-binding tax (Antag) .   .   .   .   .   .  | ██  ██   █   ·   .
+stitching tax (Antag) .   .   .   .   .   .  | ██  ██   █   ·   .
 fingerprint lever   .   .   .   ██  .   ██ | ██  ██   ██  .   .     the Two Masks — every decomposed scene
 "total work conserved" (Chorus)  ─────────── repeated Ch 8, 9, 10 ───────────
 ```
@@ -101,7 +101,7 @@ fingerprint lever   .   .   .   ██  .   ██ | ██  ██   ██  . 
 - **Lines:**
   - *Motivation (§1.1):* a logistics operator must convince a client its route meets a budget T without revealing the route (operational secret) or the cost matrix (proprietary rates). Privacy-preserving combinatorial optimization is the application class.
   - *The original question (§1.2):* "at what N does hierarchical ZK beat flat?" — natural, because classical hierarchical TSP *does* give a speedup.
-  - *The pivot (§1.3 — the "how"):* a total-gate-cost analysis found hierarchical-Merkle ~1.5% **worse** than flat-Merkle; the crossover doesn't exist; that negative result forced the reframe to the **binding tax / frontier**. *(Trailer; the rigorous accounting is Scene 6 / §8.3.)*
+  - *The pivot (§1.3 — the "how"):* a total-gate-cost analysis found hierarchical-Merkle ~1.5% **worse** than flat-Merkle; the crossover doesn't exist; that negative result forced the reframe to the **stitching tax / frontier**. *(Trailer; the rigorous accounting is Scene 6 / §8.3.)*
   - *The signpost (§1.6):* "the design space has two perfect-hiding extremes — flat and recursion — and a family between them that trades the verifier for cheapness." One paragraph, no cost asserted.
 - **Interaction:** none yet (orientation only).
 - **Artifacts/data:** the ~1.5% no-gain figure (cite Ch 8).
@@ -170,8 +170,8 @@ fingerprint lever   .   .   .   ██  .   ██ | ██  ██   ██  . 
 - **Artifacts/data:** the ~1.5% overhead; the gate-accounting table.
 - **Hinge out:** *"If decomposition saves nothing, why pay for it — and what is the price of stitching the pieces back together?"* → §8.6.
 
-## Scene 7 — "The Antagonist Revealed" *(Ch 8.6–8.8 — binding tax, lever, triangle)*
-- **On stage:** **the binding tax**; **the Two Masks get their meaning**; the triangle.
+## Scene 7 — "The Antagonist Revealed" *(Ch 8.6–8.8 — stitching tax, lever, triangle)*
+- **On stage:** **the stitching tax**; **the Two Masks get their meaning**; the triangle.
 - **Beat:** name the antagonist; arm the lever; draw the battlefield.
 - **Lines:**
   - *The tax (§8.6):* K independent proofs bind to nothing (`bb verify` only proves each internally consistent). Binding them = **one artifact, three symptoms** (partition leak / O(K) verifier / bookkeeping), generated by two decisions (*where* binding lives × *what* it binds). **Seed the reveal:** "the O(K) verifier will turn out to be the *cheap* way to pay."
@@ -181,7 +181,7 @@ fingerprint lever   .   .   .   ██  .   ██ | ██  ██   ██  . 
 - **Artifacts/data:** the three-symptom anatomy; the P/V/C table.
 - **Hinge out:** *"The tax must be paid by someone — enter the simplest payer."* → Ch 9, Scene 8.
 
-## Scene 8 — "The Honest Fool" *(Ch 9 — Variant A)*
+## Scene 8 — "The Honest Fool" *(Ch 9 — plain-sort)*
 - **On stage:** **A**; flat_merkle_sort (as the thing decomposed).
 - **Beat:** the simplest binding exposes the tax in daylight.
 - **Lines (per-variant template):**
@@ -191,37 +191,37 @@ fingerprint lever   .   .   .   ██  .   ██ | ██  ██   ██  . 
   - *(iv) Soundness:* deterministic — the sort *is* the multiset check; no Schwartz–Zippel error.
   - *(v) Buys/costs:* **cheapest total gates** of the decomposed family, deterministic; **but the partition is disclosed** (the tax, raw).
   - *(vi) Privacy:* **disclosed** — unconditional leak (node-sets + endpoints). The diagnosis + the disclosure-regime endpoint.
-- **Interaction:** A ↔ flat_merkle_sort = the *decomposition step* (compare-to-motivate: buys parallelism, costs the tax).
-- **Artifacts/data:** A's total gates 769,926 (K=2); privacy ~10.3 bits at N=8.
-- **Hinge out:** *"A leaks because it binds plaintext — can we shrink what it exposes? Enter the over-engineer."* → A++.
+- **Interaction:** plain-sort ↔ flat_merkle_sort = the *decomposition step* (compare-to-motivate: buys parallelism, costs the tax).
+- **Artifacts/data:** plain-sort's total gates 769,926 (K=2); privacy ~10.3 bits at N=8.
+- **Hinge out:** *"A leaks because it binds plaintext — can we shrink what it exposes? Enter the over-engineer."* → plain-product.
 
-## Scene 9 — "The Chekhov's Gun" *(Ch 9 — Variant A++)*
-- **On stage:** **A++**; A (as predecessor).
+## Scene 9 — "The Chekhov's Gun" *(Ch 9 — plain-product)*
+- **On stage:** **plain-product**; plain-sort (as predecessor).
 - **Beat:** refine the surface; deliver the honest "not cheaper"; place the gun on the mantel.
 - **Lines (template):**
   - *(i) Transition:* sort/O(M) → **grand-product+FS / O(1)** (one variable: the mechanism/surface).
   - *(ii) Construction:* each segment derives a Fiat–Shamir challenge X via a Poseidon2 hash-chain over its cycle and publishes a single grand-product fingerprint P_i (+ endpoints, partial_cost); glue combines K fingerprints (O(K), not O(N)).
   - *(iii) Row-reading — the lever, live:* O(M)→O(1) surface + distributable check, **paid in** Schwartz–Zippel + FS-in-ROM soundness.
   - *(iv) Soundness:* probabilistic, ≤ N/|F| per check + FS-in-ROM (~2⁻²⁵⁴) — negligible.
-  - *(v) Buys/costs — the defining honest beat:* **not cheaper** (relocates the O(N) work into the K segments: total 788,533 vs A's 769,926 at K=2; A is cheaper at *every* measured K — **F7, neither dominates**). Motivated on **surface + soundness + the recursion bridge — never on hiding.**
-  - *(vi) Privacy:* still leaks — now via the **unblinded P_i oracle** (~C(N,M), confirms guesses). *A++ is not a privacy improvement over A.*
-  - **The gun:** "A++'s real justification — the O(1), M-independent surface — pays off only when something verifies the segment *in-circuit*. Hold that thought."
-- **Interaction:** A ↔ A++ = the **lever, live** (row comparison, binding fixed). Fairness: both plaintext, both leak — so the delta is *pure mechanism*, not privacy.
-- **Artifacts/data:** 788,533 vs 769,926 (K=2); A++ glue O(K); the C(N,M) oracle bound.
-- **Hinge out:** *"Both A and A++ leak. The cure is not a new mechanism but a new *thing to bind* — enter the twins."* → committed-\*.
+  - *(v) Buys/costs — the defining honest beat:* **not cheaper** (relocates the O(N) work into the K segments: total 788,533 vs plain-sort's 769,926 at K=2; plain-sort is cheaper at *every* measured K — **F7, neither dominates**). Motivated on **surface + soundness + the recursion bridge — never on hiding.**
+  - *(vi) Privacy:* still leaks — now via the **unblinded P_i oracle** (~C(N,M), confirms guesses). *plain-product is not a privacy improvement over plain-sort.*
+  - **The gun:** "plain-product's real justification — the O(1), M-independent surface — pays off only when something verifies the segment *in-circuit*. Hold that thought."
+- **Interaction:** plain-sort ↔ plain-product = the **lever, live** (row comparison, binding fixed). Fairness: both plaintext, both leak — so the delta is *pure mechanism*, not privacy.
+- **Artifacts/data:** 788,533 vs 769,926 (K=2); plain-product glue O(K); the C(N,M) oracle bound.
+- **Hinge out:** *"Both plain-sort and plain-product leak. The cure is not a new mechanism but a new *thing to bind* — enter the twins."* → committed-\*.
 
-## Scene 10 — "The Twins" *(Ch 9 — committed-A / committed-A++)*
-- **On stage:** **committed-A and committed-A++ together** (they must co-enter).
+## Scene 10 — "The Twins" *(Ch 9 — committed-sort / committed-product)*
+- **On stage:** **committed-sort and committed-product together** (they must co-enter).
 - **Beat:** close the leak; reveal the equal-privacy finding.
 - **Lines (template, shared):**
   - *(i) Transition:* plaintext → **blinded commitment** (one variable: *what* is bound).
-  - *(ii) Construction:* each segment publishes one blinded `C_i = fold(r_i, [values])` over the 2-input Poseidon2 instead of the cleartext scalars; the glue takes values+openings as **witness**, recomputes C_i (asserts == public), runs all partition/boundary/threshold checks in-circuit. Verifier cross-check collapses to opaque-blob equality (`sub_i.C_i == glue.C_i`) — ZK for free. committed-A folds the cycle-segment + cost (glue does the O(N) sort); committed-A++ folds the A++ aggregates (glue does the grand product).
+  - *(ii) Construction:* each segment publishes one blinded `C_i = fold(r_i, [values])` over the 2-input Poseidon2 instead of the cleartext scalars; the glue takes values+openings as **witness**, recomputes C_i (asserts == public), runs all partition/boundary/threshold checks in-circuit. Verifier cross-check collapses to opaque-blob equality (`sub_i.C_i == glue.C_i`) — ZK for free. committed-sort folds the cycle-segment + cost (glue does the O(N) sort); committed-product folds the plain-product aggregates (glue does the grand product).
   - *(iii) Row-reading — privacy-neutral:* sort vs gp now differ **only** in glue cost/mechanism, not privacy.
   - *(iv) Soundness:* + commitment binding (Poseidon, computational).
   - *(v) Buys/costs:* leak closes (reveals only K commitments); **only the O(K)-verifier symptom remains.** Stays in the non-recursive corner (P + C kept).
   - *(vi) Privacy:* **computational** (reveals K; hiding on Poseidon) — one notch below flat/recursion's *structural* hiding, reached **without** recursion's gate tax.
-  - **The reveal — equal-privacy finding:** committed-A and committed-A++ land at the **same** privacy rung (multiset computational, interior order info-theoretic, reveal K). Identical twins; they differ only in glue cost. *This is the equal-privacy restatement of F7, and it needs both twins to be told.*
-- **Interaction:** committed-A ↔ committed-A++ = the **lever at equal privacy** (pure cost/soundness). Fairness: privacy held fixed → the delta is *only* mechanism.
+  - **The reveal — equal-privacy finding:** committed-sort and committed-product land at the **same** privacy rung (multiset computational, interior order info-theoretic, reveal K). Identical twins; they differ only in glue cost. *This is the equal-privacy restatement of F7, and it needs both twins to be told.*
+- **Interaction:** committed-sort ↔ committed-product = the **lever at equal privacy** (pure cost/soundness). Fairness: privacy held fixed → the delta is *only* mechanism.
 - **Artifacts/data:** the C_i fold; public surfaces {root,X,C_i}/{root,C_i}; the equal-privacy class.
 - **Hinge out (Act II → III):** *"One symptom survives — the O(K) verifier — and the gun is still on the mantel. To remove the last symptom, stop binding *outside* the proof."* → recursion.
 
@@ -230,37 +230,37 @@ fingerprint lever   .   .   .   ██  .   ██ | ██  ██   ██  . 
 # ACT III — Recursion and the Frontier *(Ch 9 climax → Ch 10)*
 
 ## Scene 11 — "The Final Form" *(Ch 9 — recursion; the climax)*
-- **On stage:** **recursion (A++-inner)**; **A++ (the gun fires)**; recursive-A (Control Twin slips in).
+- **On stage:** **recursion (plain-product-inner)**; **plain-product (the gun fires)**; recursive-sort (Control Twin slips in).
 - **Beat:** bind in-circuit; collapse all symptoms; fire the gun; pay the cost.
 - **Lines (template):**
   - *(i) Transition:* external binding → **in-circuit (witness)** (one variable: *where* binding lives).
   - *(ii) Construction:* the outer circuit takes the K segment proofs **and their public inputs** as private witness, verifies them in-circuit (`verify_honk_proof`), and re-runs the glue logic on those now-trusted-but-private values. Public surface collapses to **{root, T}** — the same as flat_merkle.
-  - *(iii) Row-reading — soundness-only:* inside recursion the partition is witness *either way*, so recursive-A ↔ recursive-A++ trades **partition-check soundness + outer surface**, not hiding.
+  - *(iii) Row-reading — soundness-only:* inside recursion the partition is witness *either way*, so recursive-sort ↔ recursive-product trades **partition-check soundness + outer surface**, not hiding.
   - *(iv) Soundness:* + recursion KS + FS-in-ROM. The **Fiat–Shamir floor**: the outer must recompute the inner verifier's transcript challenges *in-circuit* — that recomputation is the *bulk* of the ~704k gates and is unavoidable for **any** inner.
-  - *(v) Buys/costs:* all three symptoms fall at once; **the gun fires** — A++'s O(1), M-independent surface keeps the recursive verifier **segment-size-independent: 704,363 gates whether N=8 or N=480**. An A inner (O(M) surface) would make the outer grow with N. Prover pays **~704k×K**: ≈1.47M gates (K=2, ~24 s, ~2.1 GiB), ≈3.0M (K=4, ~40 s, ~4.1 GiB); ≈**25×** A++ at K=2, ≈**45×** at K=4 — the gap *widens* with K.
+  - *(v) Buys/costs:* all three symptoms fall at once; **the gun fires** — plain-product's O(1), M-independent surface keeps the recursive verifier **segment-size-independent: 704,363 gates whether N=8 or N=480**. An plain-sort inner (O(M) surface) would make the outer grow with N. Prover pays **~704k×K**: ≈1.47M gates (K=2, ~24 s, ~2.1 GiB), ≈3.0M (K=4, ~40 s, ~4.1 GiB); ≈**25×** plain-product at K=2, ≈**45×** at K=4 — the gap *widens* with K.
   - *(vi) Privacy:* **structural / assumption-free** (partition absent from the public surface) — the perfect-hiding endpoint, equal to flat.
 - **Interaction:** recursion ↔ committed (the last symptom removed); recursion ↔ flat (the two perfect-hiding poles — *set up here, paid off in Scene 13*).
 - **Artifacts/data:** 704,363; 14 656-byte ZK outer proof (458 fields vs 410 no-zk); the K-scaling table.
 - **Hinge out:** *"Both perfect-hiding poles are now built. But every comparison so far moved one variable by hand — to compare across the whole space we need a fair instrument."* → Ch 10.
 
 ## Scene 12 — "The Line-up" *(Ch 10.1, 10.4 — methodology + the 2×2 factorial)*
-- **On stage:** **flat_merkle_grand_product** and **recursive-A** (the Body Doubles, sole purpose); all four factorial cells.
+- **On stage:** **flat_merkle_grand_product** and **recursive-sort** (the Body Doubles, sole purpose); all four factorial cells.
 - **Beat:** state the fairness controls; run the de-confounding factorial.
 - **Lines:**
-  - *The three controls (§10.1, stated once):* **(1)** compare only within a privacy slice; **(2)** hold the mechanism fixed (read down a column; the **diagonal is forbidden**, e.g. `flat_sort ↔ recursive-A++`); **(3)** report total *and* parallel cost, labeled.
-  - *The factorial (§10.4):* {flat, recursive} × {sort, grand-product}. **Row** delta = mechanism cost (the Scene-5 inversion). **Column** delta = aggregation cost (flat→recursive at fixed mechanism). **Separability** (≈additive, no interaction) = *the dualism, quantified* — and the license for every column comparison. Headline clean cell-pair: **`flat_merkle_grand_product ↔ recursive-A++`** (differ in *exactly* structure — no soundness caveat).
+  - *The three controls (§10.1, stated once):* **(1)** compare only within a privacy slice; **(2)** hold the mechanism fixed (read down a column; the **diagonal is forbidden**, e.g. `flat_sort ↔ recursive-product`); **(3)** report total *and* parallel cost, labeled.
+  - *The factorial (§10.4):* {flat, recursive} × {sort, grand-product}. **Row** delta = mechanism cost (the Scene-5 inversion). **Column** delta = aggregation cost (flat→recursive at fixed mechanism). **Separability** (≈additive, no interaction) = *the dualism, quantified* — and the license for every column comparison. Headline clean cell-pair: **`flat_merkle_grand_product ↔ recursive-product`** (differ in *exactly* structure — no soundness caveat).
 - **Interaction:** the factorial *is* the controlled instrument; the Body Doubles do their only job and exit.
 - **Artifacts/data:** the 2×2 table with measured gates; the separability check.
 - **Hinge out:** *"With a fair instrument in hand, bring the hiders onto one stage."* → §10.5.
 
 ## Scene 13 — "The Confrontation" *(Ch 10.5–10.6 — equal-privacy slice + frontier; the synthesis)*
-- **On stage:** **flat_merkle_gp, committed-A++, recursion** (equal-privacy slice); A / A++ / committed-A as upstream markers; folding's empty corner.
+- **On stage:** **flat_merkle_gp, committed-product, recursion** (equal-privacy slice); plain-sort / plain-product / committed-sort as upstream markers; folding's empty corner.
 - **Beat:** crystallize the triangle; derive the flat↔recursion dilemma as an *earned* result.
 - **Lines:**
-  - *The headline fair comparison:* **{flat_merkle_gp, committed-A++, recursion-A++}** — equal privacy (control 1), fixed mechanism (control 2), reported at both total and parallel cost (control 3). Read the **pick-two triangle** directly off their positions: flat = V+C (no P); committed = P+C (O(K) V); recursion = P+V (704k×K C).
+  - *The headline fair comparison:* **{flat_merkle_gp, committed-product, recursion-plain-product}** — equal privacy (control 1), fixed mechanism (control 2), reported at both total and parallel cost (control 3). Read the **pick-two triangle** directly off their positions: flat = V+C (no P); committed = P+C (O(K) V); recursion = P+V (704k×K C).
   - *The earned dilemma:* "having built *both* poles, flat and recursion are the two perfect-hiding extremes — flat pays in serial cost, recursion in 704k×K prover work — and the hierarchical family is precisely what lives between them." *(Now a result the reader watched derived, not a Ch 1 teaser.)*
   - *The aggregation honesty (control 3):* total work — hierarchy never beats flat (the Chorus). Parallel wall-clock — hierarchy's win, ~K× **[PROJECTED, isolation sweep pending]**.
-  - *The upstream markers:* A (disclosed) and A++ (oracle) drawn as arrows *into* committed-\*, not as co-equal points — the diagnosis the cure improved on.
+  - *The upstream markers:* plain-sort (disclosed) and plain-product (oracle) drawn as arrows *into* committed-\*, not as co-equal points — the diagnosis the cure improved on.
   - *The empty corner:* folding sits at (P+V+C), unfilled.
 - **Interaction:** the equal-privacy slice = the whole frontier in one figure; every other comparison is a controlled relaxation of one axis of this one.
 - **Artifacts/data:** the frontier figure (option (a) headline / (b) lever-bars — `Thesis_Outline.md` §0.7); coordinates from `results/hier_{c,cfs}.csv`.
@@ -271,7 +271,7 @@ fingerprint lever   .   .   .   ██  .   ██ | ██  ██   ██  . 
 - **Beat:** interpret; hand over the sequel.
 - **Lines:**
   - *Decision guidance (§11.2):* the compass — given a use case (disclosure ok? parallel hardware? O(1) verifier needed?), which point on the grid? Map to the Scene-3 use cases.
-  - *Limitations (§11.3):* single backend; parallelism **projected** not measured (the one gap — isolation sweep); soundness argued by reduction (A++/recursion rest on FS-in-ROM + recursion KS, cited not reproved); no mechanized/circuit-level formal verification.
+  - *Limitations (§11.3):* single backend; parallelism **projected** not measured (the one gap — isolation sweep); soundness argued by reduction (plain-product/recursion rest on FS-in-ROM + recursion KS, cited not reproved); no mechanized/circuit-level formal verification.
   - *Future work (§12.2):* **folding** (Nova/ProtoStar) is the corner that breaks the triangle — P+V+C at once, erasing recursion's 704k×K tax; a *different backend*, so out of this single-backend comparison by design. Also: the in-circuit provenance proof (Scene 3); other non-local graph problems (does the dualism generalize?).
 - **Interaction:** folding ↔ recursion (what it would remove); folding ↔ the triangle (the corner it fills).
 - **Hinge out:** *"The map is complete but for one square — and that square is the next thesis."*
@@ -283,9 +283,9 @@ fingerprint lever   .   .   .   ██  .   ██ | ██  ██   ██  . 
 | # | From → To | The hinge question | The answer that pulls the reader across |
 |---|---|---|---|
 | H1 | Act I → Scene 6 | "decomposition saves nothing — why pay?" | parallelism is the *only* payoff (the Law) |
-| H2 | Scene 6 → 7 | "what does stitching cost?" | the binding tax (antagonist) |
-| H3 | Scene 7 → 8 | "who pays it first?" | the simplest payer, A (the Fool) |
-| H4 | Scene 8 → 9 | "can we shrink what A exposes?" | the lever — but it's not cheaper (the Gun) |
+| H2 | Scene 6 → 7 | "what does stitching cost?" | the stitching tax (antagonist) |
+| H3 | Scene 7 → 8 | "who pays it first?" | the simplest payer, plain-sort (the Fool) |
+| H4 | Scene 8 → 9 | "can we shrink what plain-sort exposes?" | the lever — but it's not cheaper (the Gun) |
 | H5 | Scene 9 → 10 | "both still leak — how to hide?" | bind a *commitment*, not plaintext (the Twins) |
 | H6 | Scene 10 → 11 | "one symptom left — remove it?" | bind *in-circuit* (the Final Form; the Gun fires) |
 | H7 | Scene 11 → 12 | "how to compare the whole space fairly?" | the factorial + three controls |
@@ -300,20 +300,20 @@ fingerprint lever   .   .   .   ██  .   ██ | ██  ██   ██  . 
 | full → Merkle | S4 / §5.4 | matrix-commit cost | one variable | N≈175 crossover |
 | **sort ↔ gp (flat)** | S5 / §7.4 | mechanism (witness inversion) | mechanism; zero privacy delta | +3.9% gates / −31–44% witness; 14 656 B |
 | hier-Merkle ↔ flat-Merkle | S6 / §8.3 | the dualism (no gate gain) | same statement+privacy | ~1.5% worse |
-| A ↔ flat_merkle_sort | S8 / §9.x | decomposition (tax appears) | one variable | parallelism vs leak |
-| **A ↔ A++** | S9 / §9.x | the lever, live | binding fixed (both plaintext) | 769,926 vs 788,533 (K=2); F7 |
-| **committed-A ↔ committed-A++** | S10 / §9.x | the lever at equal privacy | privacy fixed | equal-privacy rung |
-| A++ ↔ committed-A++ | S10 / §9.x | the blinding (leak closes) | mechanism+structure fixed | reveal K, computational |
+| plain-sort ↔ flat_merkle_sort | S8 / §9.x | decomposition (tax appears) | one variable | parallelism vs leak |
+| **plain-sort ↔ plain-product** | S9 / §9.x | the lever, live | binding fixed (both plaintext) | 769,926 vs 788,533 (K=2); F7 |
+| **committed-sort ↔ committed-product** | S10 / §9.x | the lever at equal privacy | privacy fixed | equal-privacy rung |
+| plain-product ↔ committed-product | S10 / §9.x | the blinding (leak closes) | mechanism+structure fixed | reveal K, computational |
 | committed ↔ recursion | S11 / §9.x | in-circuit binding (last symptom) | privacy ~fixed | O(K) verifier → O(1); 704k×K |
-| **down a column** (flat→committed→recursion) | S13 / §10.5 | the binding tax | mechanism fixed | the spine |
-| **2×2 factorial** | S12 / §10.4 | mechanism ⟂ aggregation (separability) | the de-confounder | `flat_gp ↔ rec-A++` clean |
-| **equal-privacy slice** | S13 / §10.5 | binding-tax cost at fixed privacy | privacy equalized (committed-\*) | the headline frontier |
+| **down a column** (flat→committed→recursion) | S13 / §10.5 | the stitching tax | mechanism fixed | the spine |
+| **2×2 factorial** | S12 / §10.4 | mechanism ⟂ aggregation (separability) | the de-confounder | `flat_gp ↔ rec-plain-product` clean |
+| **equal-privacy slice** | S13 / §10.5 | stitching-tax cost at fixed privacy | privacy equalized (committed-\*) | the headline frontier |
 | flat ↔ recursion | S13 / §10.6 | cost vs parallelism at perfect hiding | the earned climax | ~782k serial vs 704k×K |
-| **[forbidden] flat_sort ↔ rec-A++** | — | — | confounds mechanism+aggregation | named as the trap |
+| **[forbidden] flat_sort ↔ rec-plain-product** | — | — | confounds mechanism+aggregation | named as the trap |
 
 # The refrains (repeat verbatim across Ch 8–10)
 - **Total work is conserved** — hierarchy never beats flat on total gates; the win is parallelizability of the *same* work.
-- **A++ is never motivated on hiding** — it still leaks (the P_i oracle); its case is surface + soundness + the recursion bridge.
+- **plain-product is never motivated on hiding** — it still leaks (the P_i oracle); its case is surface + soundness + the recursion bridge.
 - **"Perfect hiding" of flat/recursion is structural, not IT-ZK** — the public surface carries no partition info; UltraHonk-ZK is identical across all variants and is not a discriminator.
 - **The K× parallel speedup is PROJECTED, not measured** — until the isolation sweep lands; the one gap before submission.
 

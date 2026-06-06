@@ -66,10 +66,10 @@ Aggregation code: `aggregate_hier.py:135-148`. Notes per metric:
 - **`circuit_size` / `acir_opcodes` = K·sub + glue** is the *total proving work*; it
   proves the **dualism / total-work-conservation** result (decomposition
   redistributes gates, doesn't reduce them). Co-plot against flat to show
-  `K·sub + glue ≳ flat` = the binding tax in gates.
+  `K·sub + glue ≳ flat` = the stitching tax in gates.
 - **`prove_s`** is the headline parallelism axis. The meaningful K× number is
   `--isolated` harness + `--mode parallel`. See §3.
-- **`verify_s`** and **`proof_bytes`** grow ~O(K) — the verifier-side **binding tax**
+- **`verify_s`** and **`proof_bytes`** grow ~O(K) — the verifier-side **stitching tax**
   (committed-* ∝ K; recursion stays flat at a single proof).
 - **`peak_mb`** falls ~1/K vs flat and is a *genuine measurement even on the
   concurrent harness* (per-process), so it needs no `--isolated`.
@@ -93,16 +93,16 @@ So the three approaches occupy three distinct corners:
 | | per-node prover cost | parallelism | verifier cost (bytes / `verify_s`) | memory |
 |---|---|---|---|---|
 | **flat** | high (monolith) | none | O(1), one proof | full |
-| **hierarchical** | low (~1/K) | ~K× | **O(K)** — binding tax | ~1/K |
+| **hierarchical** | low (~1/K) | ~K× | **O(K)** — stitching tax | ~1/K |
 | **recursion** | **very high** (outer) | leaf-only + serial outer tail | **O(1)** — buys it back | high (outer) |
 
 **Comparability rule:** compare at the **equal-privacy slice** — `recursion_k{K}` vs
-`hier_fs_k{K}` (A++) vs `flat_merkle_presence` — because recursion's inner *is* the
-A++ segment. Only **exp 2** (`recursion_k{K}`) is a complete TSP statement; **exp 1**
+`hier_fs_k{K}` (plain-product) vs `flat_merkle_presence` — because recursion's inner *is* the
+plain-product segment. Only **exp 2** (`recursion_k{K}`) is a complete TSP statement; **exp 1**
 (`recursion_1seg`) is a single-segment diagnostic — keep it off the frontier.
 
 **Decomposition (`--split-components`).** `aggregate_recursion.py --split-components`
-splits the cell into `recursion_k{K}_seg` (the K inner A++ proofs) and
+splits the cell into `recursion_k{K}_seg` (the K inner plain-product proofs) and
 `recursion_k{K}_outer` (the outer recursive proof). Unlike the hierarchical family
 there is **no `_glue` row**: recursion's glue is fused into the outer alongside the K
 in-circuit verifications, which dominate it (~704k gates each vs ~63k total glue at
@@ -150,7 +150,7 @@ wall-clock of the decomposed job**. It states four useful things:
 2. **It yields the negative result that motivates the distributed model.** `bb prove`
    already saturates all cores with one prover, so K+1 concurrent provers just
    time-slice the same cores; total work `K·sub + glue ≳ flat` ⇒ **no wall-clock
-   speedup on one box** (a small penalty = the binding tax). The K× win only appears
+   speedup on one box** (a small penalty = the stitching tax). The K× win only appears
    when you provision K real nodes. The concurrent-vs-isolated pair *is* the
    "hardware-conditional win" argument, made visual.
 3. **The concurrent/isolated ratio quantifies the oversubscription penalty** —
@@ -192,7 +192,7 @@ proof, so after aggregation every metric is directly comparable.
 3. **`circuit_size` = K·sub + glue vs flat** — the dualism cost (total work
    conserved/grown). Stack into sub-share vs glue-share to show *where* the gates go
    (`--split-components` emits the `_seg` / `_glue` rows that feed this; see §E).
-4. **`verify_s`** and **`proof_bytes`** — the O(K) binding tax on the verifier; where
+4. **`verify_s`** and **`proof_bytes`** — the O(K) stitching tax on the verifier; where
    hierarchical *loses* to flat and recursion. Essential for an honest Pareto.
 
 **Secondary / supporting:**
@@ -232,14 +232,14 @@ derived**.
   large overheads are both readable when absolute curves overlap. Shows whether the
   overhead/speedup is asymptotically constant or growing.
 
-### B. Decomposition family — X = K, N fixed (the parallelism / binding-tax story)
+### B. Decomposition family — X = K, N fixed (the parallelism / stitching-tax story)
 
 *The most important family, and the one that N-on-X plots hide — at fixed N, sweeping
-K is where A / A++ / committed-* diverge.*
+K is where plain-sort / plain-product / committed-* diverge.*
 
 - **B1. Line, per-prover metric vs K.** Plot the falling curves (`circuit_size/K`,
   `peak_mb`, `prove_s` ~1/K) **together with** the rising ones (`proof_bytes`,
-  `verify_s` ~K). One figure = the binding-tax trade-off at a glance.
+  `verify_s` ~K). One figure = the stitching-tax trade-off at a glance.
 - **B2. Speedup vs K with ideal-K reference.** Y = `flat.prove_s / hier.prove_s`,
   diagonal `y=K` = ideal. **Two series: isolated (real distributed speedup) and
   concurrent (≈1×, no speedup).** Gap between them = the hardware-conditional-win
@@ -252,8 +252,8 @@ K is where A / A++ / committed-* diverge.*
 
 - **C1. Per-prover metric vs M, collapsing all (N,K) with equal M.** Reframes the knob
   as "how big is each segment" — what the prover node actually experiences. Supports
-  the recursion-inner-circuit argument: A++ has an **O(1)** public surface per segment
-  vs A's **O(M)**, so their curves vs M have different slopes. Equal-M points from
+  the recursion-inner-circuit argument: plain-product has an **O(1)** public surface per segment
+  vs plain-sort's **O(M)**, so their curves vs M have different slopes. Equal-M points from
   different (N,K) landing together ⇒ per-prover cost is governed by M alone.
 
 ### D. Frontier family — axes are cost-vs-cost, N held (the headline)
@@ -279,7 +279,7 @@ as ordinary variants/lines (`--variants '*_seg' '*_glue'`); the stacked-bar rend
 below is the one chart type not yet built into `plot.py`.
 
 - **E1. Stacked bar of `circuit_size` = sub-share vs glue-share** (vs commitment-fold
-  share for committed-*), per variant and per K. **Localizes the binding tax**: the
+  share for committed-*), per variant and per K. **Localizes the stitching tax**: the
   glue/commitment fraction grows with K — the gate-level mechanism behind the
   verifier-cost rise. More legible than subtracting two line curves. (Feed the
   `_seg` / `_glue` rows; for recursion the split is `_seg` vs `_outer`, where the
@@ -305,7 +305,7 @@ below is the one chart type not yet built into `plot.py`.
 
 ### H. Schematic / conceptual family (the chapter spine, not data)
 
-- **H1. Slopegraph / privacy ladder.** The ordinal progression flat-B → A → A++ →
+- **H1. Slopegraph / privacy ladder.** The ordinal progression flat-B → plain-sort → plain-product →
   committed → recursion on one axis with cost annotations per rung. Communicates *why*
   the frontier is a frontier.
 - **H2. Pick-two triangle / radar per variant.** Three axes — privacy, parallelism,
@@ -328,7 +328,7 @@ three-corner trade-off. Plot the equal-privacy slice: `flat_merkle_presence`,
 `hier_fs_k{K}`, `recursion_k{K}`.*
 
 - **J1. Verifier-cost vs K, all three overlaid** (`proof_bytes` and `verify_s`). Flat
-  = a single point; hierarchical = a line **rising ∝K** (binding tax); recursion = a
+  = a single point; hierarchical = a line **rising ∝K** (stitching tax); recursion = a
   **flat horizontal line** (O(1)). The single plot that justifies recursion's
   existence — it spends prover gates to flatten exactly the curve hierarchical
   inflates. (Specialization of B1/F1; the three-way overlay *is* the point.)
@@ -405,11 +405,11 @@ it are each understood in isolation.
 
 ### Cross-approach order (which pairs first)
 
-- **First pair — `flat_merkle_presence` vs `hier_fs_k{K}` (A++)**, equal privacy. The
+- **First pair — `flat_merkle_presence` vs `hier_fs_k{K}` (plain-product)**, equal privacy. The
   cleanest 1-vs-1: it isolates **decomposition alone**, nothing else changing.
 - **Then add `recursion_k{K}`** (exp 2) — introduces the buy-back corner and turns the
   two-way trade into the three-corner frontier.
-- **Then the ladder rungs** — Variant A (`hier_a`), committed-A/A++ (`hier_c/cfs`) as
+- **Then the ladder rungs** — plain-sort (`hier_a`), committed-sort/plain-product (`hier_c/cfs`) as
   ablation/gradient points showing the privacy ladder; secondary, not the spine.
 - **Full-disclosure flat (`flat_full_*`)** is the cheap, no-privacy *floor*; the
   within-flat encoding study (presence / sort / pairwise / invperm) is a sub-study, not
@@ -428,7 +428,7 @@ is comparable.
 **Phase 1 — Structural baseline: `circuit_size`, `acir_opcodes` (deterministic).**
 At the anchor N, compare **K·sub + glue** (hier) vs **flat** vs **sum(inner) + outer**
 (recursion). Establish the **dualism / total-work-conservation** result and the
-**binding tax in gates** here, where the numbers are exact. Add the
+**stitching tax in gates** here, where the numbers are exact. Add the
 **arithmetization-expansion** ratio. *How:* **A1** (log-log scaling → exponents),
 **E1 / J5** (stacked: where the gates go). *Expected:* hier total ≳ flat
 (redistribution, not reduction); recursion's outer dominates (perfect-hiding premium).
@@ -446,7 +446,7 @@ Compare flat vs **hier (concurrent `max`)** vs recursion on the **same one box**
 (all single-machine), and it delivers the honest **"no wall-clock speedup on one box"**
 result plus the **`peak_mb` ~1/K** drop (real even under contention). *How:* **A1/A2**
 (scaling), **B3** (memory-reduction vs K, valid concurrently). *Expected:* concurrent
-wall-clock ≈ flat (small binding-tax penalty); memory ~1/K.
+wall-clock ≈ flat (small stitching-tax penalty); memory ~1/K.
 
 **Phase 4 — Distributed runtime: the K× speedup (`--isolated`).**
 On an **idle** machine, run `--isolated`, aggregate `--mode parallel` (model a) and

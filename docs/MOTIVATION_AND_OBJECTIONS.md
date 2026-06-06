@@ -6,8 +6,8 @@ Captured 2026-05-31; grow it as new objections surface. The guiding principle
 (per the project's working style) is intellectual honesty — concede real gaps
 plainly, because a sharply-bounded claim is more defensible than an oversold one.*
 
-Cross-refs: `FRONTIER_REFRAME.md` (dualism, binding tax, pick-two triangle),
-`HIERARCHICAL_EXPLAINED.md` (§5.3 regimes, §6 threat models, §9.11 A++ privacy,
+Cross-refs: `FRONTIER_REFRAME.md` (dualism, stitching tax, pick-two triangle),
+`HIERARCHICAL_EXPLAINED.md` (§5.3 regimes, §6 threat models, §9.11 plain-product privacy,
 §9b committed variants, §13 use-cases, §14 privacy bounds), `NARRATIVE_FRAMING.md`,
 `SUPERVISOR_CALL_SUMMARY.md` (honest gaps), `project_recursion_experiment` memory.
 
@@ -44,7 +44,7 @@ tour. When the route must stay secret, a substitute tour is the wrong object.
 **The deepest motivation (lead with this):** TSP is the *instrument*, not the
 *product*. The contribution is a structural study of **decomposed/hierarchical ZK
 proving** — the dualism (decomposition gives no ZK speedup; total work is conserved)
-and the **binding tax** (binding K independent proofs into one private statement
+and the **stitching tax** (binding K independent proofs into one private statement
 costs leakage + O(K) verifier). TSP is the cleanest lens: canonical NP-hard problem,
 clean permutation witness, tunable N, real decomposition (clustering). The results
 generalize to any decomposed-witness proof — zkRollups, IVC/folding, ML-inference
@@ -54,7 +54,7 @@ architecture.
 
 ### O2. "TSP is a toy. Why not a real application?"
 TSP is deliberately an *instrument* (O1). Its value here is methodological: a clean,
-scalable, decomposable NP-hard witness that exposes the dualism and binding tax
+scalable, decomposable NP-hard witness that exposes the dualism and stitching tax
 without application-specific noise. A "real application" would *add* domain
 complexity that obscures the structural results, which are the point and which
 transfer. (If pressed for realism, the logistics/regulator framing of §13 is the
@@ -99,11 +99,11 @@ standard. Alternative commitments are an orthogonal swap that wouldn't change th
 structural results (only constants).
 
 ### O7. "Six variants is padding."
-They are **one progression line**, not six competing solutions: flat (baseline) → A
-(diagnosis: discloses) → A++ (diagnosis: oracle-leak) → committed-A/A++ (cure) →
+They are **one progression line**, not six competing solutions: flat (baseline) → plain-sort
+(diagnosis: discloses) → plain-product (diagnosis: oracle-leak) → committed-sort/plain-product (cure) →
 recursion (endpoint). Each is a load-bearing rung that motivates the next; B is the
 analytically-characterized disclosure extreme. Removing any rung breaks the
-monotone privacy ladder or the dualism/binding-tax argument (`NARRATIVE_FRAMING.md`).
+monotone privacy ladder or the dualism/stitching-tax argument (`NARRATIVE_FRAMING.md`).
 
 ---
 
@@ -120,11 +120,11 @@ for aggregation / PCD / rollup verifiers. **Honest hardening (pending):**
 auto-generate the cross-check from the circuit public-input ABI so it cannot drift,
 plus property tests (`FRONTIER_REFRAME.md` Part 5, step 7).
 
-### O9. "A++'s 'hidden partition' is fake — you admitted it's just a confirmation oracle."
-Correct, and we say so unprompted (§9.11): A++'s `P_i` and chain anchors are
+### O9. "plain-product's 'hidden partition' is fake — you admitted it's just a confirmation oracle."
+Correct, and we say so unprompted (§9.11): plain-product's `P_i` and chain anchors are
 *confirmation oracles* (break work ≈ C(N,M) / (M-2)!), so its hiding is a *work
-factor*, not information-theoretic. That honest diagnosis is exactly why **committed-A++
-exists** — it blinds those values so the oracle closes. A++ is the honest in-between
+factor*, not information-theoretic. That honest diagnosis is exactly why **committed-product
+exists** — it blinds those values so the oracle closes. plain-product is the honest in-between
 rung, not an overclaim.
 
 ### O10. "committed-* still 'reveals K' and rests on Poseidon — so it isn't really private either."
@@ -159,7 +159,7 @@ upper-bound model, not a measurement (the `*_par` vs `*_tot` CSVs make this expl
 "projected." Do not sell it as measured.
 
 ### O13. "You only benchmark to N≈480. Real TSP has millions of cities. Does anything hold at scale?"
-The **structural results are size-independent**: the dualism and binding tax are
+The **structural results are size-independent**: the dualism and stitching tax are
 asymptotic/analytical, and the benchmark validates their *constants and crossovers*,
 not their existence. The wall at large N is a **SNARK-backend** limitation (proving
 any large circuit), not specific to this work — and folding is precisely the
@@ -183,7 +183,7 @@ per segment. This is the same gap as O12 — the resolution is the isolation ben
 The **gate counts are UltraHonk-specific and labeled as such**; the backend-
 independent complexity is captured by `acir_opcodes` (and the `circuit_size/acir`
 expansion ratio), which is why both are reported. UltraHonk/Noir were chosen for
-maturity and tooling. The structural results (dualism, binding tax, privacy ladder)
+maturity and tooling. The structural results (dualism, stitching tax, privacy ladder)
 are backend-agnostic; a different backend would shift constants, not conclusions.
 
 ### O17. "How do I trust the circuits are correct?"
@@ -200,7 +200,7 @@ deterministic; instances are seeded.
 ### O18. "This is engineering, not novel cryptography. Where's the new primitive?"
 **Concede:** there is no new cryptographic primitive — by design. The contribution is
 an **applied/systems** one: a structural characterization (the dualism and the
-binding tax), a privacy ladder with a precisely-located computational rung
+stitching tax), a privacy ladder with a precisely-located computational rung
 (committed-*), and an empirical frontier map across six implemented constructions.
 That is an appropriate and defensible MSc contribution; positioning it as crypto-
 theory would be the overclaim. (Folding/IVC is flagged as the theory direction that
@@ -208,7 +208,7 @@ would extend it.)
 
 ### O19. "Variant B is unimplemented — the work is incomplete."
 B is **analytically characterized** (§14.3) and deliberately scoped out: under its
-intended matrix-public regime its privacy collapses to A's, so implementing it adds
+intended matrix-public regime its privacy collapses to plain-sort's, so implementing it adds
 little beyond the disclosure-extreme datapoint already described. Scoping it as
 analytical is a defensible time/effort choice, stated as such.
 

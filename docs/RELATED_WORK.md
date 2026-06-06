@@ -23,7 +23,7 @@ State plainly what this thesis **is** and **is not**, because that decides what 
 as a comparison:
 
 - **Is:** a *structural* analysis — the **dualism** (decomposing a ZK proof yields no
-  algorithmic ZK speedup, only parallelism / per-prover memory), the **binding tax**
+  algorithmic ZK speedup, only parallelism / per-prover memory), the **stitching tax**
   (recombining K independent segment-proofs is *one* cost with three coupled symptoms:
   partition leakage, O(K) verifier, verifier-side bookkeeping), and a **frontier at
   fixed privacy** mapping flat ↔ hierarchical ↔ recursive — instantiated on a concrete
@@ -133,7 +133,7 @@ operationally but motivates differently.
 
 *This is where our **recursion variant** lives and where **folding** is our declared
 "corner that breaks the triangle." The unifying question — how do you bind K independent
-pieces into one sound statement? — is exactly the **binding tax**. Sub-grouped by* where
+pieces into one sound statement? — is exactly the **stitching tax**. Sub-grouped by* where
 *the binding lives: in-circuit (recursion/folding), formal framework (PCD), external
 (aggregation), or commit-then-link (CP-SNARKs).*
 
@@ -143,9 +143,9 @@ pieces into one sound statement? — is exactly the **binding tax**. Sub-grouped
 The formalism for composing proofs across a distributed computation so each node's proof
 attests to the whole history; it is the abstract object our "bind K segment-proofs into one
 statement" instantiates. The 2021 work shows PCD is achievable from weaker primitives than
-full succinct arguments. *Relevance:* gives the precise vocabulary for the **binding tax** —
+full succinct arguments. *Relevance:* gives the precise vocabulary for the **stitching tax** —
 PCD *is* binding done in-circuit; our verifier-side cross-checks are the cheap, leaky
-alternative PCD/recursion replaces. Frame the binding tax as "the cost of approximating PCD
+alternative PCD/recursion replaces. Frame the stitching tax as "the cost of approximating PCD
 externally."
 
 ### 7.3.2 In-circuit recursion, accumulation & folding
@@ -192,7 +192,7 @@ route to cheap recursion" without enumerating every scheme.
 Aggregates n Groth16 proofs into one with O(log n) proof size and verifier time, reusing
 existing powers-of-tau (no new setup). It reports aggregating 8192 proofs in ~8.7 s and
 verifying in ~163 ms — exponentially faster than batch verification. *Relevance:* attacks
-**exactly one** of our binding-tax symptoms — the O(K) verifier (→ O(log K)). The sharp,
+**exactly one** of our stitching-tax symptoms — the O(K) verifier (→ O(log K)). The sharp,
 *novel* observation our framing yields: aggregation cures the verifier-cost symptom but
 **not** the partition leak or the bookkeeping — so it is *not* a full cure, whereas
 recursion/folding dissolve all three at once.
@@ -211,7 +211,7 @@ independent of the number of proofs. *Relevance:* round out the aggregation desi
 A framework for *commit-and-prove* SNARKs: commit to data once, then compose modular proofs
 that operate on the committed values, linked by the commitment. It reports efficient
 "gadget" composition with a linking overhead far below re-proving. *Relevance:* our
-**committed-A / committed-A++** variants are precisely a commit-and-prove construction
+**committed-sort / committed-product** variants are precisely a commit-and-prove construction
 (each segment exposes a blinded commitment `C_i`; the glue proves linkage over the openings).
 Cite LegoSNARK as the general pattern our privacy "cure" instantiates, and
 [Collaborative CP-NIZKs (Alghazwi, Bontekoe, Visscher, Turkmen, 2024), arXiv 2407.19212](https://arxiv.org/pdf/2407.19212)
@@ -258,7 +258,7 @@ verifiability. It reports a circuit library and benchmarks for private verifiabl
 queries. *Relevance:* the **closest application sibling** — same idea (compose circuits over
 a graph, privacy + verifiability) but for *queries* (shortest path), not for *proving
 knowledge of a constrained Hamiltonian cycle with a cost bound*; and it composes circuits
-without our dualism / binding-tax analysis. Our statement is different and arguably harder,
+without our dualism / stitching-tax analysis. Our statement is different and arguably harder,
 and we study its *decomposition cost*.
 
 **Privacy-Preserving Shortest Path Computation** — [NDSS 2017](https://www.ndss-symposium.org/wp-content/uploads/2017/09/privacy-preserving-shortest-path-computation.pdf).
@@ -290,7 +290,7 @@ to get cheap-prover, often *non-succinct* proofs without a universal SNARK. They
 fast provers at the cost of larger, sometimes interactive, proofs. *Relevance:* a contrast
 for the *whole approach* — these avoid the decomposition/recombination question entirely by
 not being succinct; positioning against them clarifies *why* we are in the succinct-SNARK
-regime where the binding tax even arises.
+regime where the stitching tax even arises.
 
 ---
 
@@ -312,7 +312,7 @@ regime where the binding tax even arises.
 ubiquitous (for scale, memory, or unbounded computation); recombination is well-studied
 (folding, aggregation, PCD); but **no line treats the privacy of the decomposition structure
 as a first-class, measured dimension on a concrete combinatorial statement** — which is this
-thesis's contribution, together with the dualism and binding-tax framing that organizes all
+thesis's contribution, together with the dualism and stitching-tax framing that organizes all
 of the above into one frontier.
 
 ---

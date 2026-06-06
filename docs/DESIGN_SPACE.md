@@ -45,7 +45,7 @@ approximation-ratio proofs (2.2) · Waksman/Beneš permutation networks (2.3).
 | Bulletproofs | no setup | linear verifier, slow → worse. **Low.** |
 
 - **Verdict.** Defensible for a thesis (timeline, Noir maturity, lookups, no per-circuit setup, one clean backend for a controlled comparison) — but the *"recursion is expensive"* conclusion is partly a backend artifact and must be scoped as such (§11.3.1).
-- **Defense line.** *The binding tax is a structural property of decomposition, present in any backend; its **magnitude** — and whether recursion or folding wins — is backend-dependent. UltraHonk is one instantiation; a STARK/folding backend shifts the corner, it does not erase the triangle.*
+- **Defense line.** *The stitching tax is a structural property of decomposition, present in any backend; its **magnitude** — and whether recursion or folding wins — is backend-dependent. UltraHonk is one instantiation; a STARK/folding backend shifts the corner, it does not erase the triangle.*
 - **Pursue?** No (re-implementation). Cite Plonky2/STARK recursion costs from literature for contrast.
 
 ### 1.2 DSL — **chose Noir**
@@ -98,12 +98,12 @@ The key clarification (binding ≠ authenticity): the proof shows consistency wi
 | **Spatial / geometric clustering** (classical hierarchical-TSP: cluster → solve → stitch) | matches the optimizer's decomposition | we do *post-hoc cycle slicing*, not *cluster-then-solve*; a sharp examiner notes we decompose the *cycle*, not the *search*. |
 | Edge-based / overlapping windows | — | minor. |
 
-- **Verdict.** Flat node-partition is simplest and makes the binding tax cleanest to exhibit — defensible. **Threat: Med.**
+- **Verdict.** Flat node-partition is simplest and makes the stitching tax cleanest to exhibit — defensible. **Threat: Med.**
 - **Defense line.** *We decompose the **proof**, not the search — which is precisely why the dualism bites (there is no search to prune). Tree-structured PCD is the standard scalable aggregation and the natural log-depth extension we name but did not build.*
 - **Pursue?** Tree/log-depth recursion: **future work.**
 
 ### 3.2 Binding mechanism — **chose external cross-check / commitment / in-circuit / (folding future)**
-This *is* the contribution (the binding tax), well-covered. Named neighbors to cite so we're not blindsided: **SnarkPack** (IPA proof aggregation), **PCD/IVC**, batch verification. **Threat: Low** (it's our home turf). **Pursue?** N/A.
+This *is* the contribution (the stitching tax), well-covered. Named neighbors to cite so we're not blindsided: **SnarkPack** (IPA proof aggregation), **PCD/IVC**, batch verification. **Threat: Low** (it's our home turf). **Pursue?** N/A.
 
 ### 3.3 Recursion mechanism — **chose full in-circuit UltraHonk verification**
 Alternatives: **folding (Nova/ProtoStar/HyperNova)**, **accumulation (Halo/atomic/ProtoStar)**, **cycle-of-curves**. We chose the **most expensive** form (full in-circuit verification) — honest and on-message (the C-corner; folding is the empty corner). **Verdict:** well-handled; make explicit "recursion here = *eager full verification*, the deliberately-expensive baseline folding would beat." **Threat: Med** ("why not the cheap recursion?"). **Defense line:** *folding is the named empty corner of the frontier (the thesis is the **map**); building it is a different backend and would break the single-backend controlled comparison.* **Pursue?** Folding: **the headline future work.**

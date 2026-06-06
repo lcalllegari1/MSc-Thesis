@@ -63,7 +63,7 @@ cannot have everything — two theorems make this concrete, and both bite in thi
 
 - **No commitment is both unconditionally hiding *and* unconditionally binding.** Pick one to be
   computational. *Pedersen* = perfectly hiding, computationally binding. *Poseidon/hash* =
-  computationally hiding, (statistically) binding. ⟹ this is exactly the committed-A/A++ choice:
+  computationally hiding, (statistically) binding. ⟹ this is exactly the committed-sort/plain-product choice:
   Poseidon gives computational hiding cheaply; Pedersen would upgrade hiding to perfect at the
   price of computational binding + higher in-circuit cost.
 - **A *succinct* argument for NP cannot have unconditional soundness.** Succinctness forces the
@@ -158,8 +158,8 @@ lemmas (deterministic ones rigorously; gp/Merkle modulo their named assumption),
 > `ε ≤ ε_SNARK + ε_CR (+ ε_SZ + ε_FS)(+ ε_bind)(+ ε_rec)`.*
 
 **Honest-scope ladder (writes itself from the error terms):**
-- **flat-sort, A, committed-A** — fully provable at paper rigor (deterministic lemmas + `ε_SNARK` + `ε_CR`).
-- **flat-gp, A++, committed-A++** — provable *modulo* `ε_SZ + ε_FS` in the ROM.
+- **flat-sort, plain-sort, committed-sort** — fully provable at paper rigor (deterministic lemmas + `ε_SNARK` + `ε_CR`).
+- **flat-gp, plain-product, committed-product** — provable *modulo* `ε_SZ + ε_FS` in the ROM.
 - **recursion** — + recursion KS + the in-circuit FS floor.
 
 **Negative tests (§10.1a) validate but do not prove.** A hand-built non-permutation is rejected at

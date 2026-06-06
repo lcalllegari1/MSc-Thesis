@@ -1,10 +1,10 @@
-# Variant A++ (`hier_fs`) — Implementation Plan
+# plain-product (`hier_fs`) — Implementation Plan
 
 **Status:** Architectural decisions locked in 2026-05-27 after a planning
 discussion that surfaced the trade-offs for each design choice. This document
-is the single source of truth for the A++ implementation; refer to
+is the single source of truth for the plain-product implementation; refer to
 `HIERARCHICAL_EXPLAINED.md` §9 for the full theory and soundness argument, to
-`VARIANT_A_IMPLEMENTATION.md` for the A blueprint that A++ mirrors, and to
+`VARIANT_A_IMPLEMENTATION.md` for the plain-sort blueprint that plain-product mirrors, and to
 `DESIGN.md` §8 for the engineering log.
 
 **Target:** Hierarchical TSP ZKP with Poseidon2 Merkle commitment **and
@@ -12,7 +12,7 @@ partition hidden** via grand-product multiset equality at a Fiat-Shamir
 challenge derived in-circuit. K segment sub-circuits + 1 glue circuit produce
 K+1 independent UltraHonk proofs bound by verifier-side cross-checks.
 Benchmark sizes anchor on the same N ∈ {48, 96, 192, 480}, K ∈ {2, 4, 8}
-grid as A, so A vs A++ vs flat_merkle comparisons are direct.
+grid as plain-sort, so plain-sort vs plain-product vs flat_merkle comparisons are direct.
 
 **Variant name everywhere in code, CSV, plots, scripts:** `hier_fs`.
 (`++` appears only in supervisor report / thesis prose.)
@@ -26,17 +26,17 @@ chosen option and the reasoning that landed there.
 
 | # | Decision | Locked choice | One-line rationale |
 |---|---|---|---|
-| D1 | Where the new circuits live | New dirs `circuits/hierarchical_segment_fs/` and `circuits/hierarchical_glue_fs/` (cp from A, then modify) | Keeps A intact for side-by-side benchmarks; matches the doc's "fs" suffix; no risk of regressing A's tests. |
+| D1 | Where the new circuits live | New dirs `circuits/hierarchical_segment_fs/` and `circuits/hierarchical_glue_fs/` (cp from plain-sort, then modify) | Keeps plain-sort intact for side-by-side benchmarks; matches the doc's "fs" suffix; no risk of regressing plain-sort's tests. |
 | D2 | Where the Fiat-Shamir binding `X = Poseidon2(c)` is enforced | **In every sub-circuit AND in the glue** (each gets its own G7 / G4 challenge-consistency constraint) | Defense-in-depth: cryptographic binding to `c` in each proof, not relying solely on the verifier's cross-check on X. The K+1 extra Poseidon2 calls are rounding error (~87 gates × K+1). |
 | D3 | Hash function shape for the challenge derivation | `X = Poseidon2::hash([c], 1)` (single-input mode) | Textbook FS challenge derivation; sponge padding for `in_len=1` is naturally domain-separated from Merkle compression (`in_len=2`). Rust side needs one extra helper. |
 | D4 | Hash function shape for chain step | `h_{j+1} = Poseidon2::hash([h_j, cycle[j] as Field], 2)` | Reuses the exact Merkle compression primitive (already cross-validated). Domain separation is implicit: Merkle inputs are always Poseidon2 outputs (random-looking ~254-bit Fields), chain right-positions are tiny u32 node indices — confusion is computationally impossible. |
-| **D5** | `expected_product = ∏(X+j) for j=0..N-1` placement | **In-circuit in the glue (G5)** — no `expected_product` public input, no verifier-side recomputation | Single-layer soundness; verifier has no non-optional cross-check obligation; cost is ~N Field mults (~480 gates at N=480) — still well below A's ~21k-gate glue. Cleaner thesis story: "every soundness claim is enforced by a circuit constraint; verifier cross-checks are equality bookkeeping, not cryptographic obligations." |
+| **D5** | `expected_product = ∏(X+j) for j=0..N-1` placement | **In-circuit in the glue (G5)** — no `expected_product` public input, no verifier-side recomputation | Single-layer soundness; verifier has no non-optional cross-check obligation; cost is ~N Field mults (~480 gates at N=480) — still well below plain-sort's ~21k-gate glue. Cleaner thesis story: "every soundness claim is enforced by a circuit constraint; verifier cross-checks are equality bookkeeping, not cryptographic obligations." |
 | D6 | Defense-in-depth for X | Both circuit-level constraints (D2) AND verifier cross-check on `X` and `c` across K+1 proofs | Two-layer; cross-check catches any bug in how the prover assembled the proofs even if circuit-level constraints are individually satisfied. |
-| D7 | Compile-time globals | Sub-circuit: `N, M, DEPTH`. Glue: `N, K, DEPTH`. **No new globals introduced.** | M-sized arrays in subs and K-sized arrays in glue. N still needed in glue for `from*N+to` leaf-index reconstruction AND for the `for j in 0..N` loop in G5. Patcher logic unchanged from A. |
-| D8 | Pipeline scripts | New `pipeline/run_hier_fs.py` and `pipeline/verify_hier_fs.py` (sibling files, not flags on the A scripts) | Each variant's harness stays self-contained; no `if variant ==` spaghetti; refactor to a shared module can happen later once both variants work. |
+| D7 | Compile-time globals | Sub-circuit: `N, M, DEPTH`. Glue: `N, K, DEPTH`. **No new globals introduced.** | M-sized arrays in subs and K-sized arrays in glue. N still needed in glue for `from*N+to` leaf-index reconstruction AND for the `for j in 0..N` loop in G5. Patcher logic unchanged from plain-sort. |
+| D8 | Pipeline scripts | New `pipeline/run_hier_fs.py` and `pipeline/verify_hier_fs.py` (sibling files, not flags on the plain-sort scripts) | Each variant's harness stays self-contained; no `if variant ==` spaghetti; refactor to a shared module can happen later once both variants work. |
 | D9 | Rust builder | Extend existing `pipeline/merkle_builder` with a third mode: `--hierarchical-fs K --out-dir <dir>` | Reuses `MerkleTree::build` / `MerkleTree::proof` / `poseidon2_compress` unchanged; adds chain + grand-product + new Prover.toml writers. One binary, three modes. |
 | D10 | Aggregator | Reuse `pipeline/aggregate_hier.py` as-is — it groups by `(n, k, run)` and is variant-name-driven | Just write `variant=hier_fs` rows from run_hier_fs.py; aggregator emits `hier_fs_k{K}` variants for plotting. No code changes needed. |
-| D11 | Variant naming | `hier_fs` everywhere in code/CSV/filesystem; `A++` only in prose | Filesystem-safe; mirrors `hier_a` pattern. |
+| D11 | Variant naming | `hier_fs` everywhere in code/CSV/filesystem; `plain-product` only in prose | Filesystem-safe; mirrors `hier_a` pattern. |
 
 ---
 
@@ -52,7 +52,7 @@ global M: u32     = 4;     // segment size = N/K
 global DEPTH: u32 = 6;     // ceil(log2(N²))
 ```
 
-Same shape as A's sub-circuit. No K global (a segment knows about itself, not
+Same shape as plain-sort's sub-circuit. No K global (a segment knows about itself, not
 how many siblings it has).
 
 ### 2.2 Function signature
@@ -68,12 +68,12 @@ fn main(
     path_bits:     [bool;  (M - 1) * DEPTH],
 
     // ─ PUBLIC ──────────────────────────────────────────────────
-    // Geometry / cost (kept from A).
+    // Geometry / cost (kept from plain-sort).
     start_node:    pub u32,
     end_node:      pub u32,
     partial_cost:  pub u64,
     root:          pub Field,
-    // FS / grand-product additions (A++ only).
+    // FS / grand-product additions (plain-product only).
     P_i:           pub Field,   // grand product ∏(X + cycle_segment[j])
     h_in_i:        pub Field,   // chain value entering this segment
     h_out_i:       pub Field,   // chain value leaving this segment
@@ -89,7 +89,7 @@ fn main(
     assert(start_node == cycle_segment[0],     "start_node mismatch");
     assert(end_node   == cycle_segment[M - 1], "end_node mismatch");
 
-    // G3 — Internal Merkle (identical idiom to A's G4): M-1 edges, accumulate
+    // G3 — Internal Merkle (identical idiom to plain-sort's G4): M-1 edges, accumulate
     let mut sum: u64 = 0;
     for i in 0..(M - 1) {
         let from = cycle_segment[i];
@@ -173,12 +173,12 @@ sub_public_inputs (length M + 4 + 5 = M + 9):
 ```
 
 Wait — that's 9 elements, not M+9. **The sub-circuit's public-input pool is
-constant in M** (no `sorted_nodes[M]` anymore). This is one of A++'s wins:
+constant in M** (no `sorted_nodes[M]` anymore). This is one of plain-product's wins:
 `O(M) → O(1)` per sub-circuit.
 
 ### 2.4 Constraint groups summary
 
-| Group | Constraint | Cost (gates, approx) | Inherited from A? |
+| Group | Constraint | Cost (gates, approx) | Inherited from plain-sort? |
 |---|---|---|---|
 | G1 | Range: `cycle_segment[i] < N` for i ∈ [0, M) | M × 8 | yes |
 | G2 | Endpoints: `start_node == cycle_segment[0]`, `end_node == cycle_segment[M-1]` | 2 | yes (was G3) |
@@ -201,7 +201,7 @@ At N = 480, K = 4 (M = 120, DEPTH = 18):
 - G7: 87
 - **Total ≈ 198,000 gates**
 
-Compared to A's sub-circuit at the same (N, K) (~186,000): **+12,000 gates ≈
+Compared to plain-sort's sub-circuit at the same (N, K) (~186,000): **+12,000 gates ≈
 +6.4%**, matching the doc's ~5.5% claim within rounding. The chain (G5)
 dominates the overhead — grand-product mults are nearly free.
 
@@ -219,7 +219,7 @@ global K: u32     = 2;
 global DEPTH: u32 = 6;
 ```
 
-Same shape as A's glue (no M needed — chunks are indexed by K).
+Same shape as plain-sort's glue (no M needed — chunks are indexed by K).
 
 ### 3.2 Function signature
 
@@ -233,7 +233,7 @@ fn main(
     boundary_path_bits: [bool;  K * DEPTH],
 
     // ─ PUBLIC ──────────────────────────────────────────────────
-    // Geometry / cost (kept from A; sorted_nodes-concat array gone).
+    // Geometry / cost (kept from plain-sort; sorted_nodes-concat array gone).
     starts:        pub [u32; K],
     ends:          pub [u32; K],
     partial_costs: pub [u64; K],
@@ -275,7 +275,7 @@ fn main(
     }
     assert(lhs == rhs, "grand-product partition mismatch");
 
-    // G6 — Boundary Merkle (K edges); identical idiom to A's G3
+    // G6 — Boundary Merkle (K edges); identical idiom to plain-sort's G3
     let mut boundary_sum: u64 = 0;
     for i in 0..K {
         let from = ends[i];
@@ -307,7 +307,7 @@ fn main(
         boundary_sum += boundary_costs[i];
     }
 
-    // G7 — Threshold (identical to A's G4)
+    // G7 — Threshold (identical to plain-sort's G4)
     let mut total: u64 = 0;
     for i in 0..K {
         total += partial_costs[i];
@@ -333,18 +333,18 @@ glue_public_inputs (length 3K + 2 + 3K + 2 = 6K + 4):
   [6K + 3]       X               (Field)
 ```
 
-At N=480, K=4: 6·4 + 4 = **28 elements** — down from A's glue (N + 3K + 2 =
+At N=480, K=4: 6·4 + 4 = **28 elements** — down from plain-sort's glue (N + 3K + 2 =
 494) by ~17×.
 
 ### 3.4 Constraint groups summary
 
-| Group | Constraint | Cost (gates, approx) | Inherited from A? |
+| Group | Constraint | Cost (gates, approx) | Inherited from plain-sort? |
 |---|---|---|---|
 | G1 | Chain init: `h_ins[0] == 0` | 1 | NEW |
 | G2 | Chain stitching: K-1 equalities | K-1 | NEW |
 | G3 | Chain terminal: `h_outs[K-1] == c` | 1 | NEW |
 | G4 | Challenge consistency: `X == Poseidon2([c], 1)` | ~87 | NEW |
-| G5 | Grand product: `∏ P_is == ∏(X + j)` | (K-1) + (N-1) mults | NEW (replaces A's G2 sort) |
+| G5 | Grand product: `∏ P_is == ∏(X + j)` | (K-1) + (N-1) mults | NEW (replaces plain-sort's G2 sort) |
 | G6 | Boundary Merkle (K edges) | `K · DEPTH · ~87` | yes (was G3) |
 | G7 | Threshold | ~16 | yes (was G4) |
 
@@ -359,9 +359,9 @@ At N = 480, K = 4, DEPTH = 18:
 - G7: ~16
 - **Total ≈ 6,900 gates**
 
-Compared to A's glue at same (N, K): ~21,000 → **~6,900 gates (-67%)**. The
+Compared to plain-sort's glue at same (N, K): ~21,000 → **~6,900 gates (-67%)**. The
 glue gets dramatically smaller. The two big wins:
-- O(N) sort gone → ~1,920 gates saved (G2 in A)
+- O(N) sort gone → ~1,920 gates saved (G2 in plain-sort)
 - O(N) `all_sorted_nodes` public input pool gone → significant prover memory
   saved (the O(N) memory floor at the glue, ~159 MB at N=480, should drop
   substantially — this is the headline empirical claim to validate)
@@ -456,7 +456,7 @@ After building the Merkle tree (reuse `MerkleTree::build` and
 ### 4.3 New Prover.toml writers
 
 Two new functions, mirroring `write_sub_prover_toml` and
-`write_glue_prover_toml` from the A code path:
+`write_glue_prover_toml` from the plain-sort code path:
 
 - `write_sub_fs_prover_toml(out_path, seg_idx, cycle_segment, edge_costs,
    siblings_flat, path_bits_flat, start_node, end_node, partial_cost, root,
@@ -467,7 +467,7 @@ Two new functions, mirroring `write_sub_prover_toml` and
 
 Reuse the same TOML-format conventions: u32/u64 as quoted decimals, Field as
 `"0x<64-hex>"`, bool as unquoted `true`/`false`. Keep the commented headers
-explaining each field — match the A files' style for consistency and
+explaining each field — match the plain-sort files' style for consistency and
 auditability.
 
 ### 4.4 Implementation note
@@ -475,7 +475,7 @@ auditability.
 The existing `run_hierarchical` is ~100 lines. `run_hierarchical_fs` will
 share ~80% of it (segment splitting, boundary edge proof extraction,
 Prover.toml dispatch). Either factor out a shared helper or accept the
-duplication — the latter is fine and matches how A and B will both reuse
+duplication — the latter is fine and matches how plain-sort and B will both reuse
 the same Merkle code with variant-specific append logic.
 
 ### 4.5 Unit tests to add in `tests/` module
@@ -521,7 +521,7 @@ Total: ~6K+3 equality checks. Trivial.
 
 ### 5.3 Public-input parsing
 
-Same parser as A's `verify_hier.py`: read `public_inputs` as 32-byte
+Same parser as plain-sort's `verify_hier.py`: read `public_inputs` as 32-byte
 big-endian chunks. Map to named fields using the declaration order from
 §2.3 and §3.3.
 
@@ -580,7 +580,7 @@ Mirror `pipeline/run_hier.py` structurally. The differences are mechanical:
 |---|---|
 | `SUB_DIR`, `GLUE_DIR` | Point to `hierarchical_segment_fs` / `hierarchical_glue_fs` |
 | `SUB_NAME`, `GLUE_NAME` | `hierarchical_segment_fs`, `hierarchical_glue_fs` |
-| `SHADOW_ROOT` | `/tmp/hier_fs_shadows` (don't collide with A's) |
+| `SHADOW_ROOT` | `/tmp/hier_fs_shadows` (don't collide with plain-sort's) |
 | `write_inputs_json` | Unchanged — same JSON schema |
 | `build_hier_tomls` | Call `merkle_builder --hierarchical-fs K --out-dir <dir>` |
 | `run_verify_hier` | Call `verify_hier_fs.py` instead |
@@ -592,7 +592,7 @@ aggregator works without modification.
 
 ### 6.1 Sweep grid
 
-Same as A for direct comparability:
+Same as plain-sort for direct comparability:
 ```
 --ns 48 96 192 480
 --ks 2 4 8
@@ -602,7 +602,7 @@ Same as A for direct comparability:
 
 ### 6.2 Performance expectations (to validate)
 
-| Metric | vs A | Justification |
+| Metric | vs plain-sort | Justification |
 |---|---|---|
 | Sub-circuit `circuit_size` | +5-6% | M chain Poseidon2 + 1 challenge Poseidon2 |
 | Sub-circuit `prove_s` | +5-6% (single-machine isolated) | Linear in circuit_size |
@@ -614,8 +614,8 @@ Same as A for direct comparability:
 | Cross-check `verify_hier_fs_s` | similar | Same cross-check loop; no expected_product native recomputation |
 
 The glue memory drop is the **headline empirical claim** to validate. If
-A++'s glue peak_mb falls below A's by a significant margin (say, sub-100 MB
-at N=480, K=8), that strengthens the "A++ for memory-constrained provers"
+plain-product's glue peak_mb falls below plain-sort's by a significant margin (say, sub-100 MB
+at N=480, K=8), that strengthens the "plain-product for memory-constrained provers"
 thesis-level case.
 
 ---
@@ -652,7 +652,7 @@ python pipeline/plot.py \
     --out plots/flat_vs_hier_a_vs_hier_fs
 ```
 
-This is the **frontier figure** the thesis needs: flat_merkle, A, A++ on the
+This is the **frontier figure** the thesis needs: flat_merkle, plain-sort, plain-product on the
 same axes for circuit_size, prove_s, peak_mb across N.
 
 ---
@@ -662,7 +662,7 @@ same axes for circuit_size, prove_s, peak_mb across N.
 **File:** `tests/correctness/test_hierarchical_fs.py`
 
 Mirror `tests/correctness/test_hierarchical_a.py` structurally; replace
-test cases with A++-specific ones.
+test cases with plain-product-specific ones.
 
 ### 8.1 Test list
 
@@ -674,10 +674,10 @@ test cases with A++-specific ones.
 | 4 | `cross_check_c` (NEW, FS-specific) | mix `sub_0`, `sub_1` from cycle A with `glue` from cycle B (same matrix) | `verify_hier_fs.py` cross-check on `c` (and `X` transitively) | Inter-proof cycle binding via chain commitment |
 | 5 | `bad_P_i` (NEW) | tamper sub_0's Prover.toml `P_i` to a different Field value | sub G6 during `nargo execute` | Per-segment grand-product faithfulness |
 | 6 | `broken_chain` (NEW) | edit glue Prover.toml `h_ins[1]` ≠ `sub_0.h_out` | glue G2 during `nargo execute` | Cross-segment chain continuity |
-| 7 | `partition_overlap_fs` (FS analogue of A's overlap) | construct cycle where node 3 appears in both segments; valid edges in matrix | glue G5 during `nargo execute` (∏ P_i ≠ ∏(X+j) at the chain-derived X — Schwartz-Zippel fires) | The grand-product partition check (replaces A's sort partition) |
+| 7 | `partition_overlap_fs` (FS analogue of plain-sort's overlap) | construct cycle where node 3 appears in both segments; valid edges in matrix | glue G5 during `nargo execute` (∏ P_i ≠ ∏(X+j) at the chain-derived X — Schwartz-Zippel fires) | The grand-product partition check (replaces plain-sort's sort partition) |
 | 8 | `sanity_N48_K4` | witness-only at N=48, K=4 | none | Patched circuits accept valid witnesses at larger sizes |
 
-Test #7 is the direct analogue of A's "segment overlap" test. The
+Test #7 is the direct analogue of plain-sort's "segment overlap" test. The
 mechanism is different (grand product vs sort) but the perturbation and
 expected outcome are the same. **Document in the test comments that test #7
 "only fails because Schwartz-Zippel applies at the unforgeable X" — this is
@@ -707,7 +707,7 @@ HIERARCHICAL_EXPLAINED.md §9.10 and supervisor_report_draft.md §7.
 **File:** `tests/hash_compat/noir/src/main.nr` (or a sibling)
 
 Add a test case for `Poseidon2::hash([c], 1)` — the single-input mode that
-A++ uses for challenge derivation. The existing test only covers
+plain-product uses for challenge derivation. The existing test only covers
 `Poseidon2::hash([l, r], 2)`.
 
 ### 9.1 What to validate
@@ -724,8 +724,8 @@ Two cross-checks between Rust and Noir:
      asserts `Poseidon2::hash([c], 1) == expected`.
    - Shell harness pipes the Rust output into Noir's Prover.toml.
 
-This MUST PASS before writing the A++ circuits — `Poseidon2::hash([c], 1)`
-is the FS-binding load-bearing hash and any Rust/Noir drift kills A++
+This MUST PASS before writing the plain-product circuits — `Poseidon2::hash([c], 1)`
+is the FS-binding load-bearing hash and any Rust/Noir drift kills plain-product
 soundness silently.
 
 ### 9.2 Construction reference
@@ -762,7 +762,7 @@ benchmark sweep run by the user.** Acceptance met on every step.
 |---|---|---|---|
 | 1 | **Reference values (Rust scratch / hand computation).** At N=8, K=2, cycle `[0,5,3,2,7,4,1,6]`, compute h_0..h_8, c, X, P_0, P_1 using the same Poseidon2 instantiation. Verify `P_0 · P_1 == ∏(X+j) for j=0..7` natively. Document the values in this file as a reference table (see §11). | The grand-product identity holds for the reference instance. | ✅ done — §11 filled, identity holds |
 | 2 | **Hash-compat extension** for `Poseidon2::hash([c], 1)`. | Noir circuit accepts Rust-computed expected; test passes. | ✅ done — Rust↔Noir match (the load-bearing FS hash) |
-| 3 | **Sub-circuit skeleton** `hierarchical_segment_fs/src/main.nr` at N=8, M=4, DEPTH=6. `nargo compile`; `bb gates` reports a sane gate count dominated by G3 Merkle. | Compiles; gate count sane. | ✅ done — circuit_size 4776, +6.7% vs A |
+| 3 | **Sub-circuit skeleton** `hierarchical_segment_fs/src/main.nr` at N=8, M=4, DEPTH=6. `nargo compile`; `bb gates` reports a sane gate count dominated by G3 Merkle. | Compiles; gate count sane. | ✅ done — circuit_size 4776, +6.7% vs plain-sort |
 | 4 | **Glue skeleton** `hierarchical_glue_fs/src/main.nr` at N=8, K=2, DEPTH=6. | Compiles. | ✅ done — circuit_size 3985 |
 | 5 | **Rust builder extension** `--hierarchical-fs K --out-dir <dir>`. Validate against reference values from step 1. | Manual diff against step 1 reference table. | ✅ done — Prover.toml fields match §11 byte-for-byte |
 | 6 | **First end-to-end run** with the reference instance: `nargo execute × 3`, `bb prove × 3`, `bb verify × 3`. | All 3 proofs verify. | ✅ done — sub_0/sub_1/glue all verify (9 / 6K+4 public inputs) |
@@ -771,11 +771,11 @@ benchmark sweep run by the user.** Acceptance met on every step.
 | 9 | **Witness-only sanity at N=48, K=4.** | Patched circuits accept valid witnesses. | ✅ done |
 | 10 | **Benchmark harness `run_hier_fs.py`.** Sweep N ∈ {48, 96, 192, 480}, K ∈ {2, 4, 8}. | `results/hier_fs.csv` populated; cross-check passes every cell. | ✅ done — harness written + smoke-validated; full sweep run by user, all 36 cells xcheck OK |
 | 11 | **Aggregate + plot.** | `plots/hier_fs_*.png` written; visually overlay with hier_a and flat_merkle. | ◑ aggregate_hier.py made variant-aware (`hier_fs_k{K}`); aggregation + plots produced by user |
-| 12 | **Update `DESIGN.md` §8 progress section.** Move A++ from `[ ]` to `[x]`. | Done. | ✅ done — DESIGN.md §8 + HOWTO.md + HIERARCHICAL_EXPLAINED.md §9.9/§9.11/§14.2 + supervisor_report §7 updated |
+| 12 | **Update `DESIGN.md` §8 progress section.** Move plain-product from `[ ]` to `[x]`. | Done. | ✅ done — DESIGN.md §8 + HOWTO.md + HIERARCHICAL_EXPLAINED.md §9.9/§9.11/§14.2 + supervisor_report §7 updated |
 
 The risky bit was step 2 (hash compat); it passed first, de-risking everything else,
-which was mechanical mirroring of A. Headline empirical result: A++'s glue peak memory
-is flat (~38–42 MB) vs A's O(N) sort floor (159 MB at N=480, K=8).
+which was mechanical mirroring of plain-sort. Headline empirical result: plain-product's glue peak memory
+is flat (~38–42 MB) vs plain-sort's O(N) sort floor (159 MB at N=480, K=8).
 
 ---
 
@@ -784,7 +784,7 @@ is flat (~38–42 MB) vs A's O(N) sort floor (159 MB at N=480, K=8).
 **Populated 2026-05-28 (step 1).** Computed by
 `tests/hash_compat/rust/src/main.rs` and cross-validated against Noir's
 Poseidon2 by `tests/hash_compat/run_test.sh` (both the `[c],1` challenge and
-the `[l,r],2` chain step pass). Use the same cycle and edge costs as A's
+the `[l,r],2` chain step pass). Use the same cycle and edge costs as plain-sort's
 reference (HIERARCHICAL_EXPLAINED.md §8.9):
 
 - Cycle: `[0, 5, 3, 2, 7, 4, 1, 6]`
@@ -824,7 +824,7 @@ Identity P_0 * P_1 == expected_product:  OK (verified natively in Rust)
 ```
 
 The grand-product identity holds because `{0,5,3,2} ∪ {7,4,1,6} = {0..7}` —
-that is the partition exactness that A++ enforces non-trivially at large N.
+that is the partition exactness that plain-product enforces non-trivially at large N.
 
 **Caveat on what step 1 validates.** The native identity `P_0·P_1 ==
 ∏(X+j)` is a *polynomial identity in X* — it holds for any X when the
@@ -918,7 +918,7 @@ uses these directly. No need to import an external arkworks dependency.
 ### 13.7 Glue's N global
 
 N is still needed in the glue (boundary Merkle's `from*N+to` AND the new
-`for j in 0..N` loop in G5). Patcher logic from A works unchanged. M is
+`for j in 0..N` loop in G5). Patcher logic from plain-sort works unchanged. M is
 NOT needed in the glue (no per-segment iteration in glue).
 
 ### 13.8 K=2 special-cases
@@ -928,14 +928,14 @@ one stitch: `h_ins[1] == h_outs[0]`). The chain terminal check
 `h_outs[K-1] == c` becomes `h_outs[1] == c`. The grand product `∏ P_is`
 becomes `P_is[0] * P_is[1]`. All natural.
 
-### 13.9 Shadow dir collision with A
+### 13.9 Shadow dir collision with plain-sort
 
-`/tmp/hier_a_shadows` is A's. Use `/tmp/hier_fs_shadows` for A++ to allow
+`/tmp/hier_a_shadows` is plain-sort's. Use `/tmp/hier_fs_shadows` for plain-product to allow
 running both harnesses simultaneously if desired.
 
 ### 13.10 Cross-checking c across proofs is the key new check
 
-This is the analogue of A's "same root" check. Without it, K+1 proofs
+This is the analogue of plain-sort's "same root" check. Without it, K+1 proofs
 could be about K+1 different cycles (each chain-valid but distinct).
 verify_hier_fs.py must enforce this.
 
@@ -947,22 +947,22 @@ Under D5 = Option B, this is in-circuit. The Python verifier has no
 ### 13.12 The 87 gates/Poseidon2 figure
 
 This is the UltraHonk + Plookup figure, established for the flat baseline.
-Verify it still holds for A++'s Poseidon2 usage at first compile — Noir's
+Verify it still holds for plain-product's Poseidon2 usage at first compile — Noir's
 Poseidon2 library is the same, and `bb gates` will report the actual
 count. If it differs significantly (say, ±20%), investigate before
 proceeding to benchmarks.
 
 ### 13.13 Memory floor expectation
 
-A's glue had an O(N) sort that created a ~159 MB peak_mb floor at N=480.
-A++'s glue has no O(N) sort — only O(N) Field mults in a tight loop.
+plain-sort's glue had an O(N) sort that created a ~159 MB peak_mb floor at N=480.
+plain-product's glue has no O(N) sort — only O(N) Field mults in a tight loop.
 **Expected glue peak_mb at N=480, K=4: substantially below 100 MB.** If
 not, investigate (it might mean the in-circuit `for j in 0..N` loop has
 unexpected memory overhead).
 
-### 13.14 A++ privacy is computational, not information-theoretic
+### 13.14 plain-product privacy is computational, not information-theoretic
 
-When writing up or presenting A++, do **not** claim the public Field
+When writing up or presenting plain-product, do **not** claim the public Field
 aggregates "hide the partition" unconditionally. They don't. Two public
 values are confirmation oracles (full argument in
 `HIERARCHICAL_EXPLAINED.md` §9.11 and the work-factor table in §14.2):
@@ -970,7 +970,7 @@ values are confirmation oracles (full argument in
 - **`P_i` leaks the segment multiset** at ≈ C(N, M) work: `P_i = ∏(X +
   node)` is a polynomial evaluation at the *public* X, so a verifier can
   enumerate size-M subsets of {0..N-1} and find the one whose product
-  matches — recovering exactly what Variant A prints as `sorted_nodes`.
+  matches — recovering exactly what plain-sort prints as `sorted_nodes`.
 - **The chain anchors `h_in_i, h_out_i` leak interior order** at ≈ (M-2)!
   work: both ends of each segment's chain are public and the chain step
   consumes only public-domain inputs (node indices), so the interior
@@ -988,38 +988,38 @@ only the privacy claim's wording.
 
 ## 14. Updates to other documents (deferred)
 
-These can wait until A++ is implemented and benchmarked:
+These can wait until plain-product is implemented and benchmarked:
 
-- `DESIGN.md` §8 — add A++ checklist (mirror A's), update memory floor
-  table with A++ measurements.
+- `DESIGN.md` §8 — add plain-product checklist (mirror plain-sort's), update memory floor
+  table with plain-product measurements.
 - `HIERARCHICAL_EXPLAINED.md` §9.9 — note that under this implementation
   `expected_product` is in-circuit (the doc currently says
   "verifier-supplied"). Both are valid; document the engineering choice.
-- `supervisor_report_draft.md` §7-§8 — fold A++ empirical numbers in.
+- `supervisor_report_draft.md` §7-§8 — fold plain-product empirical numbers in.
 
 ---
 
 ## 15. Reference documents
 
-- `HIERARCHICAL_EXPLAINED.md` §9 — full Variant A++ theory (grand product
+- `HIERARCHICAL_EXPLAINED.md` §9 — full plain-product theory (grand product
   as multiset commitment, Fiat-Shamir construction, soundness chain,
   privacy bounds, worked example)
-- `VARIANT_A_IMPLEMENTATION.md` — the A blueprint; A++ mirrors its
+- `VARIANT_A_IMPLEMENTATION.md` — the plain-sort blueprint; plain-product mirrors its
   structure and tooling
 - `DESIGN.md` §8 — engineering decisions log; benchmark interpretation
   notes
 - `SESSION_SUMMARY.md` — chronological session notes
 - `supervisor_report_draft.md` §7 — dualism argument; §7.6-7.7 mapping
-  A/A++/B to use cases
+  plain-sort/plain-product/B to use cases
 - `HOWTO.md` — `nargo` / `bb` invocation reference
 - `tests/hash_compat/` — Poseidon2 cross-validation pattern
 
 ---
 
-## 16. Out of scope for A++
+## 16. Out of scope for plain-product
 
-- **Variant B** (flat-full sub-matrix public): separate from A++; shares
-  A's glue, not A++'s. Estimated ~3 work-days after A++ is working.
+- **Variant B** (flat-full sub-matrix public): separate from plain-product; shares
+  plain-sort's glue, not plain-product's. Estimated ~3 work-days after plain-product is working.
 - **Recursive composition** of K+1 proofs into one (replacing verifier
   cross-checks with in-circuit verification): explicitly future work.
 - **Folding-scheme variant** (Nova/ProtoStar): natural continuation,
@@ -1027,5 +1027,5 @@ These can wait until A++ is implemented and benchmarked:
 - **Mixed-size segments** (N not divisible by K): not supported; benchmark
   N choices are picked to satisfy `N % K == 0` for K ∈ {2, 4, 8}.
 - **Hash commitment for sorted node sets** (alternative partition-hiding
-  mechanism): noted in DESIGN.md as future direction; A++ is the chosen
+  mechanism): noted in DESIGN.md as future direction; plain-product is the chosen
   partition-hiding mechanism.

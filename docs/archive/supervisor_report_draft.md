@@ -1,3 +1,5 @@
+> **ARCHIVED (historical).** Flat-phase progress report; predates committed/recursion/stitching-tax and the variant renaming. Superseded by `Thesis_Outline.md`; useful only as a Ch 2/Ch 4 prose source. Uses old variant names (A, A++).
+
 # Zero-Knowledge Proof for TSP: Flat Circuits, Complexity Analysis, and Design Rationale
 
 **Progress Report — May 2026**

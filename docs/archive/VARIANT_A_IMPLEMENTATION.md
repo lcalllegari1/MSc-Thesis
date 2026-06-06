@@ -1,3 +1,5 @@
+> **ARCHIVED (historical).** Pre-build implementation plan for `plain-sort` (then "Variant A"). Its substance is realized in the code and documented in `HIERARCHICAL_EXPLAINED.md` §8 + Appendix A; no unique conceptual content. Kept for the N=8/K=2 reference values and build-order record. Uses old variant names.
+
 # Variant A — Implementation Plan
 
 **Status:** Architecture and design decisions settled in sessions through

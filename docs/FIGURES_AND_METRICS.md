@@ -38,7 +38,7 @@ Everything below is **not yet built** unless it says "(current)".
 | `acir_opcodes` (current) | Backend-independent logical complexity (pre-arithmetization). |
 | `prove_s` (current) | Parallelism axis (max = parallel, sum = total via aggregator modes). |
 | `witness_s` (current) | Non-proving per-prover overhead; check it stays small even as the committed glue re-folds N nodes. |
-| `verify_s` (current) | K+1 bb-verify + cross-check — the **O(K) verifier symptom** of the binding tax. |
+| `verify_s` (current) | K+1 bb-verify + cross-check — the **O(K) verifier symptom** of the stitching tax. |
 | `proof_bytes` (current) | Verifier download; the other O(K) symptom. Sharp committed-* (grows ~K) vs recursion (1 proof). |
 | `peak_mb` (current) | Distributed-hardware benefit; drops ~1/K. |
 | `compile_s` (current) | Minor, one-time. |
@@ -50,7 +50,7 @@ Everything below is **not yet built** unless it says "(current)".
 | **Total-work conservation** | `K·sub + glue` vs flat | Turns the dualism result into a metric: decomposition redistributes, not reduces. (Aggregator already sums it; just co-plot flat.) |
 | **Parallel speedup** | `flat.prove_s / hier.prove_s(parallel)` | Parallelism claim as a curve vs K (ideal = K). |
 | **Memory reduction** | `flat.peak_mb / hier.peak_mb` | Distributed-hardware claim as a curve vs K (ideal = K). |
-| **Verifier amortization** | `proof_bytes`, `verify_s` vs K | The O(K) binding-tax symptom; committed-* (∝K) vs recursion (flat) at equal privacy. |
+| **Verifier amortization** | `proof_bytes`, `verify_s` vs K | The O(K) stitching-tax symptom; committed-* (∝K) vs recursion (flat) at equal privacy. |
 | **Privacy class** | ordinal: disclosed / computational / structural | Not a harness output — a per-variant annotation. It is what makes the frontier a *frontier* and not a cost plot. |
 
 ---
@@ -67,10 +67,10 @@ Line-vs-N is right for **scaling**. The **frontier story wants other geometry:**
 - **Grouped bar charts** at fixed N for `proof_bytes` / `verify_s` / `peak_mb` across
   variants × K — cleaner than lines when N is held and K/variant is the comparison.
 - **Stacked bars** for `circuit_size` = sub-share vs glue-share (and, for committed-*,
-  the commitment-fold share) — visualizes *where* the gates go and the binding tax.
+  the commitment-fold share) — visualizes *where* the gates go and the stitching tax.
 - **Heatmap** over the (N, K) grid, one metric per variant — good for appendix sweeps.
 - **Slopegraph / ladder diagram** for the privacy progression
-  (B → A → A++ → committed → recursion) with cost annotations — schematic, the
+  (B → plain-sort → plain-product → committed → recursion) with cost annotations — schematic, the
   chapter's spine, not data.
 - **Ratio-to-baseline lines** (everything ÷ flat) — flattens the y-range so relative
   overheads/speedups are readable where absolute curves overlap.
@@ -84,10 +84,10 @@ as support + a stacked-bar gate-decomposition.
 
 | X axis | Held fixed | What it surfaces |
 |---|---|---|
-| **K** | N | The parallelism/memory/verifier story — per-prover gates & `peak_mb` fall ~1/K while `proof_bytes`/`verify_s` rise ~K. N-on-X hides this; K-on-X is where A/A++/committed-* differ. |
+| **K** | N | The parallelism/memory/verifier story — per-prover gates & `peak_mb` fall ~1/K while `proof_bytes`/`verify_s` rise ~K. N-on-X hides this; K-on-X is where plain-sort/plain-product/committed-* differ. |
 | **total gates / Y = wall-clock or memory** | N | The Pareto/frontier view (see §2). |
 | **privacy (ordinal) / Y = cost** | N | The literal "privacy ladder vs cost" plot; the equal-privacy slice becomes a vertical line. |
-| **M = N/K** (segment size) | — | Segment-size-is-the-real-knob view; supports the recursion inner-choice argument (A++ O(1) surface vs A O(M)). |
+| **M = N/K** (segment size) | — | Segment-size-is-the-real-knob view; supports the recursion inner-choice argument (plain-product O(1) surface vs plain-sort O(M)). |
 | **N** (current) | K, variant | Scaling / complexity exponents (log-log slopes). |
 
 ---
@@ -115,7 +115,7 @@ as support + a stacked-bar gate-decomposition.
 4. **Scatter as standalone script vs plot.py mode.**
 5. **Curated palette + display names**: fill `STYLE_OVERRIDES` / `DISPLAY_NAMES` once
    the final variant naming is fixed (pin the flagship families so colours never
-   clash; relabel `hier_cfs_k4` → "committed-A++ (K=4)" etc.).
+   clash; relabel `hier_cfs_k4` → "committed-product (K=4)" etc.).
 6. **Which metrics go in the body vs appendix** (8-panel grid is analysis-grade;
    thesis body likely wants 3–4 curated panels + the scatter).
 

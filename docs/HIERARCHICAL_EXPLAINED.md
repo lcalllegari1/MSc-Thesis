@@ -1,6 +1,6 @@
 # Hierarchical TSP ZKP — Variants Explained
 
-**Self-contained reference for Variants A, A++, and B.**
+**Self-contained reference for Variants plain-sort, plain-product, and B.**
 
 This document consolidates the conceptual and structural understanding of the three
 hierarchical variants developed in this thesis. It assumes familiarity with the flat
@@ -22,9 +22,9 @@ examples (N=8, K=2 for all three variants on the same cycle) to compare side by 
 5. [Commitment trust mechanisms](#5-commitment-trust-mechanisms)
 6. [Threat models](#6-threat-models)
 7. [Cryptographic building blocks: Schwartz-Zippel and Fiat-Shamir](#7-cryptographic-building-blocks-schwartz-zippel-and-fiat-shamir)
-8. [Variant A — Merkle, partition public](#8-variant-a--merkle-partition-public)
-9. [Variant A++ — Merkle, grand product + in-circuit Fiat-Shamir](#9-variant-a--merkle-grand-product--in-circuit-fiat-shamir)
-9b. [Variants committed-A / committed-A++ — closing the partition leak](#9b-variants-committed-a--committed-a--closing-the-partition-leak)
+8. [plain-sort — Merkle, partition public](#8-variant-a--merkle-partition-public)
+9. [plain-product — Merkle, grand product + in-circuit Fiat-Shamir](#9-variant-a--merkle-grand-product--in-circuit-fiat-shamir)
+9b. [Variants committed-sort / committed-product — closing the partition leak](#9b-variants-committed-a--committed-a--closing-the-partition-leak)
 10. [Variant B — flat-full, sub-matrices public](#10-variant-b--flat-full-sub-matrices-public)
 11. [The proof workflow (applies to all variants)](#11-the-proof-workflow-applies-to-all-variants)
 12. [Side-by-side comparison](#12-side-by-side-comparison)
@@ -67,8 +67,8 @@ What stays the same across all hierarchical variants:
 
 What changes between variants:
 
-- **Variant A**: simple Merkle baseline, segment partition publicly disclosed
-- **Variant A++**: same Merkle backbone, partition hidden via grand-product +
+- **plain-sort**: simple Merkle baseline, segment partition publicly disclosed
+- **plain-product**: same Merkle backbone, partition hidden via grand-product +
   in-circuit Fiat-Shamir
 - **Variant B**: flat-full sub-circuits, segment sub-matrices publicly disclosed,
   cheaper gates but more privacy disclosure
@@ -111,9 +111,9 @@ The glue, in all variants, proves the same kind of stitching fact:
 > node sets partition {0..N-1} (checked in some variant-specific way), and the total
 > cost is ≤ T."
 
-Variant A and Variant B share the **same glue circuit**: sort-based partition check
+plain-sort and Variant B share the **same glue circuit**: sort-based partition check
 on K·M = N concatenated node values, K boundary Merkle proofs, sum-threshold check.
-Variant A++ has its own glue (`hierarchical_glue_fs`) with a grand-product partition
+plain-product has its own glue (`hierarchical_glue_fs`) with a grand-product partition
 check instead of sort.
 
 ### 2.3 N divisibility discipline
@@ -142,8 +142,8 @@ own M nodes, so no per-segment check can ever rule out node 3 appearing in segme
 
 - **Segment binds.** The sub-circuit's only obligation is to *truthfully* tie its
   public summary to its actual private nodes — so the glue operates on honest data. In
-  Variant A this is `sort(cycle_segment) == sorted_nodes`
-  (`hierarchical_segment` G2); in A++ it is the grand product
+  plain-sort this is `sort(cycle_segment) == sorted_nodes`
+  (`hierarchical_segment` G2); in plain-product it is the grand product
   `∏ⱼ (X + cycle_segment[j]) == P_i` (`hierarchical_segment_fs` G6). Without this
   binding a prover could declare a clean summary while secretly proving a
   duplicate-containing internal path — so the binding is **not optional**, even though
@@ -151,16 +151,16 @@ own M nodes, so no per-segment check can ever rule out node 3 appearing in segme
 - **Glue enforces.** Exactly one global check catches every duplicate — whether
   intra-segment or cross-segment — because any repeat means some value of `{0..N-1}` is
   necessarily missing from the N node slots:
-  - Variant A / B: `sort(all_sorted_nodes) == [0..N-1]` (the sort-based partition,
+  - plain-sort / B: `sort(all_sorted_nodes) == [0..N-1]` (the sort-based partition,
     `hierarchical_glue` G2, §8.4.G2).
-  - Variant A++: `∏ᵢ Pᵢ == ∏_{j=0..N-1}(X + j)` (the grand-product multiset equality,
+  - plain-product: `∏ᵢ Pᵢ == ∏_{j=0..N-1}(X + j)` (the grand-product multiset equality,
     `hierarchical_glue_fs` G5, §9.1 / §7).
 
 **Why not also check distinctness inside the segment?** Because it is *redundant*. A
 per-segment strict-ascending / uniqueness check is necessary-but-not-sufficient (it
 cannot see cross-segment overlap), so you would *still* need the global check, and the
 global check already subsumes it. Adding it spends `K·(M−1)` comparison gates that
-catch nothing new — which is exactly why Variant A's sub-circuit deliberately **omits**
+catch nothing new — which is exactly why plain-sort's sub-circuit deliberately **omits**
 the strict-ascending check (§8.2.G2).
 
 **Which global mechanism is best.** Both global checks are correct; they sit at
@@ -168,17 +168,17 @@ different points on the privacy/cost frontier:
 
 | Mechanism | Public surface / segment | Partition privacy | Glue cost (N=480, K=4) | Soundness |
 |---|---|---|---|---|
-| Sort (A/B) | O(M) — the whole `sorted_nodes` | **disclosed** (verifier sees every node set) | ~21k gates (O(N) in-circuit sort) | unconditional |
-| Grand product (A++) | O(1) — one Field `Pᵢ` | **hidden** (partition never revealed) | ~6.9k gates (~N cheap field mults) | Schwartz–Zippel, error ≤ N/2²⁵⁴ |
+| Sort (plain-sort/B) | O(M) — the whole `sorted_nodes` | **disclosed** (verifier sees every node set) | ~21k gates (O(N) in-circuit sort) | unconditional |
+| Grand product (plain-product) | O(1) — one Field `Pᵢ` | **hidden** (partition never revealed) | ~6.9k gates (~N cheap field mults) | Schwartz–Zippel, error ≤ N/2²⁵⁴ |
 
-The **grand product (A++) is the preferred construction** whenever privacy and a small
+The **grand product (plain-product) is the preferred construction** whenever privacy and a small
 public surface matter — which is this thesis's direction — dominating the sort on
 public-input size, partition privacy, *and* glue gate count. Its only costs are the
 Fiat-Shamir plumbing (the chain terminal `c` → challenge `X = Poseidon2([c])`,
 `hierarchical_glue_fs` G1–G4) and a *probabilistic* soundness error. The sort is
 simpler and unconditional, so it remains the right **baseline / disclosed** rung.
 
-**Load-bearing caveat (A++).** The grand-product argument is sound only if `X` is
+**Load-bearing caveat (plain-product).** The grand-product argument is sound only if `X` is
 unforgeable *before* the prover commits the `Pᵢ` — otherwise the prover could grind a
 fake partition whose products happen to match at a known `X` (§7.3). That is the entire
 purpose of binding `X` to the full-cycle chain terminal `c` (§7.5, sub G7 + glue G4).
@@ -197,7 +197,7 @@ additional structure exposed to the verifier.
 |---|---|
 | flat_merkle | "∃ Hamiltonian cycle on N nodes with cost ≤ T against the matrix committed by `root`." |
 | **A** | "...that **respects the disclosed partition** (segment_0, …, segment_{K-1}) and visits each segment in cycle order start_i → … → end_i with internal cost sum partial_cost_i." |
-| **A++** | "...that **decomposes into K segments of M nodes with disclosed endpoints (start_i, end_i) and disclosed per-segment cost sums partial_cost_i**, the segments themselves bound by the disclosed Field-valued aggregates (P_i, h_in_i, h_out_i)." |
+| **plain-product** | "...that **decomposes into K segments of M nodes with disclosed endpoints (start_i, end_i) and disclosed per-segment cost sums partial_cost_i**, the segments themselves bound by the disclosed Field-valued aggregates (P_i, h_in_i, h_out_i)." |
 | **B** | "...with `root` for boundary edges and **disclosed M×M sub-matrices** for internal edges, that respects the disclosed partition and segment endpoints with disclosed per-segment cost sums." |
 
 The privacy loss in each variant is **not a bug to be minimised; it is the content of
@@ -242,14 +242,14 @@ The weakened form is **unsound**: a cheating prover could place node v in two
 segments and pass every local check. The global property is no longer enforced.
 Restoration requires one of three things:
 
-- Disclosing the partition publicly (Variant A), so the verifier can check it directly
-- A grand-product check at a random challenge X (Variant A++), costing O(K) but
+- Disclosing the partition publicly (plain-sort), so the verifier can check it directly
+- A grand-product check at a random challenge X (plain-product), costing O(K) but
   requiring the additional Fiat-Shamir machinery
 - Disclosing per-segment sub-matrices (Variant B), so the verifier knows the
   partition by inference from the cost data
 
 Whichever path is taken, the restoration cost cancels the per-segment saving:
-hierarchical Merkle (A) has the same total gate count as flat Merkle plus a small
+hierarchical Merkle (plain-sort) has the same total gate count as flat Merkle plus a small
 overhead, with the K boundary Merkle proofs and the O(N) partition check in the
 glue exactly absorbing the per-segment savings. See `supervisor_report_draft.md` §7
 Finding 6 for the gate-count algebra.
@@ -372,7 +372,7 @@ The role of the Merkle commitment differs by the prover/verifier threat model:
 - The commitment provides **privacy**: verifier cannot read matrix entries.
 - The commitment provides **integrity**: prover is bound to one matrix across all proofs against this root.
 - The external trust anchor binds the committed matrix to a real-world fact.
-- Applies to Variants A, A++, and to flat_merkle.
+- Applies to Variants plain-sort, plain-product, and to flat_merkle.
 
 **Matrix-public regime** (verifier knows the matrix independently):
 - The commitment provides **integrity only**: verifier hashes their own copy of the matrix and confirms it matches the root declared in the proof.
@@ -424,7 +424,7 @@ The prover may **not**:
 - Break Poseidon2 (preimage resistance, collision resistance).
 - Solve the discrete logarithm problem (UltraHonk's underlying security assumption).
 - Distinguish Poseidon2 outputs from uniformly random field elements in the random
-  oracle sense (relevant for A++).
+  oracle sense (relevant for plain-product).
 
 The **verifier is honest**: they follow the protocol correctly. They may be curious
 — they will learn whatever the public inputs reveal — but they do not deviate from
@@ -438,8 +438,8 @@ For all variants, UltraHonk + the circuit constraints guarantee:
   always verifies.
 - **Knowledge soundness**: a successful verification implies the prover knows a
   witness satisfying the circuit constraints, except with cryptographically
-  negligible probability. For A and B this is unconditional (modulo Merkle /
-  Plookup soundness assumptions). For A++ this includes the Fiat-Shamir /
+  negligible probability. For plain-sort and B this is unconditional (modulo Merkle /
+  Plookup soundness assumptions). For plain-product this includes the Fiat-Shamir /
   Schwartz-Zippel error of ~N / 2²⁵⁴.
 - **Zero-knowledge**: the verifier learns nothing about the private witness beyond
   what is implied by the public inputs.
@@ -465,11 +465,11 @@ Listing them explicitly avoids overclaiming:
 
 ### 6.4 Per-variant threat model nuances
 
-**Variant A** — unconditional soundness given Poseidon2 + Plookup correctness. The
+**plain-sort** — unconditional soundness given Poseidon2 + Plookup correctness. The
 cheating-prover model captures all relevant attacks. Verifier sees the partition
 by design; this is a privacy property, not a soundness property.
 
-**Variant A++** — soundness is in the **random oracle model** (Fiat-Shamir
+**plain-product** — soundness is in the **random oracle model** (Fiat-Shamir
 assumes Poseidon2 behaves as a random oracle). The soundness error is bounded by
 ~N / 2²⁵⁴ from Schwartz-Zippel at the unforgeable challenge X. Reduction to
 standard assumptions (collision resistance, preimage resistance) is the same as
@@ -486,7 +486,7 @@ for soundness, not just for the use case framing.
 The verifier's role is more involved in hierarchical proofs than in flat proofs.
 Concretely:
 
-| Step | All variants | A++ only | B only |
+| Step | All variants | plain-product only | B only |
 |---|---|---|---|
 | Run `bb verify` on each proof | K+1 calls | K+1 calls | K+1 calls |
 | Compute `expected_product` | — | O(N) field mults | — |
@@ -510,7 +510,7 @@ inputs reveal is a *design choice* mapped per variant in §§8.7, 9.11, 10.8 and
 
 ## 7. Cryptographic building blocks: Schwartz-Zippel and Fiat-Shamir
 
-Variant A++ uses two cryptographic constructions that the other variants do not:
+plain-product uses two cryptographic constructions that the other variants do not:
 the Schwartz-Zippel lemma (for multiset equality at a random evaluation point) and
 the Fiat-Shamir transform (for binding the evaluation point to a prior commitment).
 This section explains both from scratch. Readers comfortable with these can skip
@@ -550,7 +550,7 @@ Pr[ P(X) = Q(X)  |  P ≠ Q ]  ≤  d / q
 For Noir's BN254 field with q ≈ 2²⁵⁴ and our degree d = N, the soundness error is
 ~N / 2²⁵⁴ — negligible.
 
-**This is the load-bearing reduction in A++.** Instead of checking polynomial
+**This is the load-bearing reduction in plain-product.** Instead of checking polynomial
 equality (which would require N field multiplications inside the circuit to
 expand the polynomials), the verifier checks equality at a single random point X.
 If the polynomials are distinct, the check fails with overwhelming probability.
@@ -560,7 +560,7 @@ If the polynomials are distinct, the check fails with overwhelming probability.
 The Schwartz-Zippel guarantee depends on X being sampled **after** the prover
 commits to the polynomials. If X is fixed beforehand, the attack is feasible:
 
-**Concrete attack scenario** (against A++ with imaginary fixed X):
+**Concrete attack scenario** (against plain-product with imaginary fixed X):
 - The prover wants to use a fake partition (e.g., put node 3 in two segments and
   omit node 7).
 - The honest `expected_product` at, say, X = 5, N = 8 is:
@@ -578,7 +578,7 @@ commits to the polynomials. If X is fixed beforehand, the attack is feasible:
 
 ### 7.4 The Fiat-Shamir transform — interactive to non-interactive
 
-In the interactive version of an A++-style protocol:
+In the interactive version of an plain-product-style protocol:
 
 ```
 PROVER                                  VERIFIER
@@ -607,9 +607,9 @@ indistinguishable from uniformly random given any c the prover did not pre-commi
 to. The prover cannot grind X without grinding c, and c is committed to a fixed
 cycle (next subsection).
 
-### 7.5 The chain construction in A++
+### 7.5 The chain construction in plain-product
 
-The "commitment" in A++ is the cycle itself, captured via a Poseidon2 hash chain:
+The "commitment" in plain-product is the cycle itself, captured via a Poseidon2 hash chain:
 
 ```
 h_0     = 0
@@ -637,9 +637,9 @@ Poseidon2 is preimage-resistant. The verifier sees c (a 254-bit field element)
 but cannot invert it to recover the cycle. Intermediate chain values h_i are
 similarly Poseidon2 outputs — preimage-resistant.
 
-### 7.6 Putting it together — the A++ soundness picture
+### 7.6 Putting it together — the plain-product soundness picture
 
-A++'s soundness relies on the conjunction of:
+plain-product's soundness relies on the conjunction of:
 
 - **Hash chain correctness**: each sub-circuit computes h_out = chain(h_in,
   segment) honestly. Enforced by sub-circuit G5.
@@ -662,15 +662,15 @@ A cheating prover faces a circular trap:
   iff the multiset partitions {0..N-1} (with soundness error N / 2²⁵⁴).
 
 This is the same pattern used inside recursive SNARKs (outer circuit derives
-challenges from inner-proof commitments via Fiat-Shamir). A++ applies it at the
+challenges from inner-proof commitments via Fiat-Shamir). plain-product applies it at the
 application level rather than recursively, avoiding the per-recursion
 verifier-circuit overhead.
 
 ---
 
-## 8. Variant A — Merkle, partition public
+## 8. plain-sort — Merkle, partition public
 
-This section is the canonical reference for Variant A. It explains each variable
+This section is the canonical reference for plain-sort. It explains each variable
 (what it is, why it exists, and why it is public or private), each constraint
 group (what it checks and what it protects against, with concrete
 counterexamples), and walks through the protocol end-to-end on a small example.
@@ -691,21 +691,21 @@ tuple, not per `(N, K, M, DEPTH)`. The harness can reuse the same sub-circuit
 binary for all values of K that share `M = N/K`.
 
 **Public inputs.** These are what the verifier sees, and they jointly define
-what Variant A discloses.
+what plain-sort discloses.
 
 | Var | Type | Role | Why public |
 |---|---|---|---|
 | `root` | `Field` | Poseidon2 Merkle root of the N² cost matrix. G4's hash chains target it. | Binds the proof to the committed matrix (anchored externally — §5). All K+1 proofs must declare the same root; the verifier's first cross-check is this equality. |
 | `sorted_nodes` | `[u32; M]` | The segment's node set, strictly ascending. | The glue's partition check operates on the concatenation of all K segments' `sorted_nodes`. Publishing sorted (rather than cycle-order) preserves in-segment visit-order privacy at zero extra cost — the verifier learns *which* nodes are in this segment but not *in what order* they were visited. |
-| `start_node` | `u32` | The first node in cycle order, `cycle_segment[0]`. | The glue computes boundary edges as `ends[i] → starts[(i+1) % K]`. Both endpoints must be visible to the glue. Also part of A's intentional disclosure: the verifier sees the K start/end pairs. |
+| `start_node` | `u32` | The first node in cycle order, `cycle_segment[0]`. | The glue computes boundary edges as `ends[i] → starts[(i+1) % K]`. Both endpoints must be visible to the glue. Also part of plain-sort's intentional disclosure: the verifier sees the K start/end pairs. |
 | `end_node` | `u32` | The last node in cycle order, `cycle_segment[M-1]`. | Symmetric to `start_node`. |
-| `partial_cost` | `u64` | Sum of the M-1 internal edge costs in this segment. | The glue's threshold check sums `Σ partial_costs + Σ boundary_costs ≤ T`. Without the sub-circuit publishing its aggregate, the glue would have to re-verify all internal edges, defeating the decomposition. Per-segment cost is also an accountability artifact in A's natural use cases (multi-team SLA, regional ESG reporting). |
+| `partial_cost` | `u64` | Sum of the M-1 internal edge costs in this segment. | The glue's threshold check sums `Σ partial_costs + Σ boundary_costs ≤ T`. Without the sub-circuit publishing its aggregate, the glue would have to re-verify all internal edges, defeating the decomposition. Per-segment cost is also an accountability artifact in plain-sort's natural use cases (multi-team SLA, regional ESG reporting). |
 
 **Private witness.** These are what the prover holds; they are what ZK protects.
 
 | Var | Type | Role | Why private |
 |---|---|---|---|
-| `cycle_segment` | `[u32; M]` | The segment's nodes in actual visit order. | Hiding the visit order is A's privacy guarantee. If `cycle_segment` were public, A would leak `(M-2)!` extra orderings per segment — i.e., it would expose the full cycle, defeating the purpose. |
+| `cycle_segment` | `[u32; M]` | The segment's nodes in actual visit order. | Hiding the visit order is plain-sort's privacy guarantee. If `cycle_segment` were public, plain-sort would leak `(M-2)!` extra orderings per segment — i.e., it would expose the full cycle, defeating the purpose. |
 | `edge_costs` | `[u64; M-1]` | `edge_costs[i] = cost_matrix[cycle_segment[i]][cycle_segment[i+1]]` for each internal edge. | Per-edge costs reveal cost-matrix structure (commercially sensitive in logistics, competitive in routing). Only the aggregate `partial_cost` is published. The values must be in the witness so G4 can hash them up the Merkle tree. |
 | `siblings` | `[Field; (M-1)·DEPTH]` | Merkle siblings for each internal-edge proof, flat row-major. | Pure proof scaffolding — not part of the statement. Making them public would massively bloat the public-input pool without serving any verification purpose. |
 | `path_bits` | `[bool; (M-1)·DEPTH]` | LSB-first leaf-index encoding for each internal-edge proof: `leaf_idx = Σ path_bits[d]·2^d`. | The leaf index `from*N + to` directly encodes which cycle edge is being looked up — making it public would expose the cycle order. Keeping `path_bits` private + the in-circuit leaf-index reconstruction in G4 (a) binds them to the correct leaf without revealing the leaf index to the verifier and (b) blocks the proof-substitution attack (see G4 below). |
@@ -1045,9 +1045,9 @@ segment, (2!)² = **4 candidate cycles** out of (N-1)! = 5040. Bits leaked
 
 ---
 
-## 9. Variant A++ — Merkle, grand product + in-circuit Fiat-Shamir
+## 9. plain-product — Merkle, grand product + in-circuit Fiat-Shamir
 
-A++ achieves the same parallelism and per-prover memory benefits as A but **hides the
+plain-product achieves the same parallelism and per-prover memory benefits as plain-sort but **hides the
 partition**. The mechanism is a multiset-equality argument via grand product
 combined with an in-circuit Fiat-Shamir construction.
 
@@ -1139,14 +1139,14 @@ Private witness:
   path_bits:     [bool;  (M-1)*DEPTH]
 ```
 
-The change from A: `sorted_nodes[M]` is gone; in its place are five Field elements
+The change from plain-sort: `sorted_nodes[M]` is gone; in its place are five Field elements
 `(P_i, h_in_i, h_out_i, c, X)`. Public-input pool shrinks from O(M) to O(1).
 
 ### 9.6 Sub-circuit constraint groups (seven)
 
 - **G1 Range.** `cycle_segment[i] < N`.
 - **G2 Endpoints.** `start_node == cycle_segment[0]`, `end_node == cycle_segment[M-1]`.
-- **G3 Internal Merkle.** Same as A's G4.
+- **G3 Internal Merkle.** Same as plain-sort's G4.
 - **G4 Cost binding.** `sum(edge_costs) == partial_cost`.
 - **G5 Hash chain link.** Fold cycle_segment values through Poseidon2 starting from
   `h_in_i`; assert result equals `h_out_i`. M Poseidon2 calls.
@@ -1185,8 +1185,8 @@ Private witness:
 - **G3 Chain terminal.** `h_outs[K-1] == c`.
 - **G4 Challenge consistency.** `X == Poseidon2(c)`. One Poseidon2 call.
 - **G5 Grand-product partition.** `∏ P_is == expected_product`. K-1 multiplications.
-- **G6 Boundary Merkle.** Same as A's glue G3.
-- **G7 Threshold.** Same as A's glue G4.
+- **G6 Boundary Merkle.** Same as plain-sort's glue G3.
+- **G7 Threshold.** Same as plain-sort's glue G4.
 
 ### 9.9 The role of `expected_product`
 
@@ -1201,7 +1201,7 @@ There are two sound ways to enforce the RHS of the partition check
 
 - **Option B (in-circuit) — AS BUILT.** The glue computes `∏(X + j)` itself in a
   `for j in 0..N` loop (G5 RHS); there is **no** `expected_product` public input.
-  Cost is ~N cheap field multiplications in-circuit (~N gates), still far below A's
+  Cost is ~N cheap field multiplications in-circuit (~N gates), still far below plain-sort's
   O(N) sort. The verifier then does *no field arithmetic at all* — every soundness
   claim is a circuit constraint, and the verifier's cross-checks are pure
   Field-equality bookkeeping.
@@ -1240,11 +1240,11 @@ aggregates (P_i, h_in_i, h_out_i, c, X). Verifier does **not** learn directly: t
 partition; interior order within each segment; individual edge costs; boundary edge
 costs.
 
-**Important caveat — A++ hides the partition *computationally*, not
+**Important caveat — plain-product hides the partition *computationally*, not
 information-theoretically.** An earlier framing claimed the Field aggregates "leak no
 information about the witness." That is too strong. Two of the public aggregates are
-not one-way under A++'s threat model — they are *confirmation oracles* that let a
-verifier who is willing to do bounded search recover exactly the data A publishes for
+not one-way under plain-product's threat model — they are *confirmation oracles* that let a
+verifier who is willing to do bounded search recover exactly the data plain-sort publishes for
 free. The hiding is real, but it rests on the search being infeasible, i.e. on a work
 factor, not on missing information.
 
@@ -1254,7 +1254,7 @@ not a one-way hash. Because the partition constraint forces each segment to be a
 size-M subset of the public set {0..N-1}, a verifier can enumerate candidate subsets
 `S ⊆ {0..N-1}, |S| = M`, compute `∏_{v∈S}(X + v)`, and accept the unique `S` whose
 product equals `P_i`. That recovers the segment's node multiset — precisely what
-Variant A discloses as `sorted_nodes`. The cost is ≈ C(N, M) field multiplications per
+plain-sort discloses as `sorted_nodes`. The cost is ≈ C(N, M) field multiplications per
 segment (a meet-in-the-middle subset-product attack can do better, but C(N, M) is the
 naive ceiling).
 
@@ -1272,7 +1272,7 @@ Poseidon2(c)` is deterministic from it. The privacy-relevant leakage is fully ca
 by Oracles 1 and 2.
 
 **Why the anchors must be public — the price of non-recursion.** `h_in_i` / `h_out_i`
-are public *because* A++ is K+1 independent proofs bound by off-circuit verifier
+are public *because* plain-product is K+1 independent proofs bound by off-circuit verifier
 cross-checks (§2.1). The verifier can only confirm chain continuity
 (`h_ins[i+1] == h_outs[i]`) and the terminal (`h_outs[K-1] == c`) by comparing values
 that appear in *separate* proofs, which requires them to be public inputs. A recursive
@@ -1280,7 +1280,7 @@ construction — where an outer circuit verifies the K inner proofs and stitches
 chain in-circuit — would keep the anchors private and restore information-theoretic
 hiding of the ordering. So this leak is a direct, measurable cost of avoiding recursion
 (the architecture choice in §2.1), and belongs on the frontier story rather than being
-a flaw: A++ buys parallelism + low per-prover memory + non-recursive simplicity, and
+a flaw: plain-product buys parallelism + low per-prover memory + non-recursive simplicity, and
 pays for it in computational (not unconditional) partition hiding.
 
 **Net effect.** For the thesis benchmark sizes the work factors are astronomically
@@ -1291,11 +1291,11 @@ unique recovered cycle in milliseconds. Read §9.13's candidate count as the *wo
 factor to break hiding*, not as residual information-theoretic uncertainty. See §14.2
 for the quantitative restatement.
 
-### 9.12 Cost overhead vs A
+### 9.12 Cost overhead vs plain-sort
 
 - Per sub-circuit: M extra Poseidon2 calls (G5) + M extra field multiplications (G6)
   + 1 extra Poseidon2 call (G7). For N=500, K=4 (M=125, DEPTH=18): ~5.5% more gates
-  than A's sub-circuit.
+  than plain-sort's sub-circuit.
 - Glue: O(N) sort replaced by K-1 multiplications + 1 Poseidon2. Net savings in glue.
 - Public input pool: O(M) shrinks to O(1) per sub-circuit; O(N) shrinks to O(K) in
   glue. Net savings.
@@ -1304,7 +1304,7 @@ Total: ~5.5% overhead at N=500. Privacy gain: ~N · log(K) → ~2K · log(N) bit
 
 ### 9.13 Worked example: N = 8, K = 2, M = 4, DEPTH = 6
 
-Same cycle as A's example. Off-circuit, the prover computes:
+Same cycle as plain-sort's example. Off-circuit, the prover computes:
 
 - Hash chain: h_0 = 0; h_1 = Poseidon2(0, 0); ...; h_8 = Poseidon2(h_7, 6) = c
 - Chain anchors: h_in_0 = 0, h_out_0 = h_4; h_in_1 = h_4, h_out_1 = h_8 = c
@@ -1321,23 +1321,23 @@ recomputes expected_product and checks it matches the glue's value).
 **Verifier candidate count:** verifier knows endpoints (0→...→2, 7→...→6) but not
 which nodes are in which segment. Interior nodes {1,3,4,5} split into two pairs: 6
 ways; each pair has 2! orderings: 4 orderings. Total **24 candidate cycles** out of
-5040 — much closer to flat_merkle's privacy than A's 4 candidates.
+5040 — much closer to flat_merkle's privacy than plain-sort's 4 candidates.
 
 **Caveat (see §9.11, §14.2):** these 24 are a *work factor*, not residual
 information-theoretic uncertainty. At this toy size the public `P_i` (factor over
 C(8,4)=70 subsets) and chain anchors (brute-force 2!=2 orderings) let the verifier
-confirm the unique real cycle essentially instantly. A++'s partition hiding is
+confirm the unique real cycle essentially instantly. plain-product's partition hiding is
 computational and only meaningful at large N; do not read "24 candidates" as
 unconditional ambiguity.
 
 ---
 
-## 9b. Variants committed-A / committed-A++ — closing the partition leak
+## 9b. Variants committed-sort / committed-product — closing the partition leak
 
-Variants A and A++ are the **diagnosis**: A discloses the partition outright; A++
+Variants plain-sort and plain-product are the **diagnosis**: plain-sort discloses the partition outright; plain-product
 hides the node multisets but only behind *confirmation oracles* (§9.11) — `P_i`
 factors over C(N,M) subset-products and the public chain anchors brute-force over
-(M-2)! orderings. The committed variants are the **cure**: they keep A's and A++'s
+(M-2)! orderings. The committed variants are the **cure**: they keep plain-sort's and plain-product's
 mechanisms (sort / grand-product) and their parallelism, but move every
 per-segment value behind a single **blinded Poseidon2 commitment**, so a bounded
 verifier can no longer confirm a guessed partition. This is the "commitment fix"
@@ -1357,7 +1357,7 @@ glue takes the values **and their openings `r_i`** as private witness, recompute
 each `C_i` and asserts it equals the public `C_is[i]` (constraint **G0**), then
 runs all partition / boundary / threshold logic on the now-trusted witnessed
 values. The verifier's cross-check collapses to comparing opaque field elements:
-the shared `root` (and `X` for committed-A++), plus `glue.C_is[i] == sub_i.C_i`.
+the shared `root` (and `X` for committed-product), plus `glue.C_is[i] == sub_i.C_i`.
 Because the commitments are blinded, this bookkeeping is automatically
 zero-knowledge.
 
@@ -1367,14 +1367,14 @@ introduced. Hiding rests on Poseidon2 as a random oracle (a guessed value-tuple
 cannot be confirmed without `r_i`); binding rests on its collision resistance (a
 commitment opens to essentially one tuple).
 
-### 9b.2 committed-A++ (the cure for A++)
+### 9b.2 committed-product (the cure for plain-product)
 
 `circuits/hierarchical_segment_cfs` + `hierarchical_glue_cfs`. The sub folds the
-A++ aggregates `[P_i, h_in_i, h_out_i, start, end, partial_cost]` into `C_i`;
+plain-product aggregates `[P_i, h_in_i, h_out_i, start, end, partial_cost]` into `C_i`;
 `h_in_i` and `r` become private witness. **Public surface: `{root, X, C_i}`**
 (sub) / **`{root, threshold, X, C_is}`** (glue). Two consequences:
 
-- **The sub's G7 (`X == Poseidon2(c)`) is dropped.** committed-A++ has no public
+- **The sub's G7 (`X == Poseidon2(c)`) is dropped.** committed-product has no public
   `c`; the X↔c binding lives only in the glue (G4), and the chain↔nodes binding is
   re-established by the sub's chain-link (G5) plus the commitment equality. `X`
   itself stays public: it is a one-way hash of the now-private `c`, leaks nothing,
@@ -1382,16 +1382,16 @@ A++ aggregates `[P_i, h_in_i, h_out_i, start, end, partial_cost]` into `C_i`;
 - **The distributed structure is preserved.** Each sub still computes its `P_i`
   (O(M)); the glue still multiplies K products against the in-circuit RHS
   `∏(X+j)`. The commitment adds only K aggregate-folds (6 hashes each, O(K) total)
-  to the glue — so committed-A++ keeps A++'s O(K)-flavoured glue advantage.
+  to the glue — so committed-product keeps plain-product's O(K)-flavoured glue advantage.
 
 Both §9.11 oracles close: `P_i` and the anchors are inside `C_i` (private), so the
 multiset is no longer factorable and the interior order is pure witness
-(information-theoretically hidden, as in A).
+(information-theoretically hidden, as in plain-sort).
 
-### 9b.3 committed-A (the cure for A)
+### 9b.3 committed-sort (the cure for plain-sort)
 
 `circuits/hierarchical_segment_c` + `hierarchical_glue_c`. The sub folds
-`[cycle_segment…, partial_cost]` into `C_i`; the per-segment sort (plain A's G2) is
+`[cycle_segment…, partial_cost]` into `C_i`; the per-segment sort (plain plain-sort's G2) is
 **dropped** — the glue owns the partition. **Public surface: `{root, C_i}`** (sub)
 / **`{root, threshold, C_is}`** (glue); no Fiat-Shamir, no `X`. The glue witnesses
 all K segments' nodes (flat `[u32; N]`), recomputes each `C_i` (G0), runs the same
@@ -1411,7 +1411,7 @@ places committed-* exactly **one assumption below** flat and recursion, which ma
 the partition *structurally absent* from the public surface (§F10). The payoff:
 committed-* reach near-flat privacy **without recursion's ≈704k×K aggregation
 tax**, keeping the per-segment parallelism and low per-prover memory. The only
-binding-tax symptom they retain is the O(K) verifier (K+1 proofs, K commitments) —
+stitching-tax symptom they retain is the O(K) verifier (K+1 proofs, K commitments) —
 the symptom that only recursion (in-circuit) or folding (deferred) removes.
 
 The optional unconditional upgrade is **Pedersen** commitments (unconditional
@@ -1419,30 +1419,30 @@ content hiding, at the cost of in-circuit curve operations and only *computation
 binding); it is left as an analytical point — Poseidon matches the stack and gives
 computational hiding cheaply.
 
-### 9b.5 The equal-privacy finding (committed-A ≡ committed-A++ in privacy)
+### 9b.5 The equal-privacy finding (committed-sort ≡ committed-product in privacy)
 
 Under full equalization the two committed variants reach the **same privacy
 class** — multiset computational, interior order information-theoretic, reveal K.
 They differ only in **glue cost and mechanism**:
 
-- committed-A: O(N) sort **plus** an O(N) commitment fold (the glue re-folds all N
+- committed-sort: O(N) sort **plus** an O(N) commitment fold (the glue re-folds all N
   nodes), so its glue carries the heavier O(N) work;
-- committed-A++: distributed grand-product (each sub folds its own O(M) into `P_i`)
+- committed-product: distributed grand-product (each sub folds its own O(M) into `P_i`)
   with only an O(K) aggregate commitment fold in the glue.
 
-This is the equal-privacy restatement of the F7 result ("A is not dominated by
-A++"): once privacy is held constant, the A-vs-A++ contrast is purely a
-glue-cost / critical-path comparison — A++'s aggregate commitment is the more
-glue-efficient design, while committed-A is simpler (deterministic, no
+This is the equal-privacy restatement of the F7 result ("plain-sort is not dominated by
+plain-product"): once privacy is held constant, the plain-sort-vs-plain-product contrast is purely a
+glue-cost / critical-path comparison — plain-product's aggregate commitment is the more
+glue-efficient design, while committed-sort is simpler (deterministic, no
 Schwartz–Zippel error term).
 
 ### 9b.6 Cost
 
-The commitment adds, per sub, `m` (committed-A) or `6` (committed-A++) extra
+The commitment adds, per sub, `m` (committed-sort) or `6` (committed-product) extra
 Poseidon2 calls, and, in the glue, the K commitment recomputes. At the toy size
 N=8, K=2 (where the Merkle tree is tiny) the measured circuit-size overhead versus
-the uncommitted variant is modest — committed-A++ ≈ +7% sub / +22% glue over A++,
-committed-A within a comparable band over A. Because the overhead is a fixed
+the uncommitted variant is modest — committed-product ≈ +7% sub / +22% glue over plain-product,
+committed-sort within a comparable band over plain-sort. Because the overhead is a fixed
 Poseidon2 count while the dominant cost (internal-edge Merkle proofs) grows with
 DEPTH, the *relative* overhead shrinks at thesis sizes (N≤480). The full
 `results/hier_c.csv` / `results/hier_cfs.csv` sweeps (run with
@@ -1451,8 +1451,8 @@ frontier.
 
 ### 9b.7 Soundness
 
-Inherited from A / A++: internal/boundary Merkle bind costs to `root`; the sort
-(committed-A) / grand-product at the unforgeable in-circuit `X` (committed-A++)
+Inherited from plain-sort / plain-product: internal/boundary Merkle bind costs to `root`; the sort
+(committed-sort) / grand-product at the unforgeable in-circuit `X` (committed-product)
 enforces the exact partition; the threshold check bounds total cost. **New:** the
 commitment binding (sub **G8**, glue **G0**) ties the hidden per-segment values to
 the public `C_i` — a prover cannot present one set of values to the sub and a
@@ -1463,7 +1463,7 @@ glue-G0 tamper tests, plus a verifier cross-check that rejects mixed proof sets)
 
 ### 9b.8 Implementation pointers
 
-| | committed-A | committed-A++ |
+| | committed-sort | committed-product |
 |---|---|---|
 | sub / glue circuits | `hierarchical_segment_c` / `hierarchical_glue_c` | `hierarchical_segment_cfs` / `hierarchical_glue_cfs` |
 | builder mode | `merkle_builder --hierarchical-c K` | `merkle_builder --hierarchical-cfs K` |
@@ -1478,13 +1478,13 @@ glue-G0 tamper tests, plus a verifier cross-check that rejects mixed proof sets)
 
 ## 10. Variant B — flat-full, sub-matrices public
 
-B replaces A's Merkle proofs for internal edges with cheap ROM lookups into a
+B replaces plain-sort's Merkle proofs for internal edges with cheap ROM lookups into a
 segment-local sub-matrix that is exposed as a public input. The boundary edges still
 use the global Merkle root (unchanged glue).
 
 ### 10.1 The design move
 
-In A, each internal edge costs DEPTH × ~87 ≈ 1500 gates (Merkle proof). In B, each
+In plain-sort, each internal edge costs DEPTH × ~87 ≈ 1500 gates (Merkle proof). In B, each
 internal edge costs ~1 gate (ROM lookup), but the M × M sub-matrix is paid for in
 public-input encoding (M² × ~7.25 gates per sub-circuit).
 
@@ -1525,14 +1525,14 @@ glue's private inputs for boundary edges).
 ### 10.4 Sub-circuit constraint groups (six)
 
 - **G1 Range.** `cycle_segment[i] < N`.
-- **G2 Permutation.** `sort(cycle_segment) == sorted_nodes`. Same as A.
-- **G3 Endpoints.** Same as A.
+- **G2 Permutation.** `sort(cycle_segment) == sorted_nodes`. Same as plain-sort.
+- **G3 Endpoints.** Same as plain-sort.
 - **G4 cycle_pos binding.** For each i: `sorted_nodes[cycle_pos[i]] == cycle_segment[i]`.
 - **G5 Edge lookup.** For each i in 0..M-2: `edge_cost[i] = sub_matrix[cycle_pos[i] *
   M + cycle_pos[i+1]]`; accumulate.
 - **G6 Cost binding.** `sum(edge_cost) == partial_cost`.
 
-### 10.5 Glue — exactly Variant A's glue
+### 10.5 Glue — exactly plain-sort's glue
 
 Unchanged. Sort-based partition check, K boundary Merkle proofs against root,
 sum-threshold check. The glue does not know or care whether sub-circuits used Merkle
@@ -1540,7 +1540,7 @@ or sub_matrix.
 
 ### 10.6 Verifier checks specific to B
 
-Beyond the cross-checks shared with A, the B verifier additionally:
+Beyond the cross-checks shared with plain-sort, the B verifier additionally:
 
 1. **Hashes their own copy of the public matrix** into a Poseidon2 Merkle root
    `R_v`.
@@ -1572,18 +1572,18 @@ sub-matrices**.
 
 In the **matrix-public regime** (B's intended use): the sub-matrices are
 informationally redundant — the verifier already knows the matrix. Marginal
-disclosure vs A is zero.
+disclosure vs plain-sort is zero.
 
 In the matrix-private regime: B is unusable (it would expose proprietary cost data).
-A and A++ are the variants for that regime.
+plain-sort and plain-product are the variants for that regime.
 
 ### 10.9 Cost comparison at N = 500
 
 | Variant | Approx total gates | Notes |
 |---|---|---|
 | flat_merkle | ~783k | Baseline |
-| Variant A | ~795k | +1.5% over flat_merkle |
-| Variant A++ | ~840k | +5.5% over A |
+| plain-sort | ~795k | +1.5% over flat_merkle |
+| plain-product | ~840k | +5.5% over plain-sort |
 | Variant B (K=4) | ~460k | -41% vs flat_merkle |
 | Variant B (K=3) | ~605k | -23% |
 | Variant B (K=2) | ~906k | +16% (loses to flat_merkle at K=2) |
@@ -1610,7 +1610,7 @@ cycle_pos=[3,1,0,2], sub_matrix = 4×4 slice on rows × cols {1,4,6,7}, partial_
 
 Edge lookups: 11 + 9 + 14 = 34 ✓.
 
-**Glue:** identical to A's glue at N=8, K=2 (boundary Merkle proofs at leaves 23
+**Glue:** identical to plain-sort's glue at N=8, K=2 (boundary Merkle proofs at leaves 23
 and 48 with costs 15 and 13, partition sort, threshold check).
 
 **B-specific verifier steps:**
@@ -1625,7 +1625,7 @@ If all checks pass: accept.
 
 ## 11. The proof workflow (applies to all variants)
 
-The five-phase workflow below applies to A, A++, and B with variant-specific
+The five-phase workflow below applies to plain-sort, plain-product, and B with variant-specific
 differences noted inline.
 
 ### Phase 1 — Off-circuit setup (Prover, sequential, native code)
@@ -1635,7 +1635,7 @@ differences noted inline.
 3. **Build per-segment data:**
    - All variants: `sorted_nodes_i`, `start_node_i`, `end_node_i`, `partial_cost_i`.
    - A: Merkle proofs for M-1 internal edges per segment, against the global root.
-   - A++: additionally compute the hash chain `h_0=0, h_{j+1}=Poseidon2(h_j,
+   - plain-product: additionally compute the hash chain `h_0=0, h_{j+1}=Poseidon2(h_j,
      cycle[j])`, extract `c = h_N`, `X = Poseidon2(c)`, per-segment `P_i = ∏(X +
      cycle_segment[j])`, `expected_product = ∏(X+j)` for j=0..N-1.
    - B: extract per-segment sub_matrix (M × M slice of global matrix); compute
@@ -1660,7 +1660,7 @@ differences noted inline.
 ### Phase 5 — Verification (Verifier)
 
 9. **Run `bb verify`** on each of the K+1 proofs.
-10. **A++ only:** Independently compute `expected_product_v = ∏(X + j)` for j=0..N-1
+10. **plain-product only:** Independently compute `expected_product_v = ∏(X + j)` for j=0..N-1
     from the publicly visible X.
 11. **B only:** Hash the publicly-known cost matrix to get R_v; check all proofs
     declare `root == R_v`; for each sub-proof verify sub_matrix matches the matrix
@@ -1669,9 +1669,9 @@ differences noted inline.
     - Same root across all K+1 proofs.
     - **A**: glue's `all_sorted_nodes` is the concatenation of sub-proofs'
       `sorted_nodes`.
-    - **A++**: same c and X across all proofs; `glue.h_ins[i+1] == sub_proof_i.h_out`;
+    - **plain-product**: same c and X across all proofs; `glue.h_ins[i+1] == sub_proof_i.h_out`;
       `glue.expected_product == expected_product_v`.
-    - **B**: same as A (B and A share the glue).
+    - **B**: same as plain-sort (B and plain-sort share the glue).
     - All variants: starts, ends, partial_costs match between glue and sub-proofs.
 13. **Accept** iff all checks pass.
 
@@ -1679,7 +1679,7 @@ differences noted inline.
 
 ## 12. Side-by-side comparison
 
-| Aspect | flat_merkle | A | A++ | B |
+| Aspect | flat_merkle | plain-sort | plain-product | B |
 |---|---|---|---|---|
 | Single proof or K+1? | Single | K+1 | K+1 | K+1 |
 | Cost matrix exposure | None (root only) | None | None | M × M sub-matrices public |
@@ -1687,20 +1687,20 @@ differences noted inline.
 | Endpoints exposure | N/A | K pairs | K pairs | K pairs |
 | Per-segment cost sums | N/A | K | K | K |
 | Total gates @ N=500 | ~783k | ~795k (+1.5%) | ~840k (+7%) | ~460k @ K=4 (-41%) |
-| Total proving time @ N=500 | ~10 min | ~10 min × 1/K parallel | ~+5.5% over A | ~half of A |
-| Per-prover memory @ N=500 | Full ~32 GB | ~32 GB / K per process | Same as A | Lower than A (no Merkle witnesses) |
+| Total proving time @ N=500 | ~10 min | ~10 min × 1/K parallel | ~+5.5% over plain-sort | ~half of plain-sort |
+| Per-prover memory @ N=500 | Full ~32 GB | ~32 GB / K per process | Same as plain-sort | Lower than plain-sort (no Merkle witnesses) |
 | Verifier work | O(1) | O(K) cross-checks | O(N) for expected_product + O(K) cross-checks | O(N²/K) sub_matrix check |
 | Soundness type | Unconditional | Unconditional | Fiat-Shamir + Schwartz-Zippel (~2⁻²⁵⁴) | Unconditional given matrix-public assumption |
-| Glue circuit | N/A | Sort + K Merkle + threshold | Grand product + chain stitching + K Merkle + threshold | Same as A |
+| Glue circuit | N/A | Sort + K Merkle + threshold | Grand product + chain stitching + K Merkle + threshold | Same as plain-sort |
 
 Candidate cycles consistent with the verifier's view at N=8, K=2:
 
 | Variant | Candidate cycles | Bits of cycle entropy leaked |
 |---|---|---|
 | flat_merkle | 5040 ((N-1)!) | 0 |
-| A | 4 | ~10.3 bits |
-| A++ | 24 | ~7.7 bits |
-| B (matrix public) | 24 to 4 depending on cost-matrix structure | similar to A |
+| plain-sort | 4 | ~10.3 bits |
+| plain-product | 24 | ~7.7 bits |
+| B (matrix public) | 24 to 4 depending on cost-matrix structure | similar to plain-sort |
 
 ---
 
@@ -1712,15 +1712,15 @@ Each variant has a natural class of real-world applications:
 |---|---|---|
 | **flat_merkle** | Generic baseline; logistics SLA audit (matrix private, verifier sees only root); ESG reporting where only cycle privacy matters | Maximum privacy; only existence statement needed; single-machine prover sufficient. |
 | **A** | Multi-team / multi-region accountability where the partition is operational (delivery zones, team assignments); cross-organisation cost sharing; regulated zoning | Partition disclosure is operationally required; per-segment partial_costs are accountability artifacts; parallelism maps to operational units. |
-| **A++** | Same scenarios as A but the specific partition is competitively sensitive (delivery route grouping reveals customer-cluster structure); maximum-privacy hierarchical option | Recovers most of flat_merkle's privacy while keeping A's parallelism and per-prover memory benefits. Costs ~5.5% extra sub-circuit gates. |
-| **B** | Smart-city fleet routing on public road networks; verification against TSPLIB benchmark instances; matrix non-sensitive and total prover cost is binding | Matrix is public anyway; sub_matrix exposure costs nothing in privacy; ~K-fold gate savings vs A. |
-| (folding — future) | Same as A++ but verifier-side overhead is the binding constraint | UltraHonk baseline established here is what folding designs would need to beat. |
+| **plain-product** | Same scenarios as plain-sort but the specific partition is competitively sensitive (delivery route grouping reveals customer-cluster structure); maximum-privacy hierarchical option | Recovers most of flat_merkle's privacy while keeping plain-sort's parallelism and per-prover memory benefits. Costs ~5.5% extra sub-circuit gates. |
+| **B** | Smart-city fleet routing on public road networks; verification against TSPLIB benchmark instances; matrix non-sensitive and total prover cost is binding | Matrix is public anyway; sub_matrix exposure costs nothing in privacy; ~K-fold gate savings vs plain-sort. |
+| (folding — future) | Same as plain-product but verifier-side overhead is the binding constraint | UltraHonk baseline established here is what folding designs would need to beat. |
 
 ---
 
 ## 14. Privacy analysis — quantitative bounds
 
-### 14.1 Variant A
+### 14.1 plain-sort
 
 At general (N, K, M=N/K), the verifier knows the exact partition and endpoints, so
 each segment's interior is some permutation of M-2 nodes (start and end fixed). Total
@@ -1740,7 +1740,7 @@ At N=8, K=2: 4 candidates, 10.3 bits leaked.
 At N=480, K=4: ~10⁸⁰⁰ candidates remaining (still unenumerable), ~800 bits leaked
 out of ~4032 total — ~20% of cycle entropy lost.
 
-### 14.2 Variant A++
+### 14.2 plain-product
 
 Verifier knows endpoints only; partition is hidden. For each way of partitioning the
 N-K endpoint-free nodes into K interior sets of size M-2, the cycle has
@@ -1754,12 +1754,12 @@ N-K endpoint-free nodes into K interior sets of size M-2, the cycle has
 segments).
 
 At N=8, K=2: 6 partitions × 4 orderings = 24 candidates.
-At N=480, K=4: much higher candidate count than A, close to but smaller than (N-1)!.
+At N=480, K=4: much higher candidate count than plain-sort, close to but smaller than (N-1)!.
 
 **This candidate count is a work factor, not residual information-theoretic
-uncertainty.** Unlike Variant A — where the verifier *cannot* tell which of the
+uncertainty.** Unlike plain-sort — where the verifier *cannot* tell which of the
 `(M-2)!^K` interior orderings is real even with unbounded compute, because nothing
-public distinguishes them — A++ publishes confirmation oracles (§9.11) that let a
+public distinguishes them — plain-product publishes confirmation oracles (§9.11) that let a
 verifier *check* a guessed cycle and find the unique true one. Concretely the
 break cost is:
 
@@ -1768,22 +1768,22 @@ work_to_recover_partition  ≈  Σ_i C(N, M)        (Oracle 1: factor each P_i)
 work_to_recover_ordering   ≈  Σ_i (M-2)!         (Oracle 2: chain-anchor brute force)
 ```
 
-So A++'s *information-theoretic* leakage to an unbounded verifier is the full cycle
+So plain-product's *information-theoretic* leakage to an unbounded verifier is the full cycle
 (the public transcript determines it uniquely); its *computational* leakage to a
 bounded verifier is ~0 as long as `C(N,M)` and `(M-2)!` are infeasible.
 
-| (N, K) | M | C(N, M) | (M-2)! | A++ hiding |
+| (N, K) | M | C(N, M) | (M-2)! | plain-product hiding |
 |---|---|---|---|---|
 | 8, 2   | 4   | 70           | 2          | none (toy: breaks in ms) |
 | 48, 4  | 12  | ~1.7·10⁹     | ~3.6·10⁶   | weak–moderate |
 | 480, 2 | 240 | ~2⁴⁷⁵        | (238)!     | infeasible to break |
 | 480, 4 | 120 | ~2³⁵⁰        | (118)!     | infeasible to break |
 
-The contrast with A is the honest framing for the thesis: **A leaks the partition
-unconditionally but cheaply to state; A++ leaks it to no bounded verifier but to an
+The contrast with plain-sort is the honest framing for the thesis: **A leaks the partition
+unconditionally but cheaply to state; plain-product leaks it to no bounded verifier but to an
 unbounded one. The dividing line is compute, and the public chain anchors + P_i are
 what put the line there** — itself a consequence of the non-recursive K+1-proof
-architecture (§9.11, §2.1). A recursive variant would move A++'s hiding from
+architecture (§9.11, §2.1). A recursive variant would move plain-product's hiding from
 computational back to information-theoretic for the interior order.
 
 ### 14.3 Variant B in the matrix-public regime
@@ -1791,15 +1791,15 @@ computational back to information-theoretic for the interior order.
 When the matrix is public, the verifier can compute the cost of every candidate
 cycle and filter against the published `partial_costs`. For a generic matrix, the
 filter is sharp enough to uniquely identify the partition. In the worst case, B's
-candidate count collapses to A's (4 candidates at N=8, K=2).
+candidate count collapses to plain-sort's (4 candidates at N=8, K=2).
 
-So B's effective privacy *under its intended threat model* is similar to A's. The
+So B's effective privacy *under its intended threat model* is similar to plain-sort's. The
 sub_matrix disclosure is the cost in privacy bits when measured against
 flat_merkle, not against A.
 
-### 14.4 Variants committed-A / committed-A++
+### 14.4 Variants committed-sort / committed-product
 
-The committed variants remove the *confirmation oracles* that made A++'s leakage a
+The committed variants remove the *confirmation oracles* that made plain-product's leakage a
 mere work factor (§14.2). With the per-segment values folded into a blinded
 commitment, a verifier can no longer *check* a guessed cycle against the public
 transcript: there is no `P_i` to factor and no anchor to brute-force, and the
@@ -1809,15 +1809,15 @@ becomes genuine residual ambiguity again — bounded only by the commitment sche
 
 | | recovers multiset? | recovers interior order? |
 |---|---|---|
-| A | published (`sorted_nodes`) | hidden info-theoretically, `(M-2)!^K` |
-| A++ | **confirmable**, work ≈ Σ C(N,M) | **confirmable**, work ≈ Σ (M-2)! |
-| **committed-A / committed-A++** | hidden; needs breaking Poseidon2 hiding | hidden info-theoretically, `(M-2)!^K` |
+| plain-sort | published (`sorted_nodes`) | hidden info-theoretically, `(M-2)!^K` |
+| plain-product | **confirmable**, work ≈ Σ C(N,M) | **confirmable**, work ≈ Σ (M-2)! |
+| **committed-sort / committed-product** | hidden; needs breaking Poseidon2 hiding | hidden info-theoretically, `(M-2)!^K` |
 | recursion / flat | absent from public surface | absent from public surface |
 
-committed-A and committed-A++ sit at the **same** rung: multiset hidden
+committed-sort and committed-product sit at the **same** rung: multiset hidden
 *computationally* (Poseidon2), interior order hidden *information-theoretically*,
 with the segment count K revealed by the K published commitments. The information
-that A++ leaked to an unbounded verifier (the full cycle, via the transcript) is,
+that plain-product leaked to an unbounded verifier (the full cycle, via the transcript) is,
 for the committed variants, leaked only to an adversary who breaks the commitment
 — i.e. nothing is determined by the public transcript alone beyond K and the
 aggregate threshold.
@@ -1827,17 +1827,17 @@ aggregate threshold.
 Reading the family as one progression makes the privacy axis monotone:
 
 ```
-B  →  A  →  A++  →  committed-A / committed-A++  →  recursion / folding / flat
+B  →  plain-sort  →  plain-product  →  committed-sort / committed-product  →  recursion / folding / flat
 disclose   disclose   confirmation-       computational hiding,      partition
 sub-matrix  partition   oracle leak         reveals K (Poseidon)      structurally
 + partition (multiset)  (work factor)                                 absent
 ```
 
 Two distinct hiding *mechanisms* span the ladder: **"don't put it there"**
-(A discloses; recursion/flat make it structurally absent — assumption-free) versus
-**"commit to hide it"** (committed-* — one cryptographic assumption). A++ is the
+(plain-sort discloses; recursion/flat make it structurally absent — assumption-free) versus
+**"commit to hide it"** (committed-* — one cryptographic assumption). plain-product is the
 honest in-between: it *looks* hidden but is only a search away. The committed
-variants are the smallest change that turns A++'s "search away" into "one
+variants are the smallest change that turns plain-product's "search away" into "one
 assumption away", and recursion is what turns "one assumption away" into
 "assumption-free" — at the ≈704k×K cost quantified in
 `project_recursion_experiment` / the recursion micro-benchmarks.
@@ -1857,24 +1857,24 @@ the three variants get implemented. They are settled choices, not open questions
 - **K starts at 2 hardcoded for correctness, then parameterised.** First end-to-end
   run uses K=2 with a hardcoded compile-time global; immediately after, K becomes
   a compile-time parameter that the harness can patch.
-- **Glue shared between A and B.** Both use the same sort-based partition check
-  and K boundary Merkle proofs. A++ has its own glue with the grand-product check.
-- **Sub-circuits publish sorted node sets** (A and B) **or Field-valued aggregates**
-  (A++), not the cycle-order segment. In all three this preserves in-segment
+- **Glue shared between plain-sort and B.** Both use the same sort-based partition check
+  and K boundary Merkle proofs. plain-product has its own glue with the grand-product check.
+- **Sub-circuits publish sorted node sets** (plain-sort and B) **or Field-valued aggregates**
+  (plain-product), not the cycle-order segment. In all three this preserves in-segment
   visit-order privacy at zero extra cost.
 
 ### 15.2 Implementation order vs presentation order
 
-The implementation order chosen for this thesis is **A → B → A++**:
+The implementation order chosen for this thesis is **plain-sort → B → plain-product**:
 
-- A first: simplest, establishes the K+1-proof harness, the Merkle-builder
+- plain-sort first: simplest, establishes the K+1-proof harness, the Merkle-builder
   extensions, the cross-check verifier.
-- B second: reuses A's glue verbatim; only the sub-circuit body changes
+- B second: reuses plain-sort's glue verbatim; only the sub-circuit body changes
   (Merkle → ROM lookup). The cheaper second variant.
-- A++ third: most conceptual machinery (hash chain, Fiat-Shamir, grand product);
-  builds on A's sub-circuit by adding G5-G7 and removing G2.
+- plain-product third: most conceptual machinery (hash chain, Fiat-Shamir, grand product);
+  builds on plain-sort's sub-circuit by adding G5-G7 and removing G2.
 
-The presentation order in this document is **A → A++ → B**, which is the
+The presentation order in this document is **plain-sort → plain-product → B**, which is the
 conceptual progression (simple baseline → privacy refinement → gate optimisation).
 Easier to explain the dualism through the variants in conceptual order, even
 though they get built in implementation order.
@@ -1924,7 +1924,7 @@ For hierarchical proofs the builder is extended:
 - Extract K boundary-edge Merkle proofs for the glue.
 - Emit K+1 Prover.toml files (one per sub-circuit + one for glue).
 
-Variant A++ additionally needs the hash-chain values (h_0, h_1, ..., h_N), the
+plain-product additionally needs the hash-chain values (h_0, h_1, ..., h_N), the
 challenge X, the per-segment grand products P_i, and the expected_product. These
 are computed by extending the Rust builder with native Poseidon2 calls + field
 arithmetic.
@@ -1956,12 +1956,12 @@ The verifier:
 2. Runs `bb verify` on each proof.
 3. Runs the variant-specific post-processing:
    - A: no extra computation; just cross-checks.
-   - A++: compute `expected_product_v = ∏(X+j)` natively; cross-checks.
+   - plain-product: compute `expected_product_v = ∏(X+j)` natively; cross-checks.
    - B: hash own matrix copy to get R_v; check all roots match R_v; check each
      sub_matrix matches the expected matrix slice; cross-checks.
 
 Verifier work is dominated by the K+1 `bb verify` calls (~milliseconds each) plus
-O(N) (A, A++) or O(N²/K) (B) native post-processing. Total verifier time is
+O(N) (plain-sort, plain-product) or O(N²/K) (B) native post-processing. Total verifier time is
 roughly 10× faster than flat_full verification at the same N (which has O(N²)
 public-input processing).
 
@@ -1969,11 +1969,11 @@ public-input processing).
 
 From the supervisor report's planning section:
 
-- Variant A: ~1 work-week (sub-circuit, glue, pipeline, tests, gate-count
+- plain-sort: ~1 work-week (sub-circuit, glue, pipeline, tests, gate-count
   sanity check at small N).
-- Variant B: ~3 work-days (sub-circuit body differs from A; glue + pipeline
+- Variant B: ~3 work-days (sub-circuit body differs from plain-sort; glue + pipeline
   reused).
-- Variant A++: ~1 work-week (sub-circuit additions for chain + grand product +
+- plain-product: ~1 work-week (sub-circuit additions for chain + grand product +
   challenge; new glue with grand-product check; pipeline extensions for chain
   precomputation; negative-test design for Fiat-Shamir).
 - Combined benchmarks + frontier figure: ~1 work-week.
@@ -1994,15 +1994,15 @@ root with no trust anchor lets the prover pick whatever matrix makes their proof
 trivial. Standard anchors: authority signature, trusted oracle, cross-attestation,
 public timestamping, decommitment-on-dispute. See supervisor report §2.2.
 
-**A++'s soundness rests on Fiat-Shamir + Schwartz-Zippel + Poseidon2 collision
-resistance.** Distinct from A and B which have unconditional soundness. The
+**plain-product's soundness rests on Fiat-Shamir + Schwartz-Zippel + Poseidon2 collision
+resistance.** Distinct from plain-sort and B which have unconditional soundness. The
 soundness error is ~N · 2⁻²⁵⁴ — negligible but technically non-zero.
 
 **Naive fixed-X grand product is unsound.** If the prover knew X before committing
 to segments, they could craft fake partitions with matching products. The in-circuit
 Fiat-Shamir construction (chain + Poseidon2) is essential, not optional.
 
-**Variant A++ has a sequential prelude** for hash chain precomputation: N native
+**plain-product has a sequential prelude** for hash chain precomputation: N native
 Poseidon2 calls, ~100 µs at N=500. Doesn't affect parallel proving wall-clock
 meaningfully.
 
@@ -2010,7 +2010,7 @@ meaningfully.
 exactly {0..N-1}), then ends[i] and starts[(i+1)%K] are in different segments,
 hence different nodes. No explicit assertion needed.
 
-**Sub-circuit publishes sorted node sets, not the cycle-order segment.** In A and B
+**Sub-circuit publishes sorted node sets, not the cycle-order segment.** In plain-sort and B
 this preserves in-segment visit-order privacy at zero extra cost (the sort-based
 permutation check produces a sorted array as a byproduct).
 
@@ -2024,7 +2024,7 @@ for the use case framing.
 480}. Mixing arbitrary N with arbitrary K requires non-uniform segment sizes —
 deferred work.
 
-**Hierarchical does not save total gates** (A, A++ vs flat_merkle). The wins are
+**Hierarchical does not save total gates** (plain-sort, plain-product vs flat_merkle). The wins are
 parallel wall-clock and per-prover memory. B is the exception, saving total gates
 by trading matrix privacy.
 
@@ -2050,18 +2050,18 @@ Quick reference for symbols and terms used throughout this document.
 | **cycle** | The Hamiltonian cycle; a permutation of {0..N-1} representing visit order (private witness) |
 | **segment** | A consecutive subsequence of M cycle positions; one of K decomposition pieces |
 | **cycle_segment** | The segment in cycle order; private witness of each sub-circuit |
-| **sorted_nodes** | The segment's node set in ascending order; public output of A and B sub-circuits |
+| **sorted_nodes** | The segment's node set in ascending order; public output of plain-sort and B sub-circuits |
 | **start_node, end_node** | First and last nodes of a segment in cycle order; public outputs |
 | **partial_cost** | Sum of M-1 internal edge costs for a segment; public output |
 | **boundary_cost** | Cost of an edge connecting one segment to the next; private witness of the glue |
 | **sub-circuit** | One of the K Noir circuits that proves a segment is a Hamiltonian path |
 | **glue** | The single Noir circuit that stitches the K sub-proofs into a Hamiltonian cycle |
-| **all_sorted_nodes** | Concatenation of K sub-proofs' sorted_nodes (public input of A's and B's glue) |
-| **P_i** | *(A++ only)* Grand product ∏(X + cycle_segment[j]) for segment i; public output |
-| **c** | *(A++ only)* Poseidon2 chain commitment to the full cycle in cycle order |
-| **X** | *(A++ only)* Fiat-Shamir challenge, X = Poseidon2(c) |
-| **h_in_i, h_out_i** | *(A++ only)* Chain values at the start and end of segment i |
-| **expected_product** | *(A++ only)* ∏(X + j) for j = 0..N-1; supplied by prover, checked by verifier |
+| **all_sorted_nodes** | Concatenation of K sub-proofs' sorted_nodes (public input of plain-sort's and B's glue) |
+| **P_i** | *(plain-product only)* Grand product ∏(X + cycle_segment[j]) for segment i; public output |
+| **c** | *(plain-product only)* Poseidon2 chain commitment to the full cycle in cycle order |
+| **X** | *(plain-product only)* Fiat-Shamir challenge, X = Poseidon2(c) |
+| **h_in_i, h_out_i** | *(plain-product only)* Chain values at the start and end of segment i |
+| **expected_product** | *(plain-product only)* ∏(X + j) for j = 0..N-1; supplied by prover, checked by verifier |
 | **sub_matrix** | *(B only)* M × M sub-matrix of the cost matrix on the segment's nodes; public input |
 | **cycle_pos** | *(B only)* Private witness mapping cycle-order positions to sorted-order positions |
 | **Hamiltonian cycle** | A cycle visiting every node exactly once and returning to start |
@@ -2075,7 +2075,7 @@ Quick reference for symbols and terms used throughout this document.
 | **Random oracle model** | Idealisation in which hash function outputs are treated as uniformly random |
 | **Honest-verifier ZK** | Verifier learns nothing beyond what public inputs imply, given honest verifier |
 | **Knowledge soundness** | Successful proof implies prover knows a valid witness, except w/ negligible probability |
-| **Soundness error** | Probability that a cheating prover succeeds; ~N/2²⁵⁴ for A++; negligible/unconditional for A, B |
+| **Soundness error** | Probability that a cheating prover succeeds; ~N/2²⁵⁴ for plain-product; negligible/unconditional for plain-sort, B |
 | **Cross-check** | Verifier-side check that K+1 proofs agree on shared public-input fields |
 | **UltraHonk** | The Barretenberg-backend SNARK system used in this thesis |
 | **ACIR** | Abstract Circuit Intermediate Representation; Noir's pre-backend IR |
@@ -2094,8 +2094,8 @@ Quick reference for symbols and terms used throughout this document.
 - `Thesis_Outline.md` — outline of the final thesis document with chapter structure
   and drafting order.
 - Circuit source code (when implemented):
-  - `circuits/hierarchical_segment/` — Variant A sub-circuit
-  - `circuits/hierarchical_glue/` — Variant A and B glue (shared)
-  - `circuits/hierarchical_segment_fs/` — Variant A++ sub-circuit
-  - `circuits/hierarchical_glue_fs/` — Variant A++ glue
+  - `circuits/hierarchical_segment/` — plain-sort sub-circuit
+  - `circuits/hierarchical_glue/` — plain-sort and B glue (shared)
+  - `circuits/hierarchical_segment_fs/` — plain-product sub-circuit
+  - `circuits/hierarchical_glue_fs/` — plain-product glue
   - `circuits/hierarchical_segment_full/` — Variant B sub-circuit

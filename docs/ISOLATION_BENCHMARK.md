@@ -77,8 +77,8 @@ should be labelled as such (compute-only, single core-count class).
 4. **Same instance per cell** (seed fixed) so flat/sub/glue describe the same N-node
    problem.
 5. **Sweep the cells you need** — the claim is methodological, so a few cells
-   (e.g. N ∈ {192, 480}, K ∈ {2, 4, 8}) on one or two variants (A++ and/or
-   committed-A++) suffice to validate it; you need not isolate every variant.
+   (e.g. N ∈ {192, 480}, K ∈ {2, 4, 8}) on one or two variants (plain-product and/or
+   committed-product) suffice to validate it; you need not isolate every variant.
 
 ---
 

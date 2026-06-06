@@ -7,7 +7,7 @@ don't have to be re-derived. Numbers are from this machine's sweeps
 shape, not exact constants.
 
 See also: `HIER_MEASUREMENT_AND_PLOTS.md` (measurement semantics + plot taxonomy),
-`Recursive_inner_circuit_choice_explained.md` (why the A++ inner), `HOWTO.md`
+`Recursive_inner_circuit_choice_explained.md` (why the plain-product inner), `HOWTO.md`
 (commands for every script named here).
 
 ---
@@ -40,8 +40,8 @@ the outer can even solve its witness. Three phases (the driver
 2. **Serialize** those fields into the outer `Prover.toml`.
 3. **Prove the outer** — `nargo execute` + `bb prove` → the one delivered proof.
 
-Inner = the **A++ segment** (`hierarchical_segment_fs`). Chosen for (a) a
-ceteris-paribus comparison with the A++ row, and (b) its **O(1) public surface**
+Inner = the **plain-product segment** (`hierarchical_segment_fs`). Chosen for (a) a
+ceteris-paribus comparison with the plain-product row, and (b) its **O(1) public surface**
 (9 fields regardless of M) which keeps the outer ~segment-size-independent. *Not*
 for privacy (recursion hides the partition either way). See
 `Recursive_inner_circuit_choice_explained.md`.
@@ -167,7 +167,7 @@ Show parallel-vs-total in the recursion-alone section (the small shaded gap,
 | C4 | total CPU work | flat + aggregate (total) | line vs N | recursion does more total work |
 | C5 | verifier | flat + outer | bar / table | **tie** (both O(1)) |
 | C6 | aggregation tax vs K | outer | bar/line vs **K** | outer ≈ K×704k; aggregator RAM ~K× |
-| C7 | frontier synthesis | flat, recursion@K, [A++] | cost-vs-cost scatter | two perfect-hiding corners (**not built yet**) |
+| C7 | frontier synthesis | flat, recursion@K, [plain-product] | cost-vs-cost scatter | two perfect-hiding corners (**not built yet**) |
 
 **Curated series per metric matters** — each panel shows a *different* set (memory
 wants seg+outer+flat; verify wants outer+flat; gates wants aggregate+flat). This
@@ -194,40 +194,40 @@ memory-crossover and frontier figures.
 
 ## 8. Bringing in the hierarchical family (the full frontier)
 
-The intermediate variants (A, A++, committed-A/A++) turn the flat↔recursion line
+The intermediate variants (plain-sort, plain-product, committed-sort/plain-product) turn the flat↔recursion line
 into a frontier. The corners:
 
 | Variant | Decomposition | Privacy (public surface) | Verifier | Prover / parallelism |
 |---|---|---|---|---|
 | **flat** | none (monolith) | perfect — `(root, threshold)` | **O(1)** | monolithic: no parallel, memory ↑ N |
 | **A** | K segments + glue | **partition PUBLIC** | O(K) | parallel, per-node ≈ flat/K |
-| **A++** | + in-circuit FS + grand-product | partition hidden, extra public fields (P_i,c,X,endpoints) | O(K) | parallel, per-node ≈ flat/K |
-| **committed-A/A++** | + blinded commitments | **equalized → perfect-ish** | O(K) | parallel, per-node ≈ flat/K (+commit) |
-| **recursion** | K A++ segments verified **in-circuit** + glue | perfect — `(root, threshold)` | **O(1)** | K leaves parallel **+ serial outer (huge)** |
+| **plain-product** | + in-circuit FS + grand-product | partition hidden, extra public fields (P_i,c,X,endpoints) | O(K) | parallel, per-node ≈ flat/K |
+| **committed-sort/plain-product** | + blinded commitments | **equalized → perfect-ish** | O(K) | parallel, per-node ≈ flat/K (+commit) |
+| **recursion** | K plain-product segments verified **in-circuit** + glue | perfect — `(root, threshold)` | **O(1)** | K leaves parallel **+ serial outer (huge)** |
 
-**The organizing insight — the dualism.** A++ and recursion are the *same*
+**The organizing insight — the dualism.** plain-product and recursion are the *same*
 decomposition; the O(K) binding work just lives in a different place: **external**
-(A++ → the *verifier* pays, cross-checks) vs **in-circuit** (recursion → the
-*prover* pays, the outer). flat sidesteps decomposition entirely. The binding tax
+(plain-product → the *verifier* pays, cross-checks) vs **in-circuit** (recursion → the
+*prover* pays, the outer). flat sidesteps decomposition entirely. The stitching tax
 is **conserved, relocated** — verifier-side ↔ prover-side.
 
 **Two slices — compare along one at a time (the family varies on two axes):**
-- **Equal-privacy slice** (hold privacy, compare cost): **flat / committed-A++ /
+- **Equal-privacy slice** (hold privacy, compare cost): **flat / committed-product /
   recursion** — all perfect hiding. Isolates cost⇄verifier⇄memory, no confound.
-- **Privacy ladder** (vary privacy): **A → A++ → committed-* → flat/recursion** —
+- **Privacy ladder** (vary privacy): **plain-sort → plain-product → committed-* → flat/recursion** —
   the price of progressively hiding the partition.
 
 **Comparison taxonomy:**
 
 | Group | Metric | Mode | Plot | Expectation (grounded) |
 |---|---|---|---|---|
-| Verifier (binding tax) | `verify_s` | hier: Σ K+1 + cross-checks | line vs N / bar vs K | flat = recursion **O(1)** ≪ hier **O(K)** (hier_fs K2 ≈0.09 s vs ≈0.013 s) |
+| Verifier (stitching tax) | `verify_s` | hier: Σ K+1 + cross-checks | line vs N / bar vs K | flat = recursion **O(1)** ≪ hier **O(K)** (hier_fs K2 ≈0.09 s vs ≈0.013 s) |
 | | `proof_bytes` | — | bar @ fixed N | flat = recursion = 14656 ≪ hier ≈ (K+1)×14656 |
 | Prover: parallel | `prove_s` | **isolated, parallel (max)** | line vs N | **hier wins** (real ≈K× speedup) < flat < **recursion ≈ outer (no speedup)** |
 | Prover: total | `prove_s` | total (sum) | line vs N | hier ≈ flat (conserved) ≪ recursion (≫) |
 | Prover: memory | `peak_mb` | per-node (isolated) | line vs N | **hier lowest** (≈flat/K) < recursion (outer ceiling, const, ↑K); flat ↑N unbounded |
 | Total work | `circuit_size` | structural | stacked bar | flat ≈ hier total (+glue tax) ≪ recursion (+K×704k) |
-| Privacy | public-surface size | — | **ladder / categorical** | A (leaks) → A++ (hidden) → committed (equalized) → flat/recursion (minimal) |
+| Privacy | public-surface size | — | **ladder / categorical** | plain-sort (leaks) → plain-product (hidden) → committed (equalized) → flat/recursion (minimal) |
 | Synthesis | cost-vs-cost | fixed N | **Pareto scatter** | the triangle (see below) |
 
 **Modes per family (the crucial difference):**
@@ -430,7 +430,7 @@ the Poseidon2 Merkle tree over the **N² cost matrix** → the public `root` + t
 per-edge membership proofs (`siblings`/`path_bits`) written into each `Prover.toml`.
 Rust (not Python) because the hashes must be **bit-identical** to Noir's in-circuit
 Poseidon2 (same `acir`/bn254 crates; cross-checked by `tests/hash_compat`). Called
-by the `run_*.py` harnesses (`--hierarchical-fs K` for A++/recursion, etc.). It
+by the `run_*.py` harnesses (`--hierarchical-fs K` for plain-product/recursion, etc.). It
 builds `2·next_pow2(N²)` field elements → ~70–90 MB at N=1000, **~1.3 GB and a
 minute-or-two at N=4000** (16.7M sequential Poseidon2 perms).
 
@@ -489,8 +489,8 @@ aggregated (`recursive_par.csv` with `--split-components`) → `plot.py`,
   scatter is a different chart type, **not built yet**).
 - **Flat time comparison uses total/sequential** (matched single-machine),
   motivated by the Amdahl gap; framed as **"no speed win — memory is the win."**
-- **A++ inner:** motivate its existence theoretically (A's O(M) public surface →
-  A++), but back the recursion-specific O(M)-absorption claim with a **minimal
+- **plain-product inner:** motivate its existence theoretically (plain-sort's O(M) public surface →
+  plain-product), but back the recursion-specific O(M)-absorption claim with a **minimal
   confirmatory `compare_inner.py --skip-prove` run** (gate-count delta, a few N at
   K=2) — because the rationale is empirical and a cheap run could confirm *or*
   undercut it. Don't assert it blind.
@@ -511,7 +511,7 @@ aggregated (`recursive_par.csv` with `--split-components`) → `plot.py`,
 - **C7 frontier scatter** — **DONE**: `plot_frontier_scatter.py` (cost-vs-cost
   Pareto, point per variant/K at fixed N; `--pareto` draws the front). **Finding:**
   the frontier *shifts with N* — at small N flat dominates and **recursion is
-  dominated** (same O(1) verifier as flat at far higher memory); A++ holds the
+  dominated** (same O(1) verifier as flat at far higher memory); plain-product holds the
   memory-cheap / O(K)-verifier corner. Recursion enters the front only at large N
   (flat's memory climbs past the outer ceiling) or when perfect hiding is required.
   Plot at the largest N your data covers. Needs `hier_*` data at a matching N for
@@ -522,7 +522,7 @@ aggregated (`recursive_par.csv` with `--split-components`) → `plot.py`,
   machine — OOM ~N≈6000–8000 on 16–32 GB — while recursion with co-scaled K still
   completes. The qualitative "flat can't, recursion can" wall, stronger than the
   quantitative memory crossover.)
-- **`compare_inner.py` confirmatory run** for the A++-vs-A inner gate delta.
+- **`compare_inner.py` confirmatory run** for the plain-product-vs-plain-sort inner gate delta.
 - **`merkle_builder` memory/time estimate at N=4000** (16M leaves) before a run.
 - Optional helper: given target N + RAM budget, print recommended co-scaled K and
   predicted segment/outer peak.

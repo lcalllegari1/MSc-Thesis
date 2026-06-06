@@ -132,7 +132,7 @@ data/instances/n{N}_seed{S}/
 Why this exists: the Merkle tree over the N² cost matrix is O(N²) Poseidon2
 hashes and dominates `merkle_builder` at large N. The instance, cycle and tree
 are pure functions of `(N, seed)`, so **one instance per N is built once and
-reused by every variant (flat / A / A++ / committed / recursion), every K, and
+reused by every variant (flat / plain-sort / plain-product / committed / recursion), every K, and
 every run.** The Rust builder gets the tree path via `--tree-cache <path>` and
 loads it on a hit instead of rebuilding (look for `tree cache HIT` on stderr).
 
@@ -642,13 +642,13 @@ The hierarchical variants emit **K+1 rows per (N, K) cell** (one per circuit:
 CSV schema and downstream tooling.
 
 ```bash
-# Variant A (sorted-nodes public)     -> results/hier_a.csv   (variant col "hier_a")
+# plain-sort (sorted-nodes public)     -> results/hier_a.csv   (variant col "hier_a")
 python pipeline/run_hier.py     --ns 48 96 192 480 --ks 2 4 8 --runs 3 --out results/hier_a.csv
-# Variant A++ (grand product + FS)    -> results/hier_fs.csv  (variant col "hier_fs")
+# plain-product (grand product + FS)    -> results/hier_fs.csv  (variant col "hier_fs")
 python pipeline/run_hier_fs.py  --ns 48 96 192 480 --ks 2 4 8 --runs 3 --out results/hier_fs.csv
-# Variant committed-A (blinded C_i, sort partition)        -> results/hier_c.csv
+# Variant committed-sort (blinded C_i, sort partition)        -> results/hier_c.csv
 python pipeline/run_hier_c.py   --ns 48 96 192 480 --ks 2 4 8 --runs 3 --out results/hier_c.csv
-# Variant committed-A++ (blinded C_i, grand-product)       -> results/hier_cfs.csv
+# Variant committed-product (blinded C_i, grand-product)       -> results/hier_cfs.csv
 python pipeline/run_hier_cfs.py --ns 48 96 192 480 --ks 2 4 8 --runs 3 --out results/hier_cfs.csv
 ```
 
@@ -677,7 +677,7 @@ python pipeline/aggregate_hier.py --in results/hier_cfs.csv \
 - `--split-components` *additionally* emits two rows per cell beside the combined one:
   `{variant}_k{K}_seg` (the K segments only — `max`/`sum` per `--mode`, no glue) and
   `{variant}_k{K}_glue` (the glue proof alone; the external cross-check time rides with
-  glue, as the verifier-side binding tax). They sum back to the combined row, so it is a
+  glue, as the verifier-side stitching tax). They sum back to the combined row, so it is a
   faithful decomposition. `plot.py` needs no change — each is its own `variant`/line; draw
   them with e.g. `--variants 'hier_fs_k4_seg' 'hier_fs_k4_glue'`. Use it for the write-up's
   "segments vs binding glue" reasoning (see `HIER_MEASUREMENT_AND_PLOTS.md` §E).
@@ -691,7 +691,7 @@ hierarchical CSVs with `--aggregate` and already-plot-ready CSVs (the flat basel
 forwarded.
 
 ```bash
-# Equal-privacy frontier: flat + committed-A/A++ + recursion, parallel wall-clock.
+# Equal-privacy frontier: flat + committed-sort/plain-product + recursion, parallel wall-clock.
 python pipeline/make_frontier.py \
   --aggregate results/hier_c.csv results/hier_cfs.csv \
   --include   results/500.csv results/recursion_full_tot.csv \
@@ -751,7 +751,7 @@ PY=/home/callexyz/anaconda3/envs/zk-tsp/bin/python
 |---|---|---|
 | N-sweep | `48 96 192 480` | all divisible by lcm(2,4,8)=8; feeds scaling/exponent plots |
 | anchor N | **480** | the fixed-N decomposition & frontier figures live here |
-| K set | `2 4 8` | where A / A++ / committed-* diverge at fixed N |
+| K set | `2 4 8` | where plain-sort / plain-product / committed-* diverge at fixed N |
 | flat comparator | `flat_merkle_sort` at the **same** N | sort matches the hier permutation check; same N ⇒ no ±4% fudge |
 | runs | 3 (flat/hier), 1–2 (recursion, heavy) | mean±std bands |
 | deployment | concurrent **and** `--isolated` (hier); solo (recursion) | two *different claims*, not two estimates (see the isolation section) |
@@ -761,7 +761,7 @@ The hier harnesses take **lists** (`--ns … --ks …`); `run_recursion.py` take
 
 ### Phase 0 — structural pass (gate counts; deterministic, no repeats)
 
-Settles the dualism / binding-tax-in-gates story where numbers are exact. Cheap
+Settles the dualism / stitching-tax-in-gates story where numbers are exact. Cheap
 (`--runs 1`, and `--skip-prove` for recursion's heavy outer).
 
 ```bash
@@ -779,9 +779,9 @@ done; done
 per-prover shrink; stacked gate decomposition (E1/J5).  **`flat_merkle_grand_product`**
 is the grand-product flat baseline — a plain `run.py` flat circuit (same Prover.toml
 as `flat_merkle_sort`, no builder/harness change).  Together with `flat_merkle_sort`,
-recursion-A and recursion-A++ it completes the **{flat,recursive}×{sort,grand-product}**
+recursion-plain-sort and recursion-plain-product it completes the **{flat,recursive}×{sort,grand-product}**
 2×2: the `flat_sort↔flat_gp` delta is the permutation-mechanism gadget cost (no
-privacy delta — both expose only `{root,T}`), and `flat_gp↔recursion-A++` is the
+privacy delta — both expose only `{root,T}`), and `flat_gp↔recursion-plain-product` is the
 matched-mechanism aggregation cost (the cleanest flat↔recursion comparison; see
 `NARRATIVE_FRAMING.md` §7-8).
 
@@ -852,7 +852,7 @@ What each view legitimately states (carry these labels into figures):
 | isolated + `parallel` (max) | distributed wall-clock, one node/segment | ideal-K diagonal; **compute-only upper bound** |
 | isolated + `total` (sum) | total CPU work | dualism (work conserved, not reduced) |
 | `peak_mb` (max) | per-node footprint (~1/K) | flat — *valid even from concurrent* |
-| `verify_s` / `proof_bytes` | O(K) binding tax (hier) vs O(1) (recursion/flat) | what the wins are paid with |
+| `verify_s` / `proof_bytes` | O(K) stitching tax (hier) vs O(1) (recursion/flat) | what the wins are paid with |
 
 ### Notes
 
@@ -860,7 +860,7 @@ What each view legitimately states (carry these labels into figures):
   passing; recursion needs `verify_recursion.py` accepting (one verify + 14656-byte ZK guard).
 - **Equal-privacy spine** (the minimum viable frontier if time-boxed): `flat_merkle_sort`,
   `hier_fs` (concurrent+isolated), `recursion` (K=2,4) at N=480 — enough for the
-  three-corner Pareto (J2) and verifier-cost-vs-K (J1). committed-* and A are the next layer.
+  three-corner Pareto (J2) and verifier-cost-vs-K (J1). committed-* and plain-sort are the next layer.
 - **Order matters:** present concurrent ("no free lunch on one box") *before* isolated
   (the K× upper bound) so the headline reads as conditional, not oversold.
 
@@ -897,21 +897,21 @@ python tests/correctness/test_flat_merkle_presence.py
 # incl. real-Merkle non-permutations that isolate the grand product from GROUP 3
 python tests/correctness/test_flat_merkle_grand_product.py
 
-# Run all soundness tests for Variant A (hierarchical, sub + glue)
+# Run all soundness tests for plain-sort (hierarchical, sub + glue)
 # (patches circuit globals + recompiles per test; merkle_builder built on first run)
 python tests/correctness/test_hierarchical_a.py
 
-# Variant A++ (grand product + in-circuit Fiat-Shamir)
+# plain-product (grand product + in-circuit Fiat-Shamir)
 python tests/correctness/test_hierarchical_fs.py
 
-# Variant committed-A   (blinded commitment, sort partition)
+# Variant committed-sort   (blinded commitment, sort partition)
 python tests/correctness/test_hierarchical_c.py
 
-# Variant committed-A++ (blinded commitment, grand-product partition)
+# Variant committed-product (blinded commitment, grand-product partition)
 python tests/correctness/test_hierarchical_cfs.py
 ```
 
-The committed-variant suites add two checks beyond A/A++: the **sub-side commitment
+The committed-variant suites add two checks beyond plain-sort/plain-product: the **sub-side commitment
 binding** (G8 — tampering the public `C_i` is rejected) and the **glue-side
 commitment binding** (G0 — tampering a now-hidden witnessed value while keeping
 `C_is` is rejected), plus a verifier cross-check that rejects mixed proof sets.
@@ -1060,9 +1060,9 @@ python pipeline/run.py \
 
 ---
 
-## Variant A workflow — `circuits/hierarchical_segment` + `circuits/hierarchical_glue`
+## plain-sort workflow — `circuits/hierarchical_segment` + `circuits/hierarchical_glue`
 
-Variant A is the first hierarchical design (Merkle commitment, partition
+plain-sort is the first hierarchical design (Merkle commitment, partition
 public).  Instead of one circuit covering the whole N-node cycle, it splits
 into:
 
@@ -1412,16 +1412,16 @@ sub-circuit proofs was kept from an older run.
 
 ---
 
-## Variant A++ workflow — `circuits/hierarchical_segment_fs` + `circuits/hierarchical_glue_fs`
+## plain-product workflow — `circuits/hierarchical_segment_fs` + `circuits/hierarchical_glue_fs`
 
-Variant A++ is the partition-**hidden** hierarchical design (Merkle commitment,
+plain-product is the partition-**hidden** hierarchical design (Merkle commitment,
 grand-product multiset equality, in-circuit Fiat-Shamir).  It is a near-exact
-mirror of Variant A; the only architectural change is *how the partition is
+mirror of plain-sort; the only architectural change is *how the partition is
 enforced*:
 
-- A's sub-circuit publishes `sorted_nodes[M]` and the glue sorts the
+- plain-sort's sub-circuit publishes `sorted_nodes[M]` and the glue sorts the
   concatenation against `[0..N-1]` (the partition is public).
-- A++'s sub-circuit publishes a single Field grand product `P_i = ∏(X+node)`
+- plain-product's sub-circuit publishes a single Field grand product `P_i = ∏(X+node)`
   and folds its segment into a Poseidon2 hash chain (`h_in_i → h_out_i`); the
   glue checks `∏ P_i == ∏_{j}(X+j)` at a Fiat-Shamir challenge
   `X = Poseidon2([c],1)` derived in-circuit from the full-cycle chain terminal
@@ -1433,7 +1433,7 @@ all proofs share the same `root`, `c`, and `X`, and that the glue's per-segment
 arrays match each sub-proof's scalars.  See `HIERARCHICAL_EXPLAINED.md` §9 for
 the theory and `HIER_FS_IMPL.md` for the implementation plan that was followed.
 
-> **Privacy note.** A++ hides the partition *computationally*, not
+> **Privacy note.** plain-product hides the partition *computationally*, not
 > information-theoretically: the public `P_i` is a multiset-confirmation oracle
 > (~C(N,M) work) and the public chain anchors `h_in/h_out` are an ordering
 > oracle (~(M-2)! work).  This is strong at the benchmark sizes and the price of
@@ -1447,7 +1447,7 @@ the theory and `HIER_FS_IMPL.md` for the implementation plan that was followed.
 cargo build --release --manifest-path pipeline/merkle_builder/Cargo.toml
 ```
 
-A++'s load-bearing hash is the single-input Fiat-Shamir challenge
+plain-product's load-bearing hash is the single-input Fiat-Shamir challenge
 `Poseidon2::hash([c], 1)`.  It is cross-validated (Rust ↔ Noir) by the hash-compat
 test, which also emits the N=8 reference table (`HIER_FS_IMPL.md` §11):
 
@@ -1467,9 +1467,9 @@ N=8, K=2 reference size.
 
 ### Single end-to-end run on the reference instance (N=8, K=2)
 
-Same documented cycle as A (`0 → 5 → 3 → 2 → 7 → 4 → 1 → 6 → 0`, cost 92,
+Same documented cycle as plain-sort (`0 → 5 → 3 → 2 → 7 → 4 → 1 → 6 → 0`, cost 92,
 threshold 100).  Only the builder flag (`--hierarchical-fs`), circuit names, and
-verifier (`verify_hier_fs.py`) differ from A's walkthrough.
+verifier (`verify_hier_fs.py`) differ from plain-sort's walkthrough.
 
 ```bash
 # 1. Patch + compile both circuits, write VKs (circuits already default to N=8, K=2).
@@ -1529,7 +1529,7 @@ python pipeline/verify_hier_fs.py \
 ```
 
 Expected output ends with `ACCEPTED`.  The sub public-inputs dump has exactly 9
-field elements (constant in M — one of A++'s wins) and the glue has 6K+4.
+field elements (constant in M — one of plain-product's wins) and the glue has 6K+4.
 
 ### Soundness tests
 
@@ -1542,20 +1542,20 @@ Covers eight cases (baseline + seven perturbations):
 1. **VALID** — reference instance N=8 K=2 passes end to end.
 2. **INVALID — cost binding** (inherited): sub G4 catches `sum(edge_costs) != partial_cost`.
 3. **INVALID — boundary Merkle** (inherited): glue G6 catches a tampered boundary cost.
-4. **INVALID — cross-check `c`** (A++-unique): mix sub-proofs from cycle A with the
+4. **INVALID — cross-check `c`** (plain-product-unique): mix sub-proofs from cycle A with the
    glue from cycle B (same matrix).  Each `bb verify` accepts; `verify_hier_fs.py`
-   rejects because `sub_i.c != glue.c` (the A++ analogue of A's "same root").
-5. **INVALID — bad `P_i`** (A++-unique): tamper a sub's grand product; sub G6 rejects.
-6. **INVALID — broken chain** (A++-unique): tamper `glue.h_ins[1]`; glue G2 rejects.
-7. **INVALID — partition overlap** (A++-unique): node 3 in both segments.  Each sub
+   rejects because `sub_i.c != glue.c` (the plain-product analogue of plain-sort's "same root").
+5. **INVALID — bad `P_i`** (plain-product-unique): tamper a sub's grand product; sub G6 rejects.
+6. **INVALID — broken chain** (plain-product-unique): tamper `glue.h_ins[1]`; glue G2 rejects.
+7. **INVALID — partition overlap** (plain-product-unique): node 3 in both segments.  Each sub
    is locally valid, but glue G5's grand-product check fails via Schwartz-Zippel at
    the unforgeable chain-derived X.  *This is the headline demonstration that the
-   grand product replaces A's sort.*
+   grand product replaces plain-sort's sort.*
 8. **VALID — N=48 K=4** sanity (witness only).
 
 ### Benchmark sweep — `pipeline/run_hier_fs.py`
 
-Identical interface to `run_hier.py`; same grid recommended for direct A vs A++
+Identical interface to `run_hier.py`; same grid recommended for direct plain-sort vs plain-product
 comparison:
 
 ```bash
@@ -1567,31 +1567,31 @@ python pipeline/run_hier_fs.py \
 ```
 
 It patches/compiles the `_fs` circuits, uses `/tmp/hier_fs_shadows` (distinct from
-A's shadow dir, so both sweeps can run concurrently), builds K+1 Prover.tomls via
+plain-sort's shadow dir, so both sweeps can run concurrently), builds K+1 Prover.tomls via
 `merkle_builder --hierarchical-fs`, proves K+1-way in parallel, and runs
 `verify_hier_fs.py` per cell.  CSV schema and columns are identical to
 `run_hier.py`'s (variant column = `hier_fs`).
 
-### Aggregating + plotting (A and A++ together)
+### Aggregating + plotting (plain-sort and plain-product together)
 
 `pipeline/aggregate_hier.py` is **variant-aware**: it reads the `variant` column
-from the raw CSV, so the *same* command serves both A and A++ — `hier_a.csv`
+from the raw CSV, so the *same* command serves both plain-sort and plain-product — `hier_a.csv`
 yields `hier_a_k{K}` rows and `hier_fs.csv` yields `hier_fs_k{K}` rows.  No flag
-needed.  Aggregation rules (per cell) are unchanged from the A section above
+needed.  Aggregation rules (per cell) are unchanged from the plain-sort section above
 (`circuit_size = K*sub + glue`, `prove_s/witness_s = max` for `--mode parallel`
 or `sum` for `--mode total`, `peak_mb = max`, etc.).
 
 ```bash
-# Aggregate A++ (parallel wall-clock projection and total CPU work).
+# Aggregate plain-product (parallel wall-clock projection and total CPU work).
 python pipeline/aggregate_hier.py --in results/hier_fs.csv --out results/hier_fs_par.csv --mode parallel
 python pipeline/aggregate_hier.py --in results/hier_fs.csv --out results/hier_fs_tot.csv --mode total
 
-# (Do the same for A if not already done.)
+# (Do the same for plain-sort if not already done.)
 python pipeline/aggregate_hier.py --in results/hier_a.csv  --out results/hier_a_par.csv  --mode parallel
 python pipeline/aggregate_hier.py --in results/hier_a.csv  --out results/hier_a_tot.csv  --mode total
 ```
 
-**The frontier figure** — flat baseline, A, and A++ on the same axes (the
+**The frontier figure** — flat baseline, plain-sort, and plain-product on the same axes (the
 thesis's headline comparison).  `plot.py` accepts any number of CSVs and draws
 one line per `variant`:
 
@@ -1601,17 +1601,17 @@ python pipeline/plot.py \
   --out plots/flat_vs_hier_a_vs_hier_fs
 ```
 
-Reading the panels (A++ specifics):
+Reading the panels (plain-product specifics):
 
-- **circuit_size** — A++'s sub is ~+6% over A's (chain G5 + challenge G7); the
-  glue drops sharply at large N (A's O(N) sort is gone, replaced by ~N cheap
-  field mults).  Watch the `peak_mb` glue line: A++'s glue should fall well below
-  A's ~159 MB floor at N=480 — the headline empirical claim to confirm.
-- **proof_bytes** — same as A (K+1 separate proofs; ~14.6 KB × (K+1)).
+- **circuit_size** — plain-product's sub is ~+6% over plain-sort's (chain G5 + challenge G7); the
+  glue drops sharply at large N (plain-sort's O(N) sort is gone, replaced by ~N cheap
+  field mults).  Watch the `peak_mb` glue line: plain-product's glue should fall well below
+  plain-sort's ~159 MB floor at N=480 — the headline empirical claim to confirm.
+- **proof_bytes** — same as plain-sort (K+1 separate proofs; ~14.6 KB × (K+1)).
 - **prove_s** under `--mode parallel` is CPU-contended single-machine wall-clock,
-  same caveat as A: the per-prover speedup requires isolated hardware.
+  same caveat as plain-sort: the per-prover speedup requires isolated hardware.
 
-### Common issues (A++-specific)
+### Common issues (plain-product-specific)
 
 **`verify_hier_fs.py` reports "c mismatch" or "X mismatch"**
 The K+1 proofs come from different *cycles* (not just different matrices).  All
@@ -1625,7 +1625,7 @@ instance, a bug otherwise.
 
 **Glue `nargo execute` fails with "X != Poseidon2(c)"**
 Rust/Noir Poseidon2 drift on the single-input shape.  Re-run
-`bash tests/hash_compat/run_test.sh`; it must pass before any A++ proof is valid.
+`bash tests/hash_compat/run_test.sh`; it must pass before any plain-product proof is valid.
 
 ---
 
@@ -1643,16 +1643,16 @@ folding (ClientIVC / Protogalaxy) is the proposed resolution (future work).
 | Mode | Outer circuit | What it proves |
 |---|---|---|
 | **1 — single segment** *(diagnostic, off-frontier)* | `tests/recursion_micro/exp1_single_segment` | Recursively verifies **one** `hierarchical_segment_fs` proof. Isolates the per-segment recursion overhead. Diagnostic only — not a complete TSP statement; keep its `recursion_1seg` row off the frontier figures. |
-| **2 — K segments** *(THE recursion variant)* | `circuits/recursion` | Recursively verifies **all K** segment proofs **and** re-runs the full glue (chain stitch, FS bind, grand-product partition, K boundary Merkle edges, threshold). A **complete** recursive proof of the K-segment cycle, exposing only `(root, threshold)`. The perfect-hiding endpoint / equal-ground counterpart of A++ at the same K. The circuit is generic over K (an array of K proofs); the harness patches `N, K, DEPTH`. |
+| **2 — K segments** *(THE recursion variant)* | `circuits/recursion` | Recursively verifies **all K** segment proofs **and** re-runs the full glue (chain stitch, FS bind, grand-product partition, K boundary Merkle edges, threshold). A **complete** recursive proof of the K-segment cycle, exposing only `(root, threshold)`. The perfect-hiding endpoint / equal-ground counterpart of plain-product at the same K. The circuit is generic over K (an array of K proofs); the harness patches `N, K, DEPTH`. |
 
-The inner is the **unmodified `hierarchical_segment_fs`** (the A++ sub-circuit):
+The inner is the **unmodified `hierarchical_segment_fs`** (the plain-product sub-circuit):
 recursion-friendliness comes from the *proving flavor*, not a circuit attribute,
-so the inner is identical to what A++ benchmarks — equal-ground by construction.
-(*Why A++ and not the A sub-circuit, given recursion hides the partition either
+so the inner is identical to what plain-product benchmarks — equal-ground by construction.
+(*Why plain-product and not the plain-sort sub-circuit, given recursion hides the partition either
 way?* See `Recursive_inner_circuit_choice_explained.md` for the full rationale;
-short version — A++'s O(1) public surface keeps the recursive verification
-segment-size-independent, and it gives a controlled comparison with the A++ row.
-A parallel **A-inner** variant exists to quantify the difference: see "A-inner
+short version — plain-product's O(1) public surface keeps the recursive verification
+segment-size-independent, and it gives a controlled comparison with the plain-product row.
+A parallel **plain-sort-inner** variant exists to quantify the difference: see "plain-sort-inner
 recursion" below.)
 
 **ZK path (important).** We use the **ZK** recursive verifier `verify_honk_proof`
@@ -1684,7 +1684,7 @@ builds the K+1 Prover.tomls (`merkle_builder --hierarchical-fs`), proves the
 needed segment(s) with `bb prove -t noir-recursive`, assembles the outer
 `Prover.toml`, then compiles the outer circuit and records `bb gates`, witness,
 prove (time + peak mem) and verify.  The shared segment source is
-snapshotted and **restored** afterwards, so your A++ setup is left untouched.
+snapshotted and **restored** afterwards, so your plain-product setup is left untouched.
 
 ```bash
 # Exp 2 (default) — the complete K-segment recursive proof / THE variant
@@ -1695,11 +1695,11 @@ python pipeline/run_recursion.py --exp 2 --n 48 --k 4 --runs 1 \
     --out results/recursion.csv
 
 # Exp 1 — DIAGNOSTIC: isolate the single-segment recursion cost (off-frontier;
-# N=48 K=2 matches A++'s smallest sweep point; outer cost ~independent of N):
+# N=48 K=2 matches plain-product's smallest sweep point; outer cost ~independent of N):
 python pipeline/run_recursion.py --exp 1 --n 48 --k 2 --runs 1 \
     --out results/recursion_diag.csv
 
-# Verify a produced outer proof — ONE bb verify, no cross-checks (the binding-tax
+# Verify a produced outer proof — ONE bb verify, no cross-checks (the stitching-tax
 # collapse made operational), plus a ZK-length guard:
 python pipeline/verify_recursion.py \
     --proof-dir circuits/recursion/target/proof \
@@ -1748,7 +1748,7 @@ segment — Exp 2 is the same with K inner proofs plus the boundary witness):
 ```bash
 SEG=circuits/hierarchical_segment_fs          # patched to (N, M, DEPTH) + nargo compile first
 # (the segment's Prover.toml comes from `merkle_builder --hierarchical-fs K`,
-#  e.g. copy out-dir/sub_0/Prover.toml into $SEG/Prover.toml — see the A++ section.)
+#  e.g. copy out-dir/sub_0/Prover.toml into $SEG/Prover.toml — see the plain-product section.)
 # phase 1: recursive ZK VK + one segment proof
 bb write_vk -b $SEG/target/hierarchical_segment_fs.json -t noir-recursive -o $SEG/target/vk
 bb write_vk -b $SEG/target/hierarchical_segment_fs.json -t noir-recursive --output_format json -o $SEG/target/vk_json
@@ -1786,7 +1786,7 @@ recursive verifier — its `gates` is THE recursion cost number).
 
 | Circuit | gates | prove | peak | verify | proof |
 |---|---|---|---|---|---|
-| inner segment (A++ sub) | 28,480 (K=2) / 15,184 (K=4) | ~0.5–0.8 s | ~62 MiB | — | — |
+| inner segment (plain-product sub) | 28,480 (K=2) / 15,184 (K=4) | ~0.5–0.8 s | ~62 MiB | — | — |
 | **Exp 1 outer** (verify 1) | **704,363** | ~8.6 s | ~1.0 GiB | ~0.02 s | 14.7 KB |
 | **Exp 2 outer, K=2** (verify 2 + glue) | **1,473,357** | ~24 s | ~2.1 GiB | ~0.02 s | 14.7 KB |
 | **Exp 2 outer, K=4** (verify 4 + glue) | **3,008,907** | ~40 s | ~4.1 GiB | ~0.02 s | 14.7 KB |
@@ -1796,8 +1796,8 @@ recursive verifier — its `gates` is THE recursion cost number).
 - Recursion scales **~K×**: K=2 ≈ 2.09× and K=4 ≈ 4.27× the single verification
   (3,008,907 / 704,363); the full glue tax is small (~63k gates at K=2, ~191k at
   K=4). Prove time and peak memory track the same ~K growth.
-- **vs A++ at the same K** (aggregated total proving work): recursion is ~25×
-  (K=2) → ~45× (K=4) more gates, and the gap *widens* with K — A++'s total grows
+- **vs plain-product at the same K** (aggregated total proving work): recursion is ~25×
+  (K=2) → ~45× (K=4) more gates, and the gap *widens* with K — plain-product's total grows
   slowly (~K small subs + glue) while recursion adds a full ~700k-gate verifier
   per segment. That is the aggregation layer dwarfing the TSP logic.
 
@@ -1817,7 +1817,7 @@ peak)`.
 > is the peak RSS of *one* `bb prove` process. The aggregator reports the **max
 > over the K inner peaks and the outer peak** — the heaviest single proving step
 > ("per-prover peak"), the same metric `aggregate_hier.py` uses, so recursion and
-> A++ are compared on the same axis. Because the outer consumes the inner proofs
+> plain-product are compared on the same axis. Because the outer consumes the inner proofs
 > as *data* (the inner provers have already exited and freed their memory), only
 > one prover is resident at a time under sequential proving — so the machine's
 > peak-over-time **is** this max, exactly. It would under-count only if K inner
@@ -1843,7 +1843,7 @@ full cycle).
 
 `--split-components` (recursion).  Like the hierarchical aggregator, this emits
 two extra rows per cell beside the combined one: `recursion_k{K}_seg` (the K inner
-A++ segment proofs only) and `recursion_k{K}_outer` (the outer recursive proof
+plain-product segment proofs only) and `recursion_k{K}_outer` (the outer recursive proof
 alone).  **Honesty note:** there is deliberately **no `_glue` row** — recursion
 fuses the glue logic into the outer circuit together with the K in-circuit
 verifications, which dominate it (~704k gates each vs ~63k total glue at K=2), so
@@ -1984,7 +1984,7 @@ $PY pipeline/plot_prover_time_bars.py \
 
 `pipeline/plot_frontier_scatter.py` is the synthesis figure (C7): at a **fixed N**,
 each variant is a **point** in a 2-D cost space (x = a verifier cost, y = a prover
-cost), so the family's trade-off becomes a Pareto picture and the binding tax shows
+cost), so the family's trade-off becomes a Pareto picture and the stitching tax shows
 up as geometry — hierarchical pays on the verifier (→ right), recursion on the
 prover (↑ up), flat pays neither decomposition cost (but its prover-memory rises
 with N). Colour = K (flat black), marker = family; same-family points are joined by
@@ -2004,11 +2004,11 @@ $PY pipeline/plot_frontier_scatter.py \
 
 **Reading it:** the frontier *shifts with N*. At small N flat dominates (cheap on
 both axes); recursion sits upper-left (verifier-cheap, memory-heavy) and is often
-*dominated* there; A++ sits lower-right (memory-cheap, O(K) verifier). At large N
+*dominated* there; plain-product sits lower-right (memory-cheap, O(K) verifier). At large N
 flat's memory climbs and the decomposed variants enter the front — so plot it at
 the largest N your data covers for the most informative picture.
 
-**The frontier figure** — flat baseline, A++, and recursion (all K) on the same
+**The frontier figure** — flat baseline, plain-product, and recursion (all K) on the same
 axes (`plot.py` draws one line per `variant`, matching by `n`):
 
 ```bash
@@ -2023,10 +2023,10 @@ Reading the panels (recursion specifics):
   corresponding `hier_fs_k{K}` per-proof line: the cost of the K in-circuit
   verifiers (~`K x 7e5` gates). This is the headline tradeoff, and it scales ~K.
 - **verify_s** / **proof_bytes** — recursion is **flat in K**: one ~14.7 KB proof,
-  one ~15 ms verify, for *any* K — versus A++'s K+1 proofs and K+1 verifies plus
+  one ~15 ms verify, for *any* K — versus plain-product's K+1 proofs and K+1 verifies plus
   cross-checks. The aggregation reflects this (outer-only).
 - **peak_mb** / **prove_s** — recursion climbs back above flat and grows ~K (one
-  big proof, no K-way parallelism); A++'s parallel wins are surrendered. That *is*
+  big proof, no K-way parallelism); plain-product's parallel wins are surrendered. That *is*
   the "perfect hiding is expensive" story; folding is the row that would recover
   both.
 
@@ -2035,20 +2035,20 @@ Reading the panels (recursion specifics):
 > trend lines, or read the values from `results/recursion_par.csv` directly for a
 > one-`N` table comparison.
 
-### A-inner recursion (the alternative design) and `compare_inner.py`
+### plain-sort-inner recursion (the alternative design) and `compare_inner.py`
 
-The experiments above use the **A++** sub-circuit as the inner. A deliberate,
-**fully separate** duplicate uses the **Variant A** sub-circuit instead — see
+The experiments above use the **plain-product** sub-circuit as the inner. A deliberate,
+**fully separate** duplicate uses the **plain-sort** sub-circuit instead — see
 `Recursive_inner_circuit_choice_explained.md` for *why* (short version: inside
-recursion the partition is hidden either way, so A's public node set is no longer
-a leak; A lets the outer check the partition by a deterministic **sort** instead
-of A++'s grand-product + Fiat-Shamir, at the price of an **O(M) public surface**).
+recursion the partition is hidden either way, so plain-sort's public node set is no longer
+a leak; plain-sort lets the outer check the partition by a deterministic **sort** instead
+of plain-product's grand-product + Fiat-Shamir, at the price of an **O(M) public surface**).
 
 - Circuits: `exp1_single_segment_a`, `exp2_k_segments_a` (sort-based partition,
   no FS; globals `N,K,M,DEPTH`).
 - Driver: `run_recursion_a.py` — same flags as `run_recursion.py`, inner =
   `circuits/hierarchical_segment`, builder `--hierarchical` (not `-fs`),
-  A `sub_pub` = `M+4` fields. Writes `results/recursion_a_micro.csv`.
+  plain-sort `sub_pub` = `M+4` fields. Writes `results/recursion_a_micro.csv`.
 
 ```bash
 python tests/recursion_micro/run_recursion_a.py --exp 2 --n 48 --k 2 --runs 1 \
@@ -2067,13 +2067,13 @@ python tests/recursion_micro/compare_inner.py --n 480 --k 2 --exp 2 --skip-prove
 
 What it shows (this machine):
 
-| metric | A++ inner | A inner | note |
+| metric | plain-product inner | plain-sort inner | note |
 |---|---|---|---|
 | inner public inputs | 9 (O(1)) | M+4 (O(M)) | 28 @N48, 244 @N480 |
-| inner segment gates | 28,480 | 27,084 | A ~−5% (no FS gadgets) |
+| inner segment gates | 28,480 | 27,084 | plain-sort ~−5% (no FS gadgets) |
 | **outer gates @ N=48** | 1,473,357 | 1,475,164 | +0.1% — a wash at M=24 |
 | **outer gates @ N=480** | 1,475,250 (flat in N) | 1,497,705 (grows) | **+22,455 (+1.5%)** — the O(M) term |
-| outer witness_s @ N=480 | 0.19 s | 0.66 s | A's in-circuit sort, +250% |
+| outer witness_s @ N=480 | 0.19 s | 0.66 s | plain-sort's in-circuit sort, +250% |
 | outer proof_bytes | 14,656 | 14,656 | **identical** (1 ZK proof) |
 | outer verify_s | ~0.016 s | ~0.016 s | identical |
 | outer peak_mb | ~2.1 GiB | ~2.0 GiB | identical (outer-dominated) |
@@ -2081,8 +2081,8 @@ What it shows (this machine):
 **Reading it.** The two designs are *practically equal* in total cost (the K
 in-circuit verifications dominate both), and **identical on the verifier side**
 (one 14.7 KB proof, ~16 ms verify, perfect hiding — both expose only
-`root,threshold`). The one structural signal: **A++'s outer is flat in N**
-(1.473M→1.475M across N=48→480) while **A's grows** (1.475M→1.498M) — the O(M)
+`root,threshold`). The one structural signal: **plain-product's outer is flat in N**
+(1.473M→1.475M across N=48→480) while **plain-sort's grows** (1.475M→1.498M) — the O(M)
 public-input absorption + the N-element sort. That is the rationale's prediction,
 measured. (`outer prove_s` differences are dominated by single-run noise — re-run
 `--runs 3` if you need that column; the gate counts are exact.)
@@ -2114,10 +2114,10 @@ noir-recursive` (ZK), and the outer must import `UltraHonkZKProof`, not
 | `flat_full_invperm` | Full N^2 public inputs | Inv-perm witness 2N constrained | done |
 | `flat_full_presence` | Full N^2 public inputs | Presence mark array ~4N constrained | done |
 | `flat_merkle_presence` | Poseidon2 Merkle root | Presence mark array ~4N + N*DEPTH hashes | done |
-| `hierarchical_segment` + `hierarchical_glue` | Poseidon2 Merkle root | Per-segment `sort_via` + global partition check | done (Variant A) |
-| `hierarchical_segment_fs` + `hierarchical_glue_fs` | Poseidon2 Merkle root | Grand product + in-circuit Fiat-Shamir (partition hidden) | done (Variant A++) |
-| `circuits/recursion` (+ reused `hierarchical_segment_fs`) | Poseidon2 Merkle root | In-circuit recursive verify of K **A++** segment proofs + glue (grand-product partition; any K≥2; **perfect** hiding) | done (recursion **variant**) |
-| `tests/recursion_micro/exp2_k_segments_a` (+ reused `hierarchical_segment`) | Poseidon2 Merkle root | In-circuit recursive verify of K **A** segment proofs + glue (**sort** partition, no FS; any K≥2; **perfect** hiding) | done (A-inner comparison variant) |
+| `hierarchical_segment` + `hierarchical_glue` | Poseidon2 Merkle root | Per-segment `sort_via` + global partition check | done (plain-sort) |
+| `hierarchical_segment_fs` + `hierarchical_glue_fs` | Poseidon2 Merkle root | Grand product + in-circuit Fiat-Shamir (partition hidden) | done (plain-product) |
+| `circuits/recursion` (+ reused `hierarchical_segment_fs`) | Poseidon2 Merkle root | In-circuit recursive verify of K **plain-product** segment proofs + glue (grand-product partition; any K≥2; **perfect** hiding) | done (recursion **variant**) |
+| `tests/recursion_micro/exp2_k_segments_a` (+ reused `hierarchical_segment`) | Poseidon2 Merkle root | In-circuit recursive verify of K **A** segment proofs + glue (**sort** partition, no FS; any K≥2; **perfect** hiding) | done (plain-sort-inner comparison variant) |
 | Variant B (flat-full, sub-matrix public) | K disclosed M×M sub-matrices | Per-segment ROM lookup | future |
 
 ---
