@@ -104,8 +104,8 @@
 //   and recompiles for each value of N.
 // =============================================================================
 
-global N: u32 = 1000;
-global DEPTH: u32 = 20;
+global N: u32 = 4000;
+global DEPTH: u32 = 24;
 
 use poseidon::poseidon2::Poseidon2;
 
