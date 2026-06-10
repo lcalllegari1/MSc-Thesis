@@ -1,6 +1,28 @@
 # Narrative Script — The Thesis as a Three-Act Play
 
-*The drafting blueprint for Parts II–III (Ch 5–10). Every variant is a character with a
+> **Chapter remap (2026-06-10).** This script predates the linear 7-chapter outline; its
+> *staging* (scenes, characters, hinges, lines) is current, but its chapter numbers are the
+> old 12-chapter scheme. Translate on read:
+>
+> | Old (this doc) | New (`Thesis_Outline.md`) |
+> |---|---|
+> | Ch 1 Introduction (Scene 1) | Ch 1 |
+> | Ch 2 Background (Scene 2) | Ch 2 |
+> | Ch 4 Problem Formulation (Scene 3) | §2.5–2.6 |
+> | Ch 5 Flat Circuit Design (Scene 4) | §4.1–4.2 |
+> | Ch 7 Flat Evaluation (Scene 5) | §4.5 (the inversion) + §6.2 (the sweep) |
+> | Ch 8.1–8.5 dualism (Scene 6) | §5.1 |
+> | Ch 8.6–8.8 tax / lever / triangle (Scene 7) | §5.2–5.4 |
+> | Ch 9 walk: Scenes 8 / 9 / 10 / 11 | §5.6 / §5.7 / §5.8 / §5.9 |
+> | Ch 10 results: Scenes 12 / 13 | §6.1+§6.5 / §6.6+§6.8 |
+> | Ch 11–12 | Ch 7 |
+>
+> Also stale below: every **[PROJECTED]** flag — the isolation sweeps have since landed
+> (measured ~6.5× `plain-product`, ~4.7× `plain-sort` at N=3000 K=8; see
+> `ISOLATION_BENCHMARK.md` status banner). Read "[PROJECTED]" as "measured, cite
+> `results/hier_*_iso.csv`".
+
+*The drafting blueprint for the body chapters. Every variant is a character with a
 role, an entrance, lines (the claims it lands), and interactions (the comparisons). The
 dramaturgy is not decoration — each archetype **is** the variant's argumentative job, so if a
 scene has no dramatic function it has no thesis function and should be cut. Companion to
@@ -15,7 +37,8 @@ chapters). Sources: `FRONTIER_REFRAME.md`, `NARRATIVE_FRAMING.md`, `HIERARCHICAL
   paragraphs and its *Interaction* names the one variable that moved and the control that keeps
   it fair. If either is vague, the scene isn't ready.
 - Numbers below are the current measured values (N≈480/500 anchor) — verify against the live
-  `results/*.csv` before they go in the body; ones marked **[PROJECTED]** await the isolation sweep.
+  `results/*.csv` before they go in the body. (The isolation sweeps have landed; former
+  **[PROJECTED]** values are now measured — `results/hier_*_iso.csv`.)
 
 ---
 
@@ -259,7 +282,7 @@ fingerprint lever   .   .   .   ██  .   ██ | ██  ██   ██  . 
 - **Lines:**
   - *The headline fair comparison:* **{flat_merkle_gp, committed-product, recursion-plain-product}** — equal privacy (control 1), fixed mechanism (control 2), reported at both total and parallel cost (control 3). Read the **pick-two triangle** directly off their positions: flat = V+C (no P); committed = P+C (O(K) V); recursion = P+V (704k×K C).
   - *The earned dilemma:* "having built *both* poles, flat and recursion are the two perfect-hiding extremes — flat pays in serial cost, recursion in 704k×K prover work — and the hierarchical family is precisely what lives between them." *(Now a result the reader watched derived, not a Ch 1 teaser.)*
-  - *The aggregation honesty (control 3):* total work — hierarchy never beats flat (the Chorus). Parallel wall-clock — hierarchy's win, ~K× **[PROJECTED, isolation sweep pending]**.
+  - *The aggregation honesty (control 3):* total work — hierarchy never beats flat (the Chorus). Parallel wall-clock — hierarchy's win, **measured**: ~6.5× (`plain-product`) / ~4.7× (`plain-sort`) at N=3000 K=8 (`results/hier_*_iso.csv`).
   - *The upstream markers:* plain-sort (disclosed) and plain-product (oracle) drawn as arrows *into* committed-\*, not as co-equal points — the diagnosis the cure improved on.
   - *The empty corner:* folding sits at (P+V+C), unfilled.
 - **Interaction:** the equal-privacy slice = the whole frontier in one figure; every other comparison is a controlled relaxation of one axis of this one.
@@ -315,7 +338,7 @@ fingerprint lever   .   .   .   ██  .   ██ | ██  ██   ██  . 
 - **Total work is conserved** — hierarchy never beats flat on total gates; the win is parallelizability of the *same* work.
 - **plain-product is never motivated on hiding** — it still leaks (the P_i oracle); its case is surface + soundness + the recursion bridge.
 - **"Perfect hiding" of flat/recursion is structural, not IT-ZK** — the public surface carries no partition info; UltraHonk-ZK is identical across all variants and is not a discriminator.
-- **The K× parallel speedup is PROJECTED, not measured** — until the isolation sweep lands; the one gap before submission.
+- **The K× parallel speedup is MEASURED** — isolation sweeps `results/hier_*_iso.csv`; state the composition assumption (solo per-proof times; K-machine wall-clock = max segment + glue).
 
 # Cross-reference map
 | Scene | Outline § | Source notes |

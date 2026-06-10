@@ -432,8 +432,11 @@ restatement of §9.5.
 
 ### Pending baseline housekeeping
 
-- [ ] Benchmarks for flat_full_invperm and flat_full_presence to N=500
-- [ ] Figures generated from `results/500.csv` via `analyze_complexity.py`
+- ~~Benchmarks for flat_full_invperm and flat_full_presence to N=500~~ **dropped (2026-06-10)**
+  — both are out-of-scope variants (Outline §F.2); the §4.2 mechanism study draws on
+  `results/flat.csv` as-is.
+- ~~Figures generated from `results/500.csv` via `analyze_complexity.py`~~ **superseded** —
+  thesis figures now come from `pipeline/plot_thesis_figures.py` → `plots/figures/`.
 
 ### Hierarchical implementation programme
 
@@ -445,7 +448,10 @@ restatement of §9.5.
     - [x] `pipeline/run_hier.py` — K-shadow parallel benchmark harness
     - [x] `tests/correctness/test_hierarchical_a.py` — 6 tests (1 valid + 4 negatives + 1 sanity at N=48 K=4)
     - [x] Full benchmark sweep into `results/hier_a.csv` (completed 2026-05-27; N∈{48,96,192,480}, K∈{2,4,8})
-    - [ ] Isolation benchmark: run single sub-circuit without parallel siblings to empirically validate K× speedup claim
+    - [x] Isolation benchmark — **done (2026-06)**: `results/hier_sort_iso.csv` (N≤5000,
+      K∈{2,4,8}, per-circuit uncontended times). Measured at N=3000 K=8: critical path
+      12.4s (max sub) + 7.35s (glue) = 19.7s vs flat 91.9s → **~4.7×** (the serial O(N)
+      glue sort is the gap to ideal).
 - [x] plain-product — Merkle, grand product + in-circuit Fiat-Shamir (implemented + validated 2026-05-28)
     - [x] Hash-compat extension: single-input `Poseidon2::hash([c],1)` cross-validated Rust↔Noir (`tests/hash_compat/`); N=8 reference table filled in `HIER_FS_IMPL.md` §11
     - [x] Sub-circuit `circuits/hierarchical_segment_fs` (G1..G7: +G5 chain link, +G6 grand product, +G7 challenge consistency; no sorted_nodes)
@@ -455,7 +461,10 @@ restatement of §9.5.
     - [x] `pipeline/run_hier_fs.py` — K-shadow parallel harness (`/tmp/hier_fs_shadows`, variant=`hier_fs`); `aggregate_hier.py` made variant-aware (emits `hier_fs_k{K}`)
     - [x] `tests/correctness/test_hierarchical_fs.py` — 8 tests (1 valid + 6 negatives incl. Schwartz-Zippel partition overlap + 1 sanity at N=48 K=4); all pass
     - [x] End-to-end reference proof verifies; gate counts at N=8: sub +6.7% vs plain-sort, glue ≈parity (the −67% glue win is a large-N effect)
-    - [ ] Full benchmark sweep into `results/hier_fs.csv` (harness ready; **deferred to user** — N∈{48,96,192,480}, K∈{2,4,8})
+    - [x] Full benchmark sweep — **done (2026-06)**, landed as `results/hier_gp_iso.csv`
+      (isolated per-circuit times, N≤5000, K∈{2,4,8}). At N=3000 K=8: 12.7s (max sub) +
+      0.55s (glue) = 13.2s vs flat 86.1s → **~6.5×** measured speedup; the O(K) glue stays
+      sub-second at every N (the surface win made operational).
     - **Design divergence from `HIERARCHICAL_EXPLAINED.md` §9.9:** `expected_product` is computed **in-circuit** (D5 = Option B), not supplied/checked by the verifier. The Python verifier therefore does no field arithmetic.
     - **Privacy refinement:** plain-product hides the partition *computationally* (not information-theoretically): public `P_i` is a multiset oracle (~C(N,M)) and chain anchors are an ordering oracle (~(M-2)!). This is the price of the non-recursive architecture — see `HIERARCHICAL_EXPLAINED.md` §9.11/§14.2.
 - [x] Variants committed-sort & committed-product — blinded-commitment privacy cure (implemented + validated 2026-05-31)
@@ -466,7 +475,9 @@ restatement of §9.5.
     - [x] `pipeline/run_hier_{c,cfs}.py` — parallel harnesses (variant=`hier_c` / `hier_cfs`); `aggregate_hier.py` variant-agnostic (emits `hier_c_k{K}` / `hier_cfs_k{K}`)
     - [x] `tests/correctness/test_hierarchical_{c,cfs}.py` — 7/7 each (baseline, sub-G8 + glue-G0 commitment binding, boundary Merkle, partition violation, verifier cross-check, N=48 K=4 sanity)
     - [x] All 4 committed circuits compile from their checked-in N=8 defaults
-    - [ ] Full benchmark sweeps into `results/hier_c.csv` / `results/hier_cfs.csv` (harnesses ready; **deferred to user**)
+    - [x] Full benchmark sweeps — **done (2026-06)**, landed as
+      `results/hier_committed_sort_iso.csv` / `results/hier_committed_gp_iso.csv`
+      (isolated per-circuit times, N≤5000, K∈{2,4,8}).
 - [ ] Variant B — flat_full, sub-matrix public
 - [ ] Frontier figure: (total gates, parallel wall-clock, per-prover memory, privacy bits) for all variants
 - [ ] Integration with clustered TSP solver (B-side, partitioned routing) for combined-pipeline analysis

@@ -9,10 +9,12 @@ Map of the project's markdown docs — what each is for and a suggested read ord
 > `DESIGN.md`). Code identifiers (`hierarchical_segment_fs`, …) are unchanged. Thesis prose uses
 > **stitching tax** (internal docs may still say "binding tax").
 >
-> **Known staleness (pending).** The thesis is now a **linear 7-chapter** document. Several deep docs
-> (`NARRATIVE_SCRIPT.md`, `NARRATIVE_FRAMING.md`, `HIERARCHICAL_EXPLAINED.md`) still reference the old
-> 12-chapter / three-act scheme (Ch 8/9/10, Scene numbers, the stage-presence timeline). Variant
-> *names* are updated everywhere; chapter/scene *cross-references* are not yet remapped.
+> **Status (2026-06-10).** All benchmark sweeps are **done** (incl. the isolation sweeps —
+> the K× speedup is **measured**; see the `ISOLATION_BENCHMARK.md` status banner and
+> `Thesis_Outline.md` §6.4). The docs that still used the old 12-chapter scheme
+> (`NARRATIVE_SCRIPT.md`, `NARRATIVE_FRAMING.md`, `HIERARCHICAL_EXPLAINED.md`) now carry an
+> **old→new chapter remap banner** at the top — translate on read; their substance is current.
+> Drafts: Ch 1 done (structure tour stubbed), Ch 4 §4.1–4.2 done (`thesis/drafts/`).
 
 ## Start here — the canonical framing
 | Doc | What it is |
@@ -44,7 +46,8 @@ Map of the project's markdown docs — what each is for and a suggested read ord
 ## Methodology
 | Doc | What it is |
 |---|---|
-| `ISOLATION_BENCHMARK.md` | Methodology + runnable recipe to turn the K× parallelism speedup from a projection into a measurement. Run before final submission. |
+| `CROSSREFS.md` | **The cross-reference ledger.** Label registry + intended forward/back references between chapters; what each not-yet-written section owes. Maintained as chapters are drafted (out of order). Companion: `thesis/drafts/_stubs.typ` (compile-safe placeholder labels), `pipeline/check_refs.py` (deferred). |
+| `ISOLATION_BENCHMARK.md` | **DONE** — methodology that produced the measured K× speedup (`results/hier_*_iso.csv`; ~6.5× `plain-product`, ~4.7× `plain-sort` at N=3000 K=8). Kept as the §6.4 write-up source. |
 | `HIER_MEASUREMENT_AND_PLOTS.md` | Measurement semantics (per-segment vs cumulative, the `--isolated`/`--mode` knobs, concurrent vs isolated claims) + a plot taxonomy by the question each chart answers. Read before designing figures. |
 
 ## Archived (historical — `docs/archive/`, not current framing)

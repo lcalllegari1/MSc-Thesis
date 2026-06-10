@@ -55,9 +55,9 @@
 // G3 Merkle (~186k); G5 chain adds ~10k, G6/G7 negligible.  ~+6% vs A's sub.
 // =============================================================================
 
-global N: u32 = 48;
-global M: u32 = 12;
-global DEPTH: u32 = 12;
+global N: u32 = 5000;
+global M: u32 = 625;
+global DEPTH: u32 = 25;
 
 use poseidon::poseidon2::Poseidon2;
 

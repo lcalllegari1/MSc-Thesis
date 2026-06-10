@@ -90,9 +90,9 @@
 //   Total ~21k gates -- dominated by sub-circuit cost at runtime.
 // =============================================================================
 
-global N: u32 = 480;
+global N: u32 = 5000;
 global K: u32 = 8;
-global DEPTH: u32 = 18;
+global DEPTH: u32 = 25;
 
 use poseidon::poseidon2::Poseidon2;
 

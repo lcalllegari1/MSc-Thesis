@@ -1,5 +1,14 @@
 # Writing-Style Guide — for the Master Thesis (English)
 
+> **The drafts are now the canon (2026-06-10).** Two chapters exist in the target voice:
+> `thesis/drafts/ch1.typ` (Introduction) and `thesis/drafts/ch4.typ` (The Flat Baseline).
+> **They supersede this guide wherever the two disagree** — the guide described the voice
+> before it existed; the drafts *are* it. The precedence order is now:
+> **drafted chapters > §14 > §§1–13.** §14.12 records what the drafts settled that the
+> original guide either left open or got slightly wrong (the calibration came out *drier*
+> than §§6–8 license). When drafting a new chapter, reread 2–3 pages of ch1/ch4 first;
+> match *them*, and use this guide as the checklist.
+
 This guide reconstructs the writing style of two source documents and fuses them into a
 single target voice to use for the master thesis:
 
@@ -167,14 +176,21 @@ Rule of thumb: **be entertaining in the connective tissue, exact in the load-bea
 walls.** A reader should never be unsure whether a sentence is a joke or a claim. Wit
 lives in framing, never inside a theorem.
 
-**Locked calibration (this thesis).** The agreed dial is *dry wit and understatement*,
-with the warmth coming from honesty, narrative momentum, and well-aimed phrasing rather
-than jokes. Two source-native devices are explicitly **kept** so this calibration does not
-flatten into a technical report: (1) **witty section titles** (the "Holey Grail" / "Price
-of Hierarchy" register), and (2) **the rare reader-directed aside, only at a chapter
-seam** — one every few pages at most, never inside exposition. Everything else stays sober.
-Most voice lives in Chapters 1, 8, 11, 12; Chapters 2, 5, 6, the soundness sections, and
-the results tables stay flat.
+**Locked calibration (this thesis — recalibrated against the drafts, 2026-06-10).** The
+agreed dial is *dry wit and understatement*, with the warmth coming from honesty, narrative
+momentum, and well-aimed phrasing rather than jokes. The drafted chapters settled the dial
+one notch drier than originally licensed:
+1. **Section titles are plain-with-a-turn, not comic.** What the drafts actually use:
+   *"Five Ways to Check a Permutation"*, *"Marking as We Go"*, *"Supplying the Inverse"*,
+   *"A Word on Types, and the Pair That Matters"* — concrete, lightly turned, never a pun.
+   The "Holey Grail" register survives **only** on the boxed problem statement (§14.8), if
+   at all; do not reach for it in running section titles.
+2. **Reader-directed asides are rarer and drier than §8 allows.** The drafts contain no
+   parenthetical winks and no work-narrative gags. What they use instead is sober reader
+   *management*: *"The reader is asked to file it away"*, *"we mark the spot"*, *"hold that
+   thought"*. That is the ceiling.
+Most voice lives in Ch 1, Ch 5 (framework + walk transitions), and Ch 7; Ch 2, the
+soundness sections (§5.11, §6.7), and the results tables stay flat.
 
 ---
 
@@ -377,15 +393,18 @@ it **is the thesis**. The whole document descends from one real false start: the
 question *"at what N does hierarchical decomposition beat flat?"*, the gate-count analysis
 showing hierarchical-Merkle is ~1.5% **worse** (the crossover does not exist), and the
 reframe that negative result forced. Use the device at three scales: the **whole thesis**
-(Ch 1 trailer → Ch 8 film), each **chapter**, and each **non-trivial design decision**.
+(Ch 1 trailer → §5.1 film), each **chapter**, and each **non-trivial design decision**.
 Honesty about the dead end is the source of both rigor and charm; do not sand it down into
 "here is the finished framework."
 
 ### 14.2 The dual register, in project nouns (extends §6)
-- **Formal layer (precise, no wit inside):** circuit definitions; the four CONSTRAINT
-  GROUPs (range / permutation / edge-cost / threshold); soundness statements and the
-  per-variant ε-bounds (ε ≤ ε_SNARK + ε_FS + ε_SZ + ε_bind); measured numbers
-  (gate counts, times, bytes, MB); the public/private input partition of every circuit.
+- **Formal layer (precise, no wit inside):** circuit definitions; the **three thesis-facing
+  constraint groups** — *permutation / edge cost / threshold*, with the range check presented
+  as subsumed by (or internal to) the permutation mechanism, **per the drafted ch4** (the
+  circuits' in-code `GROUP 1..4` comments keep their own numbering; the prose taxonomy is
+  the three-group one); soundness statements and the per-variant ε-bounds
+  (ε ≤ ε_SNARK + ε_FS + ε_SZ + ε_bind); measured numbers (gate counts, times, bytes, MB);
+  the public/private input partition of every circuit.
 - **Warm layer (personality):** the discovery narrative (the cancellation); chapter
   openers/bridges; the motivation (Sudoku → logistics, Ch 1); section titles; the honest
   caveats.
@@ -408,9 +427,16 @@ Define each **once**, then reuse the exact phrase (notation discipline, §5, app
   C (low prover overhead); each architecture gives two; folding is the empty corner.
 - **the forbidden diagonal** — the comparison that changes two variables at once; naming it
   off-limits is half the methodology.
-- **the controlled walk** — Ch 9's one-variable-per-step march down the stitching axis.
-- **the trailer/film split** — Ch 1 previews (≈1 page), Ch 8 proves in full; same fact,
+- **the controlled walk** — Ch 5's (§5.5–5.10) one-variable-per-step march down the
+  stitching axis.
+- **the trailer/film split** — Ch 1 previews (≈1 page), §5.1 proves in full; same fact,
   two depths, cross-referenced.
+- **the pattern** *(added 2026-06-10 — coined in the drafted ch4 and already load-bearing)* —
+  *let the prover compute freely, off-circuit and out of sight, and have the circuit check
+  only a cheap relation on the result.* Introduced with the `≠`-via-inverse trick (§4.1),
+  re-invoked for the dynamic-ROM lookup, then once per permutation mechanism in §4.2. Reuse
+  the exact phrase ("the pattern", or "the pattern we have already met twice"); it is the
+  chapter-4-and-onward refrain the way "total work is conserved" is the chapter-5 one.
 
 These coinages are *load-bearing*, so they survive the "minimal metaphor" rule (§6/§12):
 the rule forbids decorative or extended metaphor, **not** these named handles.
@@ -453,14 +479,19 @@ Repeat these, plainly, wherever they apply — they are the project's standing c
   surface + soundness + the recursion bridge.
 - **"Perfect hiding" is *structural*, not information-theoretic** — UltraHonk-ZK is
   computational/statistical and identical across all variants; it is not a discriminator.
-- **The K× parallel speedup is projected, not yet measured** — pending the isolation
-  benchmark; state this every time the speedup is invoked.
+- **The K× parallel speedup is measured, under a stated composition assumption** — the
+  isolation sweeps give ~6.5× (`plain-product`) / ~4.7× (`plain-sort`) at N=3000, K=8;
+  per-proof times are uncontended solo runs and the K-machine wall-clock is their
+  composition (max segment + glue). State the assumption every time the speedup is invoked;
+  never imply a multi-node deployment was timed.
 
-### 14.8 Boxed, witty-titled artifacts (the §5 / "Holey Grail" device)
-Use a named callout box for each load-bearing formal object: the **TSP-ZKP problem
-statement** (a "Holey Grail"-style title is welcome on the box; the statement inside stays
-exact), the **binding-tax definition**, and each **soundness ε-bound theorem**. Wit on the
-lid, precision in the box.
+### 14.8 Boxed artifacts (the §5 device, recalibrated)
+Use a callout box for each load-bearing formal object: the **TSP-ZKP problem statement**,
+the **stitching-tax definition**, each **soundness ε-bound theorem** — and, per the drafted
+ch4, the **constraint-group statements** (plain left-rule blocks, one sentence each).
+Titles on boxes follow the drafted register: plain or lightly turned, not comic — a
+"Holey Grail"-style title is permitted on the problem-statement box *only*, and even there
+the drafts may overrule it. Precision inside the box, always.
 
 ### 14.9 Author L1 guard (the §11 calque list is *your own* habits)
 The Italian source is the author's prior work, so §11 is not hypothetical — it is a list of
@@ -489,3 +520,45 @@ When delivering thesis prose in a session, present it so it is trivial to copy:
 - Render the prose itself in *italics*.
 - Use `---` for em-dashes, with **no surrounding spaces** (`word---word`, not `word --- word`).
 - Keep all commentary, notes, and questions **outside** the `===` fences.
+
+### 14.12 The practiced voice — what the drafted chapters settled (2026-06-10)
+Extracted from `ch1.typ` + `ch4.typ`, which are canonical (see the banner at the top of
+this guide). These are the devices the drafts actually run on; new chapters should sound
+like this:
+
+1. **The rhetorical question as gearshift.** Transitions inside an argument are posed as
+   short questions and answered immediately: *"So where does the `≠` go?"*, *"Then what is
+   the true difference?"*, *"But how could such a proof even work?"*. One per page or so;
+   it replaces most "Note that / It is important to" signposting from §9.
+2. **Question out, answer in (the section seam).** A section closes by *posing* the next
+   section's question(s) (*"Is there a way to reduce this public input surface? We address
+   these two questions next."*) and the next section opens by picking one up (*"The first
+   of those two questions is the subject of this section."*). This is the §2.2 bridge rule,
+   made literal.
+3. **Second person for intuition, not just instructions** (revises §4). The drafts use
+   "you" to put the reader inside an ordinary-programming intuition before the circuit
+   breaks it: *"If you wanted to convince yourself, in any ordinary program, that a list of
+   N numbers had no repeats…"*. Keep "we" for the actual reasoning moves.
+4. **The em-dash interpolation is the aside form.** Qualifications ride inside the sentence
+   between em-dashes (*"—off to the side, in ordinary arithmetic that costs the circuit
+   nothing—"*); parenthetical winks and work-narrative gags do not appear at all.
+5. **Sober reader management, by name.** Deferred payoffs are managed explicitly and
+   drily: *"The reader is asked to file it away"*, *"we mark the spot"*, *"hold that
+   thought"*, *"for now we have only loaded the gun"* / *"the gun fires"*. The Chekhov
+   discipline: every such marker **must** be paid off, and the payoff names the marker.
+6. **The economics vocabulary is licensed.** *"The price is paid in two coins"*, *"gate
+   count and witness-solving cost are different currencies"*, *"pays in soundness flavor"*,
+   *"the trade turns favorable"* — cost/price/coin/currency/trade is the drafts' standing
+   metaphor family for trade-offs and does not count against the minimal-metaphor rule.
+7. **Numbers are read aloud the moment they appear.** Every measured value gets its
+   interpretation in the same breath: *"a gap that grows like N², because it* is *the
+   quadratic, now removed"*. Tables close with a reading instruction (*"Read down the cost
+   column and the story of the section is there."*).
+8. **Long paragraphs are the norm.** Body prose runs in full paragraphs; bullets/blocks are
+   reserved for genuinely parallel formal items (the constraint groups, a comparison
+   table). No bullet creep into argumentation.
+9. **Mild anthropomorphism of costs is allowed, dryly.** *"Those N² public inputs will come
+   back to bite us"* — one per section at most, never inside the formal layer.
+10. **Sections close on a short, weight-bearing sentence.** *"For now, the brute-force
+    version is the honest starting point."* — a settled cadence, not a cliffhanger every
+    time.

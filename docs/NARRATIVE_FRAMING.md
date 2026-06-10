@@ -1,7 +1,14 @@
 # Narrative Framing — The Perfect-Hiding Dilemma and the Hierarchical Escape
 
+> **Chapter remap (2026-06-10).** Chapter numbers in this doc are the old 12-chapter
+> scheme. Translate on read: old Ch 8 (framework) → new §5.1–5.4 · old Ch 9 (the walk) →
+> new §5.5–5.10 · old Ch 10 (results) → new Ch 6 · old Ch 7 (flat evaluation) → new
+> §4.5/§6.2 · old Ch 4 (problem formulation) → new §2.5–2.6 (see `Thesis_Outline.md`).
+> Also stale: any "projected, not measured" parallelism caveat — the isolation sweeps have
+> landed (~6.5× `plain-product`, ~4.7× `plain-sort` at N=3000 K=8; `ISOLATION_BENCHMARK.md`).
+
 *Reference note locking in the "flat vs recursion, then hierarchical as the
-escape" framing for Chapters 8-10. Captured 2026-05-31. This is a narrative /
+escape" framing for the framework + walk chapters. Captured 2026-05-31. This is a narrative /
 positioning note, not new results — every claim traces to findings already in
 `FRONTIER_REFRAME.md`, `HIERARCHICAL_EXPLAINED.md`, and the recursion
 micro-benchmarks. Use it as the starting point when drafting the variant chapters.*
@@ -110,10 +117,10 @@ in-circuit (recursion, expensive) vs external (hierarchical, cheap-but-leaky).
 
 ## 5. Honesty caveats to carry while selling it
 
-- **K× parallelism is still *projected***, not measured one-node-per-segment (the
-  isolation benchmark is the pending empirical gap). Say "projected"/"estimated from
-  circuit-size ratios" when selling recursion's or hierarchical's parallelism, or run
-  the isolation benchmark to make it real. This is the claim most likely to draw fire.
+- **K× parallelism is now MEASURED** (isolation sweeps `results/hier_*_iso.csv`: ~6.5×
+  `plain-product`, ~4.7× `plain-sort` at N=3000 K=8). The remaining caveat to carry: the
+  per-proof times are solo runs; the K-machine wall-clock is their composition
+  (max segment + glue), a deployment-model assumption to state, not a missing number.
 - **Total work is conserved (the dualism).** "Best of both" must NOT imply
   hierarchical beats flat on total gates — it does not (~770-806k vs flat's ~782k).
   The win is *parallelizability of the same work*, not less work.
@@ -1079,8 +1086,9 @@ implemented = no, and for a reason that protects the thesis's rigor rather than 
 
 - **Total work is conserved** — hierarchical never beats flat on total gates (~770–806k vs ~782k);
   the win is *parallelizability of the same work*, never less work.
-- **K× parallelism is projected, not measured** — say "projected / estimated from circuit-size
-  ratios" until the isolation benchmark is run. The #1 defense vulnerability.
+- **K× parallelism is MEASURED** (`results/hier_*_iso.csv`: ~6.5× `plain-product`, ~4.7×
+  `plain-sort` at N=3000 K=8) — the former #1 defense vulnerability, closed. Carry only the
+  composition-assumption caveat (solo per-proof times; wall-clock = max segment + glue).
 - **plain-product is motivated on surface/soundness, never on hiding** — inside recursion the partition is
   hidden either way.
 - **"Negligible verifier cost" is conditional** — true off-chain at low K; at large K or on-chain it
@@ -1418,8 +1426,8 @@ The monotone frame changes *order*, not *analysis*. These §9 pieces are reused 
   the fairness control.
 - **§9.8 the prover/verifier reveal** — fires at the synthesis (§11.5); seed it at step 6 (plain-sort's O(K)
   verifier), pay it off at step 9.
-- **§9.12 placement map** and **§9.13 refrains/caveats** — unchanged (total work conserved; projected
-  parallelism; plain-product never motivated on hiding; structural ≠ IT-ZK).
+- **§9.12 placement map** and **§9.13 refrains/caveats** — unchanged (total work conserved; measured
+  parallelism with the composition caveat; plain-product never motivated on hiding; structural ≠ IT-ZK).
 
 ## 11.7 The shape in one breath (monotone)
 

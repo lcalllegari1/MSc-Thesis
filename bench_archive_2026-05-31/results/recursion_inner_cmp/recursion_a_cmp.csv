@@ -1,4 +1,0 @@
-exp,n,k,m,depth,run,role,circuit,gates,acir,compile_s,witness_s,prove_s,verify_s,proof_bytes,peak_mb
-2,48,2,24,12,1,inner_segment,sub_0,27084,3381,0.446,0.242,0.6685,,,57.65
-2,48,2,24,12,1,inner_segment,sub_1,27084,3381,0.446,0.2691,0.7017,,,57.61
-2,48,2,24,12,1,outer_recursive,rec_exp2_k_segments_a,1475164,859,0.4614,0.2149,21.253,0.0154,14656,2036.16

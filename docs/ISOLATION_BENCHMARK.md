@@ -1,9 +1,19 @@
 # Isolation Benchmark — Measuring the K× Parallelism Claim
 
+> **STATUS: DONE (2026-06).** The isolation sweeps have been run for all four hierarchical
+> variants — `results/hier_{sort,gp,committed_sort,committed_gp}_iso.csv` (N≤5000,
+> K∈{2,4,8}, per-circuit uncontended times). Headline at N=3000, K=8 (critical path =
+> max segment + glue, vs flat): `plain-product` 13.2s vs 86.1s → **~6.5×**; `plain-sort`
+> 19.7s vs 91.9s → **~4.7×** (the serial O(N) glue sort is the gap to ideal). Objection
+> O12 is closed; the thesis claim is **measured**, with the composition assumption stated
+> (per-proof times are solo runs; K-machine wall-clock = their composition). The optional
+> concurrent-mode (contended single-machine) run remains a nice-to-have.
+> The rest of this document is the methodology that produced those numbers — kept as the
+> §6.4 write-up source.
+
 *How to turn the hierarchical "K× speedup" from a **projection** into a
-**measurement**. This is the one open empirical gap flagged as objection O12
-(`MOTIVATION_AND_OBJECTIONS.md`) and in `SUPERVISOR_CALL_SUMMARY.md` §6. Read this
-before final submission. Captured 2026-05-31.*
+**measurement**. This was the one open empirical gap flagged as objection O12
+(`MOTIVATION_AND_OBJECTIONS.md`). Captured 2026-05-31; executed 2026-06.*
 
 ---
 
@@ -234,5 +244,5 @@ isolated and contended runs distinct in the same figure.
 > harness (e.g. to pin cores with `taskset` per prover).
 
 *Related: `MOTIVATION_AND_OBJECTIONS.md` O12, `FIGURES_AND_METRICS.md` (speedup &
-memory-reduction derived metrics), `HOWTO.md` (benchmarking), `SUPERVISOR_CALL_SUMMARY.md`
-§3.2/§6, `thesis_guidelines_and_per_prover_parallel_mem_explained.md`.*
+memory-reduction derived metrics), `HOWTO.md` (benchmarking),
+`HIER_MEASUREMENT_AND_PLOTS.md` (measurement semantics).*

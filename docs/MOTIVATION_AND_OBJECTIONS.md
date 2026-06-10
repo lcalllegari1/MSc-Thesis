@@ -9,7 +9,7 @@ plainly, because a sharply-bounded claim is more defensible than an oversold one
 Cross-refs: `FRONTIER_REFRAME.md` (dualism, stitching tax, pick-two triangle),
 `HIERARCHICAL_EXPLAINED.md` (§5.3 regimes, §6 threat models, §9.11 plain-product privacy,
 §9b committed variants, §13 use-cases, §14 privacy bounds), `NARRATIVE_FRAMING.md`,
-`SUPERVISOR_CALL_SUMMARY.md` (honest gaps), `project_recursion_experiment` memory.
+`ISOLATION_BENCHMARK.md` (O12 closure), `project_recursion_experiment` memory.
 
 ---
 
@@ -149,14 +149,16 @@ the proof plan is captured in `Thesis_Outline.md` §9.8.*
 ## D. Implementation & methodology
 
 ### O12. "Your K× parallelism speedup is projected from gate ratios, not measured. The central 'parallelism win' is unproven."
-**This is the most legitimate attack — concede it directly.** The K× wall-clock
-speedup is currently *estimated from circuit-size ratios*; the true one-node-per-
-segment **isolation benchmark is pending** (`SUPERVISOR_CALL_SUMMARY.md` §6). What
-*is* measured: per-prover **peak memory** drops ~1/K (real, from the sweeps), and
-total work is conserved. On a single contended machine the parallel numbers are an
-upper-bound model, not a measurement (the `*_par` vs `*_tot` CSVs make this explicit).
-**Plan:** run the isolation benchmark before final submission; until then, say
-"projected." Do not sell it as measured.
+**CLOSED (2026-06) — the attack no longer lands.** The isolation sweeps were run
+(`results/hier_*_iso.csv`, N≤5000, K∈{2,4,8}; methodology in `ISOLATION_BENCHMARK.md`).
+Measured at N=3000, K=8, critical path (max segment + glue) vs flat: `plain-product`
+13.2s vs 86.1s → **~6.5×**; `plain-sort` 19.7s vs 91.9s → **~4.7×** (the serial O(N)
+glue sort is the gap to ideal — the O(K)/serial symptom made visible in wall-clock).
+Per-prover **peak memory** drops ~1/K as before. **The residual concession, stated
+honestly:** the per-proof times are *uncontended solo runs*; the K-machine wall-clock
+is their composition (max + glue), not a multi-node deployment measurement. That is a
+deployment-model assumption, not a missing number — say "measured, composed under the
+one-prover-per-node model."
 
 ### O13. "You only benchmark to N≈480. Real TSP has millions of cities. Does anything hold at scale?"
 The **structural results are size-independent**: the dualism and stitching tax are

@@ -87,9 +87,9 @@
 //   G1+G2+G3+G5 together <500 gates.
 // =============================================================================
 
-global N: u32 = 480;
-global M: u32 = 60;
-global DEPTH: u32 = 18;
+global N: u32 = 5000;
+global M: u32 = 625;
+global DEPTH: u32 = 25;
 
 use poseidon::poseidon2::Poseidon2;
 

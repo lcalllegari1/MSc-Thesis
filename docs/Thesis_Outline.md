@@ -11,9 +11,19 @@
 *This is the current, canonical outline. It supersedes the earlier "crossover" and
 "three-variants-as-statements" framings, and the earlier 4-part / 12-chapter structure
 (both preserved in git history). The thesis is now a **linear sequence of 7 chapters**; the
-old "parts" survive only as chapter grouping and the §1.6 tour. Source notes consolidated:
+old "parts" survive only as chapter grouping and the §1.4 tour. Source notes consolidated:
 `FRONTIER_REFRAME.md` (the findings), `NARRATIVE_SCRIPT.md` (the staging), `NARRATIVE_FRAMING.md`
 (full prose), `HIERARCHICAL_EXPLAINED.md` (per-construction detail).*
+
+> **Status (2026-06-10).** Benchmarks: **all sweeps done** — flat (N≤4000), the four
+> hierarchical isolation sweeps (`results/hier_{sort,gp,committed_sort,committed_gp}_iso.csv`,
+> N≤5000, K∈{2,4,8}), recursion (+ the 1-segment factorial controls). The **K× speedup is
+> MEASURED**, no longer projected (see §6.4). Only the optional concurrent-mode (contended)
+> run remains, and it is a nice-to-have, not a gap. Drafts: **Ch 1 drafted** (Structure
+> section stubbed), **Ch 4 drafted through §4.2**. Remaining work is *writing*, plus the two
+> analysis TODOs (§5.11 soundness reductions, §6.7 negative-test table).
+> Page budgets below were cut on 2026-06-10 (background −23pp, flat −10pp); treat every
+> budget as a **cap, not a target** — total ≈ **130 pp** + appendices.
 
 ---
 
@@ -152,8 +162,13 @@ count and witness-solving cost are not the same currency.*
 - **"Perfect hiding" of flat/recursion is *structural*, not information-theoretic** — the public
   surface carries no partition info. UltraHonk-ZK is computational/statistical and *identical
   across all variants*; it is not a discriminator.
-- **The K× parallel speedup is PROJECTED, not yet measured** — the isolation benchmark
-  (`ISOLATION_BENCHMARK.md`, `--isolated` harness flag) closes this; the one gap before submission.
+- **The K× parallel speedup is MEASURED, with a stated deployment assumption** — the isolation
+  sweeps (`results/hier_*_iso.csv`) give, at N=3000 K=8, a critical path of max-segment + glue ≈
+  13.2 s vs flat's 86.1 s for `plain-product` (**~6.5×**) and ≈ 19.7 s vs 91.9 s for `plain-sort`
+  (**~4.7×** — the serial O(N) glue sort costs it). The honest caveat shifts from
+  "projected" to: *measured per-proof times are uncontended single-machine runs; the K-machine
+  wall-clock is their composition, not a contended multi-process measurement* (the optional
+  concurrent-mode run would close even that).
 
 ---
 
@@ -200,50 +215,65 @@ stay as voice-layer character names in `NARRATIVE_SCRIPT.md`; these are the tech
 
 ---
 
-# Chapter 1 — Introduction *(~12 pp)*
+# Chapter 1 — Introduction *(~10 pp — **DRAFTED**, `thesis/drafts/ch1.typ`)*
 
-- §1.1 Motivation — privacy-preserving combinatorial optimisation (worked logistics scenario:
-  prove route quality without disclosing route or cost matrix).
-- §1.2 The original question — *"at what N does hierarchical beat flat?"* — and why it was the
-  wrong question (it presupposed a single cost dimension).
-- §1.3 What we found instead — the dualism, the stitching tax, the frontier (§F.1, compressed).
-- §1.4 Contributions — the four-point list (§F.1).
-- §1.5 What this thesis does **not** claim — no NP-asymmetry overclaim; structural ≠ IT-ZK.
-- §1.6 Structure — short tour of the seven chapters; **the intro signpost** for the
-  flat↔recursion dilemma lives here (one paragraph of orientation, no construction, no asserted cost).
+*The drafted structure (which supersedes the earlier section plan):*
+- §1.1 Motivation — Sudoku → the freight-carrier scenario; ZK intuitively (commit / challenge /
+  respond); SNARKs named in prose. Doubles as the intuitive ZK on-ramp — **Ch 2 must not
+  re-teach this** (see the Ch 2 cut note).
+- §1.2 Research Questions — the original question (*"at what N does hierarchical beat flat?"*),
+  the pivot (the ~1.5%-worse gate accounting, trailer depth), then the three RQs as
+  subsections: what decomposition buys / what stitching costs / the shape of the trade-offs.
+- §1.3 Contributions — the four-point list (§F.1), framed as "the map, not the variants";
+  includes the no-overclaim caveats inline (structural ≠ IT-ZK).
+- §1.4 Structure of the Thesis — *stubbed; write last, after Ch 5–6 settle.* Carries the
+  intro signpost for the flat↔recursion dilemma (one orientation paragraph, no asserted cost).
 
 **Drafting note — the discovery narrative.** Ch 1 runs in *discovery-narrative mode* (the rest
-of the body presents the framework crisply per §F.1). Three beats: §1.1 the application pull →
-§1.2 the original premise (natural, because classical hierarchical TSP gives a speedup) → §1.3
-the pivot. **State the "how" concretely in §1.3:** a total-gate-cost analysis of hierarchical
-Merkle found it ~1.5% *worse* than flat — the crossover doesn't exist, because the recombiner's
-partition check exactly cancels the per-segment saving — and that negative result *forced* the
-reframe. **Trailer/film split:** §1.3 previews the pivot in ~1 page; the rigorous gate accounting
-is developed in **§5.1**. Ch 1 is the trailer, Ch 5 the film.
+of the body presents the framework crisply per §F.1). The pivot's "how" is stated concretely in
+§1.2: a total-gate-cost analysis of hierarchical Merkle found it ~1.5% *worse* than flat — the
+crossover doesn't exist, because the recombiner's partition check exactly cancels the
+per-segment saving — and that negative result *forced* the reframe. **Trailer/film split:**
+§1.2 previews the pivot in ~1 page; the rigorous gate accounting is developed in **§5.1**.
+Ch 1 is the trailer, Ch 5 the film.
 
-# Chapter 2 — Background *(~45 pp; closes with the problem statement + threat model)*
+# Chapter 2 — Background *(~22 pp; closes with the problem statement + threat model)*
 
-- §2.1 Zero-knowledge proofs — interactive game; completeness / soundness / ZK; Fiat–Shamir;
-  worked toy example.
-- §2.2 SNARKs — arithmetic circuits over a prime field; R1CS/AIR/ACIR; PLONK; UltraHonk +
-  Plookup *(concise — only what the ~87-gates finding needs)*.
-- §2.3 Primitives — Poseidon2 (ZK-friendly hashing); Merkle commitments in the ZK context.
-- §2.4 TSP — definition, applications; NP-hardness and the finder/checker asymmetry (the seed of
-  the dualism, §2.4.2); heuristic + **clustered/hierarchical** solvers (§2.4.3 — *why* clustering
-  speeds classical TSP: search shrinks N! → ~K·(N/K)!·K!; taught **neutrally**, no hint yet that
-  ZK refuses it). Keep the generic solver background distinct from the project's own clustered
-  solver (Appendix B + §7.4).
-- §2.5 Tooling and metrics — Noir + Barretenberg; ACIR opcodes vs UltraHonk gates; the metric set
-  (`circuit_size`, `compile/witness/prove/verify_s`, `proof_bytes`, `peak_mb`).
-- §2.6 **The TSP-ZKP problem statement** — Hamiltonian cycle, cost ≤ T against a committed matrix;
-  public/private separation (flat-full vs flat-Merkle); the five trust anchors for the Merkle
-  commitment; binding ≠ authenticity (the matrix-provenance fine print); threshold vs optimality
-  (why cost ≤ T, not "minimum"). *Boxed, witty-titled problem statement (`STYLE_GUIDE §14.8`).*
-- §2.7 **Threat model** — adversary (cheating polynomial-bounded prover; honest verifier);
-  guarantees (completeness, knowledge soundness, ZK); non-guarantees (input validity needs an
-  external anchor); side-channels out of scope. **Defined once, here.** The per-circuit
-  group↔cheat argument lives in each soundness subsection (§5.6.x …); the formal proofs in §5.11;
-  the negative-test results in §6.7 — three artifacts, three homes, never conflated.
+> **The cut (2026-06-10): 45 pp → ~22 pp.** Three reasons. (1) Examiners discount background
+> pages; the marks live in Ch 4–6. (2) The drafted Ch 1 already carries the *intuitive* ZK
+> on-ramp (the Sudoku dialogue, commit/challenge/respond, SNARKs named in prose) — Ch 2
+> formalizes, it does not re-teach. (3) Everything in Ch 2 must pass the test: *is this
+> definition used by a later chapter's argument?* If nothing downstream cites it, it goes.
+> The problem statement + threat model (§2.5–§2.6) are exempt from compression — they are contribution-adjacent security content,
+> not background.
+
+- §2.1 Zero-knowledge proofs *(~4 pp)* — formal definitions only: interactive proofs;
+  completeness / soundness / ZK; knowledge soundness; Fiat–Shamir. **No worked toy example**
+  (Ch 1's Sudoku already did that job); one compact graph-3-coloring or equivalent sketch at
+  most, then move on.
+- §2.2 SNARKs + primitives *(~6 pp — merged old §2.2 + §2.3)* — arithmetic circuits over a
+  prime field; ACIR → UltraHonk gates *(only what the ~87-gates/Poseidon2 finding and the
+  dynamic-ROM story need — skip R1CS/AIR taxonomy, skip PLONK lineage beyond a paragraph)*;
+  Poseidon2 (why ZK-friendly, in one page); Merkle commitments in the ZK context.
+- §2.3 TSP *(~4 pp)* — definition; NP-hardness and the finder/checker asymmetry (the seed of
+  the dualism); clustered/hierarchical solvers compressed to **~1.5 pp** (why clustering speeds
+  classical TSP: search shrinks N! → ~K·(N/K)!·K!; taught neutrally, no hint yet that ZK
+  refuses it). Generic solver detail → Appendix B.
+- §2.4 Tooling and metrics *(~3 pp)* — Noir + Barretenberg; ACIR opcodes vs UltraHonk gates;
+  the metric set (`circuit_size`, `compile/witness/prove/verify_s`, `proof_bytes`, `peak_mb`).
+- §2.5 **The TSP-ZKP problem statement** *(~3 pp — kept full)* — Hamiltonian cycle, cost ≤ T
+  against a committed matrix; public/private separation (flat-full vs flat-Merkle); the five
+  trust anchors for the Merkle commitment; binding ≠ authenticity (the matrix-provenance fine
+  print); threshold vs optimality (why cost ≤ T, not "minimum"). *Boxed problem statement
+  (`STYLE_GUIDE §14.8`).*
+- §2.6 **Threat model** *(~2 pp — kept full)* — adversary (cheating polynomial-bounded prover;
+  honest verifier); guarantees (completeness, knowledge soundness, ZK); non-guarantees (input
+  validity needs an external anchor); side-channels out of scope. **Defined once, here.** The
+  per-circuit group↔cheat argument lives in each soundness subsection (§5.6.x …); the formal
+  proofs in §5.11; the negative-test results in §6.7 — three artifacts, three homes, never
+  conflated.
+
+*(Old §2.6/§2.7 are now §2.5/§2.6; update `CROSSREFS.md` targets when Ch 2 is drafted.)*
 
 # Chapter 3 — Related Work *(~8 pp)*
 
@@ -254,22 +284,33 @@ is developed in **§5.1**. Ch 1 is the trailer, Ch 5 the film.
 - §3.4 Empirical methodology in ZK benchmarking — what this thesis measures differently (forward
   to the ACIR-opcode finding, §6.2).
 
-# Chapter 4 — The Flat Baseline *(~40 pp — design + implementation + the local twist)*
+# Chapter 4 — The Flat Baseline *(~30 pp — **§4.1–4.2 DRAFTED**, `thesis/drafts/ch4.typ`)*
 
-- §4.1 The four-group circuit structure (range / permutation / edge-cost / threshold).
-- §4.2 **Permutation-check mechanisms — the GROUP-2 study.** pairwise → sort → invperm →
-  presence → **grand-product + FS**. The product enters *here, as a permutation mechanism* (§F.3),
-  not as a future control. Analytical cost comparison; set up the sort↔product pair as the
-  sharpest contrast (the witness inversion, measured in §4.5). Type rationale (u32/u64/Field/bool).
+> **Drafted reality supersedes the old plan in two places.** (1) The thesis-facing skeleton is
+> **three** constraint groups — *permutation / edge cost / threshold* — with the range check
+> presented as subsumed by the permutation mechanism (or as its internal guard), not as a
+> fourth group. The circuits' in-code `GROUP 1..4` comments are unchanged; the prose taxonomy
+> is the three-group one. (2) The mechanism study covers **five** mechanisms (pairwise → sort →
+> inverse-permutation → presence → grand product), each with the static-vs-dynamic-memory
+> reading, closing on the sort↔product pairing as the thesis's sharpest contrast.
+
+- §4.1 The anatomy of the proof *(drafted)* — witness definition; the three-group skeleton;
+  assembling the first circuit (`flat-pairwise` pseudocode); the two embedded lessons: the
+  `≠`-via-inverse trick (*the pattern*: prover computes off-circuit, circuit checks a cheap
+  relation) and static vs witness-chosen array positions (dynamic ROM).
+- §4.2 Five ways to check a permutation *(drafted)* — pairwise → sort → invperm → presence →
+  **grand-product + FS**, each via *the pattern*; the product enters *here, as a permutation
+  mechanism* (§F.3), not as a future control; the five-row comparison table (cost / extra
+  witness / memory model / soundness flavor); type rationale (u32/u64/Field/bool); the
+  sort↔product pairing set up (inversion measured in §4.5).
 - §4.3 Matrix representation — flat-full vs flat-Merkle; the privacy/cost trade named; Merkle proof
   verification + the soundness-critical leaf-index check; alternatives rejected (Verkle, leaf
   domain separation). **Crown `flat-sort`** as the monolithic perfect-hiding baseline the
   decomposition chapters answer to.
-- §4.4 **Implementation and tooling** — Noir circuit organisation; the Rust Merkle builder; the
-  Python pipeline (instance gen, solver, `format_inputs`, `run.py`, `instance_cache`); Rust↔Noir
-  Poseidon2 cross-validation. **Pseudocode inline** (`STYLE_GUIDE §14.5`: `require P`, `x ← e`,
-  public/private signatures, gadgets `H(·)`/`sort(·)`/`∏`); **full code → Appendix A**. Worked
-  examples (N=4, N=8 flat-Merkle).
+- §4.4 **Implementation and tooling** *(compressed vs old plan — ~4 pp)* — Noir circuit
+  organisation; the Rust Merkle builder; the Python pipeline (instance gen, solver,
+  `format_inputs`, `run.py`, `instance_cache`); Rust↔Noir Poseidon2 cross-validation.
+  **Full code → Appendix A**; one worked example (N=8 flat-Merkle), not two.
 - §4.5 **The witness-time inversion** *(the local finding stays here)* — §F.5: the controlled
   flat-row experiment; the product compiles to more gates yet solves its witness faster; same
   dyadic bucket; "gate count and witness cost are different currencies." Introduced *before*
@@ -285,7 +326,7 @@ constructions descend the stitching axis. Each construction carries the **per-va
 Presentation order ≠ implementation order.
 
 **The framework (the conceptual contribution):**
-- §5.1 **The dualism** — recall §2.4.3 (decomposition is an optimizer's win); the **gate-count
+- §5.1 **The dualism** — recall §2.3 (decomposition is an optimizer's win); the **gate-count
   cancellation** (hierarchical Merkle saves no total gates; the O(N) partition check + K boundary
   Merkle proofs absorb the per-segment saving); the NP asymmetry and why it does *not* transfer
   (ZK has no search to reduce); embarrassingly-parallel vs algorithmic speedup. *The film to §1.3's
@@ -356,9 +397,12 @@ Presentation order ≠ implementation order.
   **N≈175 flat-full↔flat-Merkle crossover**; **ACIR opcodes as a misleading metric** (the N≈30 vs
   N≈175 discrepancy — "sanity-check what the number means", `STYLE_GUIDE §14.6`).
 - §6.3 Per-variant gate counts vs the §5 analytical predictions.
-- §6.4 Parallel proving time (single-machine vs K-process; the isolation benchmark) + per-prover
-  peak memory. **The K× speedup measurement** — closes the projected-vs-measured gap. **[PROJECTED
-  until the isolation sweep lands.]**
+- §6.4 Parallel proving time (the isolation sweeps) + per-prover peak memory. **The K× speedup,
+  measured** (`results/hier_*_iso.csv`, N≤5000, K∈{2,4,8}): at N=3000 K=8, ~6.5× for
+  `plain-product` (critical path 13.2 s vs flat 86.1 s), ~4.7× for `plain-sort` (19.7 s vs
+  91.9 s — the serial glue sort is the gap; this is the O(K)/serial symptom made visible in
+  wall-clock). State the composition assumption: per-proof times are uncontended; K-machine
+  wall-clock = max(segment) + glue.
 - §6.5 **The 2×2 factorial** {flat, recursive} × {sort, product} — *here* `flat-product` and
   `recursive-sort` do their only job (de-confounding), flagged as controls. Column delta =
   aggregation cost; row delta = mechanism cost (re-cites the §4.5 witness inversion); separability =
@@ -375,7 +419,7 @@ Presentation order ≠ implementation order.
 
 - §7.1 The framework in retrospect — was the dualism/stitching-tax/frontier framing the right one?
 - §7.2 Practical guidance — a decision tree: given a use case (disclosure ok? parallel hardware?
-  O(1) verifier needed?), which point on the grid? Map to the §2.6 use cases.
+  O(1) verifier needed?), which point on the grid? Map to the §2.5 use cases.
 - §7.3 Limitations / threats to validity — single proof system; single-machine parallel claims (the
   isolation extrapolation); specific TSP variant; soundness argued by reduction (product + recursive
   rest on FS-in-ROM + recursion KS, cited not reproved); no mechanized/circuit-level formal verification.
@@ -383,7 +427,7 @@ Presentation order ≠ implementation order.
 - §7.5 Summary of contributions — restated from §1.4 with the evidence for each.
 - §7.6 Future work — (1) **folding** (Nova/ProtoStar) as the corner that breaks the pick-two triangle
   (P+V+C at once; removes recursion's 704k×K tax; a *different backend*, so out of this single-backend
-  comparison by design); (2) the in-circuit matrix-provenance proof (§2.6); (3) other non-local graph
+  comparison by design); (2) the in-circuit matrix-provenance proof (§2.5); (3) other non-local graph
   problems (k-clique, colouring) — does the dualism generalise?; (4) threat-model extensions (malicious
   verifier, network adversary).
 - §7.7 Closing reflection — what the discovery process suggests about applied ZK research.
@@ -411,23 +455,27 @@ Axes: x = total prover work (gates); y = parallel wall-clock; marker = privacy c
   pair joined by a bar = mechanism Δcost annotated with the soundness flip. *Honest about F7; busier.*
 
 **Working recommendation:** (a) as the **headline** figure + a (b)-style "lever bars" figure in §6.5
-where the factorial is discussed. *Not locked — revisit when the `results/hier_{c,cfs}.csv` sweeps land.*
+where the factorial is discussed. *The sweeps have landed (`results/hier_*_iso.csv`) — this is
+now decidable at figure-drawing time; nothing blocks it.*
 
 ---
 
 # Open structural questions (not blocking)
 
-1. **Frontier figure (a) vs (b)** — §Q. Decide once the hier sweeps land.
+1. **Frontier figure (a) vs (b)** — §Q. Sweeps landed; decide at draw time.
 2. **Title subtitle** — keep all three nouns (dualism / stitching tax / frontier) or trim to two?
 3. **`flat-product` and `recursive-sort` labelling** in the frontier figure — controls only, or
    drawn faintly for completeness?
 4. **Variant B** — mention only as the disclosing gate-saver alternative, or cut entirely?
+   *(Leaning: one paragraph in §4.3's alternatives, no more.)*
 
-# Drafting order (no-block sequence)
+# Drafting order (updated 2026-06-10 — nothing is blocked anymore)
 
-Ch 4 (flat, settled) → Ch 5 framework + walk (settled; gate analyses mostly done) → Ch 2 (incl. §2.6
-problem statement + §2.7 threat model) → Ch 1 + Ch 3 → Ch 6 (blocked on the hier sweeps + isolation
-benchmark) → Ch 7 → appendices.
+**Done:** Ch 1 (minus the §1.4 structure tour) · Ch 4 §4.1–4.2.
+**Next:** Ch 4 §4.3–4.5 (finish the chapter while its voice is warm) → Ch 5 framework + walk
+(the contribution; gate analyses mostly done) → §5.11 soundness reductions (the one section
+that is new *thinking*, not just writing — do not leave it last) → Ch 6 (all data in hand) →
+Ch 2 (compressed per the cut note) → Ch 3 → Ch 7 → §1.4 + appendices + figures pass.
 
 ---
 
@@ -444,3 +492,15 @@ benchmark) → Ch 7 → appendices.
 | Ch 6 (factorial + frontier) | `NARRATIVE_FRAMING.md`; `FIGURES_AND_METRICS.md`; `HIER_MEASUREMENT_AND_PLOTS.md`; `ISOLATION_BENCHMARK.md`; §F.5/§Q |
 | Ch 5.11 / 6.7 (soundness) | proof plan (this outline) + `SOUNDNESS_AND_HIDING.md` + `MOTIVATION_AND_OBJECTIONS.md` |
 | Appendices | repository source; `results/*.csv`; separate solver document |
+
+---
+
+# Cross-reference labels
+
+The thesis label registry and the forward/back references between chapters are tracked in
+a dedicated ledger: **`docs/CROSSREFS.md`** (the single source of truth). It lists every
+label (defined or owed), the content each not-yet-written section owes so its inbound refs
+make sense, and the *intended* cross-references (links we've decided on, wired or not).
+Companion tooling: `thesis/drafts/_stubs.typ` (placeholder labels that keep the document
+compiling before targets exist) and `pipeline/check_refs.py` (deferred — mechanical report).
+Update `CROSSREFS.md` whenever a chapter is drafted.

@@ -1,11 +1,17 @@
 # Hierarchical TSP ZKP — Variants Explained
 
+> **Reading note (2026-06-10).** The §-numbers in this doc are its **own internal**
+> numbering, not thesis chapters. Where it cites thesis chapters it uses the old
+> 12-chapter scheme — translate: old Ch 8 → new §5.1–5.4 · old Ch 9 → new §5.5–5.10 ·
+> old Ch 10 → new Ch 6 (see `Thesis_Outline.md` §N). Any "projected" parallelism caveat
+> is stale: the isolation sweeps landed (`ISOLATION_BENCHMARK.md` status banner).
+
 **Self-contained reference for Variants plain-sort, plain-product, and B.**
 
 This document consolidates the conceptual and structural understanding of the three
 hierarchical variants developed in this thesis. It assumes familiarity with the flat
 baseline (`flat_full_*` and `flat_merkle_presence` circuits) — see
-`supervisor_report_draft.md` §3–§5 for that material.
+`archive/supervisor_report_draft.md` §3–§5 for that material.
 
 The intent is to be a reference: read straight through to understand all three
 variants; jump to a section to look up a specific construction; use the worked
