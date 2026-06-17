@@ -1,5 +1,7 @@
-// ALT-STYLE SAMPLE — restyled §1.1 only. Scaffolding identical to thesis/drafts/ch1.typ.
-// Rest of the chapter omitted in this sample.
+#import "/theme/headings.typ": chapter, section, subsection
+#import "/theme/colors.typ": colors
+#import "/theme/utils.typ": inline, lc, fn
+#import "/thesis/chapters/_pseudocode.typ": *
 
 #chapter([Introduction], label: <chap:introduction>)
 

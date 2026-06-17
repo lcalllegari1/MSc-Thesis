@@ -27,3 +27,6 @@ __pycache__/
 
 # IDE
 .vscode/
+
+# Typst build output (the compiled thesis PDF is regenerated from source)
+thesis/template/main.pdf

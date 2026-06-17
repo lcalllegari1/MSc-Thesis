@@ -1,7 +1,8 @@
-// ALT-STYLE SAMPLE — restyled §4.1 only. Scaffolding identical to thesis/drafts/ch4.typ.
-// Listings copied verbatim; only the surrounding prose is restyled. Rest of the chapter omitted.
-
-#import "../drafts/_pseudocode.typ": *
+#import "/theme/headings.typ": chapter, section, subsection
+#import "/theme/colors.typ": colors
+#import "/theme/utils.typ": inline, lc, fn
+#import "/thesis/chapters/_pseudocode.typ": *
+#import "@preview/lovelace:0.3.0": *
 
 #chapter([The Flat Baseline], label: <chap:methodology>)
 
@@ -396,7 +397,7 @@ What pins the proof to the right leaf is the position. The direction bits do dou
         + *private* $cycle[rng(0, N-1)], med edgecosts[rng(0, N-1)],$
         + #h(2.4em) $siblings[rng(0, N dot DEPTH - 1)], med pathbits[rng(0, N dot DEPTH - 1)]$ #h(1fr) #lc[hint: $N$ Merkle proofs]
         - #hide("")
-        - #lc[Group 1: _permutation, by the sort of @fig:flat-sort_]
+        - #lc[Group 1: _permutation, by the sort of_ @fig:flat-sort]
         - #lc[Group 2: _edge cost, by one Merkle proof per edge against_ $root$]
         + $total arrow.l 0$
         + *for* $i$ *in* #fn[range]$(0, N)$:
@@ -414,7 +415,7 @@ What pins the proof to the right leaf is the position. The direction bits do dou
           - #lc[(c) accumulate the verified cost]
           + $total arrow.l total + edgecosts[i]$
         - #hide("")
-        - #lc[Group 3: _threshold, exactly as in @fig:flat-pairwise_]
+        - #lc[Group 3: _threshold, exactly as in_ @fig:flat-pairwise]
         + *require* $total <= T$
     ]
   ) <fig:flat-merkle>

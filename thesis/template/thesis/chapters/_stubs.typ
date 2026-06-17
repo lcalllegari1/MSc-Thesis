@@ -6,16 +6,16 @@
 // compile error. This file registers a placeholder label for each such target so
 // the document keeps compiling, and serves as the running list of "labels we owe".
 //
-// HOW TO USE — in the MASTER document, near the top:
+// HOW TO USE — in the master document (main-matter.typ), near the top:
 //
-//     #import "drafts/_stubs.typ": setup
+//     #import "/thesis/chapters/_stubs.typ": setup
 //     #show: setup            // must be a `show: setup`, NOT `#include`
 //
 // (A `show ref` rule does not propagate through `#include`, so the rule lives in
 // `setup` and is applied document-wide via `#show: setup`.)
 //
 //   - When you reference a not-yet-written section, add a `stub(...) <sec:x>` line
-//     in `setup` below (and a row in docs/CROSSREFS.md).
+//     in `setup` below.
 //   - When you DRAFT that section and give it its real `<sec:x>` label, DELETE its
 //     stub line here. You cannot forget: a leftover stub makes the label appear
 //     twice, and Typst errors with "label occurs multiple times".
@@ -23,23 +23,30 @@
 // RENDERING: a `@ref` whose only target is a stub renders as bold red
 // "[TBD: <description>]" so unresolved forward-refs are obvious in the output.
 // Once the real section exists, the ref renders normally.
-//
-// NOTE: if your template already sets a `show ref` rule, merge the branch below
-// into it instead of applying a second `#show: setup`.
 // =============================================================================
 
 #let stub(desc) = metadata(desc)
 
 #let setup(body) = {
   // --- LABELS WE OWE (delete each line when its section defines the label) ----
-  // Keep in sync with docs/CROSSREFS.md (the cross-reference ledger).
-  [#stub("Ch 2 — Background (chapter)")<chap:background>]
-  [#stub("§2.2 — SNARKs / arithmetic circuits: fixed loop-free graph + offline memory checking (ROM)")<sec:snarks>]
-  [#stub("§2.5 — TSP-ZKP problem statement / formulation (renumbered from §2.6, 2026-06-10)")<sec:prob-formulation>]
-  [#stub("§2.1 — Fiat–Shamir transform / random-oracle challenge (+ Schwartz–Zippel)")<sec:fiat-shamir>]
-  [#stub("§4.3 — matrix representation: flat-full vs Merkle")<sec:representation>]
-  [#stub("§4.5 — the witness-time inversion")<sec:witness-inversion>]
-  [#stub("Ch 5 — Hierarchical and Recursive Constructions (chapter)")<chap:hierarchical>]
+  // Ch 2 — Background sections (the chapter exists as a placeholder; its
+  // sections are not written yet). The chapter label <chap:background> is
+  // already defined by chapter2.typ, so it is NOT stubbed here.
+  [#stub("§2.x — SNARKs / arithmetic circuits: fixed loop-free graph + offline memory checking (ROM)")<sec:snarks>]
+  [#stub("§2.x — TSP-ZKP problem statement / formulation")<sec:prob-formulation>]
+  [#stub("§2.x — Fiat–Shamir transform / random-oracle challenge (+ Schwartz–Zippel)")<sec:fiat-shamir>]
+  [#stub("§2.x / §3.x — factorial oracle / brute-force baseline")<sec:factorial>]
+
+  // Ch 3 — Evaluation methodology / metrics (not yet migrated).
+  [#stub("§3.x — metrics: what we measure (gates, prove/verify time, witness time)")<sec:metrics>]
+  [#stub("§3.x — fairness: privacy-equalized comparison conditions")<sec:fairness>]
+
+  // Ch 6 — Evaluation / results (not yet migrated).
+  [#stub("§6.x — flat-baseline evaluation / measured results")<sec:flat-eval>]
+  [#stub("Fig — mechanism witness-time plot")<fig:mech-witness-plot>]
+
+  // Ch 7 — Conclusion (not yet migrated).
+  [#stub("§7.x — future work")<sec:future-work>]
 
   // A @ref to a stub-only label renders as a visible TBD marker; everything else
   // (real targets) renders normally. A leftover stub alongside a real target makes

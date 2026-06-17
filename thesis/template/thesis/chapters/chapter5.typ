@@ -1,8 +1,7 @@
-// ALT-STYLE DRAFT — Chapter 5, built incrementally, one beat at a time.
-// Step 1: chapter opener + the opening derivation (flat's wall -> the decompose move
-// -> what decomposing a proof means -> the posed gap). Section title provisional.
-
-#import "../drafts/_pseudocode.typ": *
+#import "/theme/headings.typ": chapter, section, subsection
+#import "/theme/utils.typ": inline, lc, fn
+#import "/thesis/chapters/_pseudocode.typ": *
+#import "@preview/lovelace:0.3.0": *
 
 #chapter([Hierarchical and Recursive Constructions], label: <chap:hierarchical>)
 
