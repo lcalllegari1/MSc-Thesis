@@ -71,7 +71,7 @@ from plot_recursion_lines import parse_variant, COMPONENT_STYLE, _color_for_k  #
 
 # ── Curated series per metric ─────────────────────────────────────────────────
 # role -> recursion component (parse_variant's component field)
-ROLE_TO_COMPONENT = {"aggregate": "combined", "seg": "seg", "outer": "outer"}
+ROLE_TO_COMPONENT = {"aggregate": "combined", "seg": "seg_node", "outer": "outer"}
 METRIC_ROLES = {
     "circuit_size": ["aggregate", "outer"],
     "acir_opcodes": ["aggregate"],
@@ -83,7 +83,7 @@ METRIC_ROLES = {
     "peak_mb":      ["seg", "outer"],
 }
 DEFAULT_METRICS = ["circuit_size", "prove_s", "peak_mb", "verify_s", "proof_bytes"]
-_COMP_RANK = {"combined": 0, "seg": 1, "outer": 2, "glue": 3}
+_COMP_RANK = {"combined": 0, "seg_node": 1, "seg_total": 1, "seg": 1, "outer": 2, "glue": 3}
 
 
 # ── Combined palette: flat in black, recursion keyed by K + component ──────────

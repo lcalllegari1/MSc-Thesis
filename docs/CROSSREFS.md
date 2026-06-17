@@ -56,13 +56,22 @@ Legend: ✅ defined · 🔲 stub (owed) · ⚠️ needs attention.
 | `<sub:presence>` | ✅ | §4.2 | presence/RAM mechanism | — |
 | `<sub:grand-product>` | ✅ | §4.2 | grand-product + Fiat–Shamir mechanism | — |
 | `<sub:types-and-pair>` | ✅ | §4.2 | type rationale + the sort↔product pair | — |
+| `<fig:flat-sort>` | ✅ | §4.2 | sort-check pseudocode listing | ch4 §4.2 (sort subsection) |
+| `<fig:check-shuffle>` | ✅ | §4.2 | inside check_shuffle (hint + two passes) | ch4 §4.2 (sort subsection) |
+| `<fig:flat-invperm>` | ✅ | §4.2 | inverse-permutation pseudocode listing | ch4 §4.2 (invperm subsection) |
 | `<fig:flat-grandproduct>` | ✅ | §4.2 | grand-product pseudocode listing | ch4 §4.2 |
 | `<fig:perm-mechanisms>` | ✅ | §4.2 | the five-mechanism comparison table | ch4 §4.2 (×2) |
-| `<sec:snarks>` | 🔲 stub | §2.2 | SNARKs / arithmetic circuits (see owed-content note ‡) | ch4 §4.1 (loop-unroll; ROM) |
-| `<sec:prob-formulation>` | 🔲 stub | §2.5 *(renumbered from §2.6 in the 2026-06-10 Ch 2 cut)* | TSP-ZKP problem statement | ch4 §4.1 opener |
-| `<sec:fiat-shamir>` | 🔲 stub | §2.1 | Fiat–Shamir / random-oracle challenge (+ Schwartz–Zippel) | ch4 §4.2 (grand product) |
-| `<sec:representation>` | 🔲 stub | §4.3 | matrix representation (flat-full vs Merkle) | ch4 §4.1 (×2), §4.2 (×2) |
-| `<sec:witness-inversion>` | 🔲 stub | §4.5 | the witness-time inversion | ch4 §4.1 detail 2, §4.2 (the pair) |
+| `<sec:zk>` | 🔲 stub | §2.1 | ZK proofs: completeness/soundness/ZK, knowledge soundness (container of `<sec:fiat-shamir>`) | ch5 (sound-first discipline); §5.7 (knowledge soundness) |
+| `<sec:snarks>` | 🔲 stub | §2.2 | SNARKs / arithmetic circuits / **memory in circuits** / recursion para (see owed-content note ‡) | ch4 §4.1 (loop-unroll; ROM), §4.2 (memory taxonomy), §4.5 (witness inversion); ch5 §5.5 (no dynamic memory), §5.7 (in-circuit verification) |
+| `<sec:metrics>` | 🔲 stub | §2.2 *(closing subsection of `<sec:snarks>`)* | ACIR-vs-gates, the metric set, data-obliviousness | ch4 §4.4 (metric set); Ch 6 |
+| `<sec:primitives>` | 🔲 stub | §2.3 | Poseidon2 (RO/preimage/collision) · Merkle · **commitments (hiding/binding, Pedersen)** (see owed-content note ‡) | ch4 §4.3 (Merkle); ch5 §5.5.2, §5.6 (three senses; commitment hiding/binding); §5.8.1 (Pedersen/unconditional) |
+| `<sec:tsp>` | 🔲 stub | §2.4 | TSP / Hamiltonicity · NP-hardness · **finder/checker asymmetry** · clustered solver | ch5 §5.1 `<sec:dualism>` (asymmetry = dualism pivot; solver-decomposition = the mirror) |
+| `<sec:prob-formulation>` | 🔲 stub | §2.5 *(renumbered from §2.6 in the 2026-06-10 Ch 2 cut)* | TSP-ZKP problem statement; binding≠authenticity; threshold≠optimality | ch4 §4.1 opener, §4.3 (binding≠authenticity), §4.4 (feasibility not optimality) |
+| `<sec:threat-model>` | 🔲 stub | §2.6 | adversary / guarantees / non-guarantees, defined once | ch4 §4.3 ("return to it with the threat model"); ch5 §5.8.2 `<sub:soundness-reductions>` |
+| `<sec:fiat-shamir>` | 🔲 stub | §2.1 *(inside `<sec:zk>`)* | Fiat–Shamir / random-oracle challenge (+ Schwartz–Zippel) | ch4 §4.2 (grand product); ch5 §5.5.2 `<sub:challenge-binding>` |
+| `<sec:representation>` | 🔲 stub | §4.3 | matrix representation (flat-full vs Merkle) | ch4 §4.1 (×2), §4.2 (×3: gun callback; surface-war first step; committed matrix) |
+| `<sec:witness-inversion>` | 🔲 stub | §4.5 | the witness-time inversion | ch4 §4.1 detail 2, §4.2 (the pair; perm-table caption) |
+| `<chap:hierarchical>` | 🔲 stub | Ch 5 | Hierarchical and Recursive Constructions | ch4 §4.2 (invperm loan comes due; grand-product spine) |
 
 **‡ Owed content for stubbed sections (so the inbound refs make sense):**
 - `<sec:snarks>` (§2.2) must cover, once: **(a)** an arithmetic circuit is a *fixed,
@@ -71,8 +80,30 @@ Legend: ✅ defined · 🔲 stub (owed) · ⚠️ needs attention.
   (cite Blum–Evans–Gemmell–Kannan–Naor 1991/94; circuit synonym **ROM lookup**, ACIR
   `MEM_INIT`/`MEM_OP`): array as (address,value) table, prover's sorted access-log hint,
   sorted/permutation/consistency checks, cost linear in dynamic reads. Hedge: Barretenberg
-  may lower to a lookup-argument (Plookup/logUp) variant — same cost shape. Split a
-  dedicated `<sec:dynamic-memory>` for (b) if §2.2 grows.
+  may lower to a lookup-argument (Plookup/logUp) variant — same cost shape. This is the
+  **billed ~1.5 pp** the drafted Ch 4/5 lean on hardest (§4.2 memory taxonomy, §4.5
+  inversion, §5.5 "no dynamic memory"). Split a dedicated `<sec:dynamic-memory>` if §2.2
+  grows. **(c)** one paragraph: a circuit can **verify a proof in-circuit** (recursive
+  composition + its soundness) — enough for §5.7's `verify_proof` gadget / `vk`; systems
+  (Halo/Nova/folding) are Ch 3's, not here. Closing `<sec:metrics>`: ACIR-opcodes-vs-gates,
+  the metric set, **data-obliviousness** (one-instance-per-size). *Pipeline mechanics stay
+  in Ch 4 §4.4 — do not duplicate.*
+- `<sec:primitives>` (§2.3) must cover, once: **(a)** Poseidon2 with its **three security
+  senses named** — random-oracle behaviour, **preimage resistance**, **collision
+  resistance** — because §5.5.2 and §5.6 invoke each by name (RO → unforeseeable challenge;
+  preimage → can't invert X to a tour; collision → can't find a second tour to the same c /
+  can't open a commitment two ways); **(b)** Merkle commitment (binding via collision
+  resistance, DEPTH openings, the soundness-critical leaf-index check); **(c)** commitments
+  in general: **hiding** vs **binding**, **computational** vs **unconditional**, with
+  **Pedersen** (unconditional hiding / DLOG binding) as the alternative §5.8.1 names. Without
+  (c), §5.6 and the privacy ladder (computational vs structural hiding) have nothing to cite.
+- `<sec:fiat-shamir>` (§2.1) must state **Schwartz–Zippel** *and* Fiat–Shamir at the
+  **order-of-dependence** level §5.5.2 uses: the tour is fixed first, the challenge derived
+  from it second (X = H(c)), so a cheat cannot pick the multiset *after* seeing the point.
+- `<sec:tsp>` (§2.4) must plant the **finder/checker asymmetry** and the clustered-solver
+  decomposition (N! → ~K·(N/K)!·K!) **neutrally** — §5.1 weaponizes both (the asymmetry is
+  the dualism's pivot; the solver's region split is the mirror ZK inverts). No hint here that
+  ZK refuses decomposition; that is §5.1's reveal.
 - `<sec:witness-inversion>` (§4.5) must **backreference §4.1 detail 2**: sort's
   `check_shuffle` does ≈2N secret-indexed reads (`cycle[π(i)]`, π a witness), so the
   solver build+sorts that access log at solve time ⇒ sort is slower to witness than
@@ -97,6 +128,18 @@ exists yet in the `.typ`. `fwd` = forward ref, `back` = backward ref.
 | grand product's O(1) surface pays off only under decomposition (the loaded gun) | §4.2 `<sub:grand-product>` | §4.3 `<sec:representation>` + Ch 5 walk | ✅ fwd | §4.2 "we have only loaded the gun"; §4.3 / §5.7 (`plain-product`) fire it |
 | Fiat–Shamir / Schwartz–Zippel (random-oracle challenge) | §2.1 `<sec:fiat-shamir>` | §4.2 `<sub:grand-product>` | ✅ fwd | "we treat properly in @sec:fiat-shamir" |
 | dynamic vs static array reads (ROM/RAM cost) | §2.2 `<sec:snarks>` + §4.1 detail 2 | §4.2 (sort, invperm, presence) | ✅ back | §4.2 leans on §4.1's dynamic-read lesson for all three exact mechanisms |
+| FS order-of-dependence (tour fixes challenge) | §2.1 `<sec:fiat-shamir>` | §5.5.2 `<sub:challenge-binding>` | 🔲 fwd | §5.5.2 rebuilds the chain across K proofs; assumes the flat FS picture |
+| Poseidon three senses (RO/preimage/collision) | §2.3 `<sec:primitives>` | §5.5.2 `<sub:challenge-binding>`, §5.6 `<sec:committed>` | 🔲 fwd | §5.5.2/§5.6 name each sense; background defines them once |
+| commitment hiding/binding; computational vs unconditional; Pedersen | §2.3 `<sec:primitives>` | §5.6 `<sec:committed>`, §5.8.1 `<sub:privacy-ladder>` | 🔲 fwd | the privacy "cure" + ladder rung; Pedersen named in §5.6/§5.8.1 |
+| Merkle binding + leaf-index check | §2.3 `<sec:primitives>` | §4.3 `<sec:representation>` | 🔲 fwd | §4.3 calls the leaf-index check "the most important line in the section" |
+| in-circuit verification / recursive composition | §2.2 `<sec:snarks>` | §5.7 `<sec:recursion>`, `<sub:outer>` | 🔲 fwd | `verify_proof` gadget + `vk`; soundness rests on recursion KS |
+| knowledge soundness | §2.1 `<sec:zk>` | §5.7 (recursion) | 🔲 fwd | composing knowledge-sound proofs |
+| metric set / data-oblivious | §2.2 `<sec:metrics>` | §4.4 `<sec:tooling>`, Ch 6 | 🔲 fwd | "the metrics … defined in @sec:metrics"; one-instance-per-size justified by data-obliviousness |
+| finder/checker asymmetry (dualism seed) | §2.4 `<sec:tsp>` | §5.1 `<sec:dualism>` | 🔲 fwd | the asymmetry IS the dualism's pivot |
+| clustered-solver decomposition (the mirror) | §2.4 `<sec:tsp>` | §5.1 `<sec:dualism>` | 🔲 fwd | ZK inverts the solver's region split — §5.1 needs the neutral solver picture |
+| binding ≠ authenticity | §2.5 `<sec:prob-formulation>` | §4.3 `<sec:representation>` | ✅ fwd | §4.3 "we develop it properly in @sec:prob-formulation" |
+| threshold ≠ optimality (feasibility) | §2.5 `<sec:prob-formulation>` | §4.4 `<sec:tooling>` | ✅ fwd | §4.4 "proving feasibility … not optimality … a distinction we return to" |
+| threat-model vocabulary (trust base) | §2.6 `<sec:threat-model>` | §5.8.2 `<sub:soundness-reductions>` | 🔲 fwd | §5.8.2 reads each variant's trust base against this |
 
 ---
 

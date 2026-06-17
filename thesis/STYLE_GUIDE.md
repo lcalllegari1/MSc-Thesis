@@ -1,13 +1,17 @@
 # Writing-Style Guide — for the Master Thesis (English)
 
-> **The drafts are now the canon (2026-06-10).** Two chapters exist in the target voice:
-> `thesis/drafts/ch1.typ` (Introduction) and `thesis/drafts/ch4.typ` (The Flat Baseline).
-> **They supersede this guide wherever the two disagree** — the guide described the voice
-> before it existed; the drafts *are* it. The precedence order is now:
-> **drafted chapters > §14 > §§1–13.** §14.12 records what the drafts settled that the
-> original guide either left open or got slightly wrong (the calibration came out *drier*
-> than §§6–8 license). When drafting a new chapter, reread 2–3 pages of ch1/ch4 first;
-> match *them*, and use this guide as the checklist.
+> **The voice was revised (2026-06-12); §14.13 is now the authority.** The thesis is being
+> re-voiced. The new voice is defined in **§14.13** and exemplified by the samples in
+> `thesis/drafts_alt/` (`ch1.typ`, `ch4.typ` §4.1). It keeps every *semantic* rule in this
+> guide — first principles, motivate-then-formalize, justify-and-admit-cost, signposting,
+> earn-the-result, named handles, self-containment — and changes only the *narrator*: shorter
+> linear sentences, plain-but-precise vocabulary, warmth in the intuition and exactness in the
+> detail, em-dashes only when they fit. **Precedence: §14.13 > §14 > §§1–13.**
+>
+> The previous calibration (§14.12, and the dry-wit dial in §6) describes the *earlier* voice,
+> preserved in `thesis/drafts/`; where it disagrees with §14.13, §14.13 wins. When drafting a
+> new chapter, reread the `drafts_alt/` samples first, match *them*, and use this guide as the
+> semantics checklist.
 
 This guide reconstructs the writing style of two source documents and fuses them into a
 single target voice to use for the master thesis:
@@ -176,7 +180,11 @@ Rule of thumb: **be entertaining in the connective tissue, exact in the load-bea
 walls.** A reader should never be unsure whether a sentence is a joke or a claim. Wit
 lives in framing, never inside a theorem.
 
-**Locked calibration (this thesis — recalibrated against the drafts, 2026-06-10).** The
+**Locked calibration (this thesis — recalibrated against the drafts, 2026-06-10).**
+*Superseded for the current voice by §14.13 (2026-06-12), which lowers this dial further:
+warmth now comes from clarity and patient first-principles build-up, not from wit or
+understatement. The description below applies to the earlier voice, preserved in
+`thesis/drafts/`.* The
 agreed dial is *dry wit and understatement*, with the warmth coming from honesty, narrative
 momentum, and well-aimed phrasing rather than jokes. The drafted chapters settled the dial
 one notch drier than originally licensed:
@@ -522,6 +530,11 @@ When delivering thesis prose in a session, present it so it is trivial to copy:
 - Keep all commentary, notes, and questions **outside** the `===` fences.
 
 ### 14.12 The practiced voice — what the drafted chapters settled (2026-06-10)
+*Superseded by §14.13 (2026-06-12). This describes the earlier voice in `thesis/drafts/`;
+several of its devices (the default em-dash aside, the economics vocabulary, the
+anthropomorphism) are revised or withdrawn below. Read it for the devices that carry over,
+listed in §14.13 rule 6.*
+
 Extracted from `ch1.typ` + `ch4.typ`, which are canonical (see the banner at the top of
 this guide). These are the devices the drafts actually run on; new chapters should sound
 like this:
@@ -562,3 +575,52 @@ like this:
 10. **Sections close on a short, weight-bearing sentence.** *"For now, the brute-force
     version is the honest starting point."* — a settled cadence, not a cliffhanger every
     time.
+
+### 14.13 The revised voice (2026-06-12) — supersedes §14.12 and the §6 dial
+
+A second re-voicing. The *semantics* of §§1–13 and §14.1–14.11 are unchanged and remain in
+force: build from first principles, motivate before formalizing, justify every choice and
+admit its cost, signpost forward and back, earn the result, name the load-bearing handles,
+stay self-contained. **Only the narrator changed.** Where this subsection disagrees with
+§14.12 or the §6 calibration, this subsection wins. The new voice is exemplified in
+`thesis/drafts_alt/`; the earlier voice it replaces is preserved in `thesis/drafts/`.
+
+The new voice, in six rules:
+
+1. **Linear, in logic and in phrasing.** Sentences follow the order of the reasoning, one
+   idea at a time. Short sentences are the default. A long sentence is allowed only when its
+   length carries meaning — a genuine chain of dependent steps — never as ornament.
+2. **Plain explanation, precise vocabulary.** Simplify *how* a thing is explained, not the
+   words it is explained with. Keep any technical word that has no simpler equivalent without
+   a change of meaning: *optimization, lean, obvious, asymmetry, orthogonal, monolithic,
+   suboptimal, prohibitively*. Drop ornamental words a plainer one replaces at no cost:
+   *coin / currency / money, leg, wholesome, handsomely, ruinous, dearest, conjured,
+   soldered*. The test before every word: *would a simpler word change the meaning?* If no,
+   use the simpler word; if yes, keep the precise term, and define it if it is a term of art.
+   Assume a careful non-native reader who should reach for a dictionary only for genuine terms
+   of art, never for flourish.
+3. **Warm in the connective tissue and the intuition; technical in the detail.** Build
+   intuition with everyday framing and a helper picture where it truly aids understanding (the
+   wiring diagram, the tick sheet). Switch to exact, unembellished prose the moment you state a
+   definition, a constraint, a cost, or a result. The warmth now comes from *clarity and
+   patient build-up*, not from wit, understatement, or turns of phrase — this is one notch
+   below §6 and §14.12.
+4. **Em-dashes only when they fit.** Use one for a real mid-sentence aside or a sharp turn,
+   not to splice clauses for effect. Prefer a colon for a list or an expansion, a period for a
+   new thought. The earlier voice made the paired em-dash its default aside form; this voice
+   does not. The economics-vocabulary licence (§14.12 point 6) is withdrawn. Anthropomorphism
+   of costs (§14.12 point 9) is allowed only in its plain form (*"those N² public inputs will
+   come back to cause trouble"*), never the ornamental kind.
+5. **Two-part names, opt-in and unexplained.** Give a handle a plain *how*-name and a
+   memorable *what*-name only when both read naturally and the second is not forced —
+   *compute-then-check / the hint trick* is the model. Do **not** explain the two-name device
+   in the prose; just use the names. Where a handle already reads plainly (*the stitching tax,
+   the frontier, the pattern*), no pairing is needed. Keep names that have already earned their
+   keep; do not rename for its own sake.
+6. **What carries over from §14.12, in plainer phrasing.** The rhetorical-question gearshift
+   (point 1), the question-out / answer-in section seam (point 2), the second person for
+   intuition (point 3), sober reader-management and the Chekhov discipline (point 5), numbers
+   read aloud the moment they appear (point 7), long paragraphs for argument with bullets only
+   for parallel items (point 8), and sections closing on a short weight-bearing sentence
+   (point 10) all survive. Section titles stay concrete and lightly turned. The
+   discovery-narrative spine (§14.1) is untouched.

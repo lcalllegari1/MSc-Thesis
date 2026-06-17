@@ -247,33 +247,92 @@ Ch 1 is the trailer, Ch 5 the film.
 > The problem statement + threat model (§2.5–§2.6) are exempt from compression — they are contribution-adjacent security content,
 > not background.
 
-- §2.1 Zero-knowledge proofs *(~4 pp)* — formal definitions only: interactive proofs;
-  completeness / soundness / ZK; knowledge soundness; Fiat–Shamir. **No worked toy example**
-  (Ch 1's Sudoku already did that job); one compact graph-3-coloring or equivalent sketch at
-  most, then move on.
-- §2.2 SNARKs + primitives *(~6 pp — merged old §2.2 + §2.3)* — arithmetic circuits over a
-  prime field; ACIR → UltraHonk gates *(only what the ~87-gates/Poseidon2 finding and the
-  dynamic-ROM story need — skip R1CS/AIR taxonomy, skip PLONK lineage beyond a paragraph)*;
-  Poseidon2 (why ZK-friendly, in one page); Merkle commitments in the ZK context.
-- §2.3 TSP *(~4 pp)* — definition; NP-hardness and the finder/checker asymmetry (the seed of
-  the dualism); clustered/hierarchical solvers compressed to **~1.5 pp** (why clustering speeds
-  classical TSP: search shrinks N! → ~K·(N/K)!·K!; taught neutrally, no hint yet that ZK
-  refuses it). Generic solver detail → Appendix B.
-- §2.4 Tooling and metrics *(~3 pp)* — Noir + Barretenberg; ACIR opcodes vs UltraHonk gates;
-  the metric set (`circuit_size`, `compile/witness/prove/verify_s`, `proof_bytes`, `peak_mb`).
-- §2.5 **The TSP-ZKP problem statement** *(~3 pp — kept full)* — Hamiltonian cycle, cost ≤ T
-  against a committed matrix; public/private separation (flat-full vs flat-Merkle); the five
-  trust anchors for the Merkle commitment; binding ≠ authenticity (the matrix-provenance fine
-  print); threshold vs optimality (why cost ≤ T, not "minimum"). *Boxed problem statement
-  (`STYLE_GUIDE §14.8`).*
-- §2.6 **Threat model** *(~2 pp — kept full)* — adversary (cheating polynomial-bounded prover;
-  honest verifier); guarantees (completeness, knowledge soundness, ZK); non-guarantees (input
-  validity needs an external anchor); side-channels out of scope. **Defined once, here.** The
-  per-circuit group↔cheat argument lives in each soundness subsection (§5.6.x …); the formal
-  proofs in §5.11; the negative-test results in §6.7 — three artifacts, three homes, never
-  conflated.
+> **Dependency-driven rebuild (2026-06-13).** Now that Ch 4 and Ch 5 are drafted
+> (`thesis/drafts_alt/`), this outline is rebuilt *bottom-up from what those chapters
+> actually reach back for* — every back-reference (`see @sec:snarks`, `by Schwartz–Zippel`,
+> "the random-oracle sense", "Pedersen hides unconditionally") is a debt Ch 2 must pre-pay.
+> Each item below names its **downstream consumer**; an item with none is cut. Three changes
+> the drafted chapters forced: **(A)** *memory in circuits* (offline memory checking / ROM /
+> RAM) is promoted to a billed ~1.5 pp inside `<sec:snarks>` — it is the single most-cited
+> background mechanism (the §4.5 witness-time inversion and the whole RAM→ROM→static taxonomy
+> rest on it), not a clause. **(B)** *Commitments* — hiding/binding, computational vs
+> unconditional, **Pedersen** — get an explicit home in §2.3; §5.6 and the privacy ladder
+> (§5.8.1) cite them and the old plan had nowhere for them. **(C)** Poseidon2's **three
+> security senses** (random oracle / preimage / collision) are named once in background so
+> §5.5.2 and §5.6 cite rather than re-derive. Boundary discipline: the *pipeline* (Merkle
+> builder, harness, cross-language Poseidon check) stays in Ch 4 §4.4 — §2.4 keeps only metric
+> *vocabulary*; the folding / distributed-prover lineage is Ch 3's (`RELATED_WORK.md`), not Ch 2's.
 
-*(Old §2.6/§2.7 are now §2.5/§2.6; update `CROSSREFS.md` targets when Ch 2 is drafted.)*
+- §2.1 Zero-knowledge proofs *(~4 pp — `<sec:zk>`, contains `<sec:fiat-shamir>`)* — interactive
+  proofs; completeness / soundness / **zero-knowledge**; **knowledge soundness**; then
+  **Fiat–Shamir** (interactive → non-interactive by hashing the transcript) with the
+  **random-oracle model**, and **Schwartz–Zippel** (a nonzero low-degree polynomial is almost
+  nowhere zero). State FS at the *order-of-dependence* level §5.5.2 uses — the tour fixes the
+  challenge, never the reverse. **No worked toy example** (Ch 1's Sudoku did that). *Consumers:*
+  §4.1 ("convince … learn nothing else"); §4.2 `<sub:grand-product>` and §5.5.2
+  `<sub:challenge-binding>` (SZ + FS, load-bearing); knowledge soundness by recursion (§5.7).
+  *Cite:* Goldwasser–Micali–Rackoff (ZK def); **GMW** (ZK for all NP via **Hamiltonicity** — the
+  statement this thesis instantiates); Fiat–Shamir 1986; Bellare–Rogaway (ROM); Schwartz 1980 /
+  Zippel 1979.
+- §2.2 SNARKs, circuits, and memory *(~7 pp — `<sec:snarks>`, contains `<sec:metrics>`)* — the
+  load-bearing section, in four moves:
+  > **MARKER (task (c), added 2026-06-14).** This section + §2.3 must *pre-pay the two-layer
+  > framing*: the backend (UltraHonk) gives KS / ZK / succinctness uniformly, on its own
+  > assumptions, and is **not** a privacy/soundness discriminator; *our* layer is the circuit +
+  > the public/private split. Ch5 already leans on this (§5.3 ZK caveat, §5.8 soundness opener);
+  > Ch2 must define the primitives it cites. Source of truth: memory `project_proofsystem_layering`
+  > + `thesis/ch5_supervisor_report.typ` §"Relation to the proof system (UltraHonk)". Soundness is
+  > stated **by reduction** (ε ≤ ε_SNARK + in-circuit args), the formal version owed by Ch5 §5.11.
+  **(1)** an arithmetic circuit over a prime field 𝔽
+  (~2²⁵⁴) is a *fixed, loop-free, branch-free* graph built before any witness (→ loops unroll;
+  the `≠`-via-inverse trick needs no branch); **(2)** what makes it a SNARK — succinctness
+  (constant proof, the 14 656-byte fact), non-interactivity, **Plonkish / UltraHonk**, gates,
+  **dyadic (power-of-two) padding**; **(3)** *memory in circuits* (~1.5 pp, billed) — lookup
+  arguments (**Plookup**), **offline memory checking / ROM** (a prover-chosen read compiles to a
+  consistency argument), **read–write RAM** (consistency-by-sorting), static indexing as the
+  cheap floor; **(4)** one paragraph on **recursion** — a circuit can *verify a proof*
+  in-circuit, recursive composition and its soundness (systems → Ch 3). Close on **ACIR opcodes
+  vs gates**, the **metric set** (`circuit_size`, `witness_s/prove_s/verify_s`, `proof_bytes`,
+  `peak_mb`), and **data-obliviousness** (`<sec:metrics>`). *Skip* R1CS/AIR taxonomy, PLONK
+  lineage beyond a paragraph. *Consumers:* §4.1 (fixed circuit, secret-position cost), §4.2
+  (memory taxonomy of all five mechanisms), §4.5 (witness inversion), §4.4 (metrics), §5.5
+  ("no dynamic memory"), §5.7 (in-circuit verification, `vk`). *Cite:* Plonk; Honk/Barretenberg
+  UltraHonk; Plookup; Blum–Evans–Gemmell–Kannan–Naor (offline memory checking); Halo (one-line
+  recursion pointer).
+- §2.3 Hash-based primitives and commitments *(~4 pp — `<sec:primitives>`)* — the same hash put
+  to three jobs (§5.6 says so): **Poseidon2** (why ZK-friendly, one page) with its **three
+  security senses named — random oracle / preimage resistance / collision resistance**;
+  **Merkle commitments** (binding via collision resistance, DEPTH-sized openings, the
+  soundness-critical leaf-index point); **commitments in general — hiding and binding,
+  computational vs unconditional**, with **Pedersen** as the unconditional-hiding / DLOG
+  alternative (binding becomes computational). *Consumers:* §4.3 (Merkle representation); every
+  segment/glue edge proof; **§5.5.2 and §5.6** (the three senses by name); **§5.6 + §5.8.1**
+  (hiding/binding, computational-vs-structural, Pedersen) — currently homeless without this.
+  *Cite:* Poseidon / Poseidon2; Merkle 1987; Pedersen 1991.
+- §2.4 TSP *(~4 pp — `<sec:tsp>`)* — definition; NP-hardness and the **finder/checker asymmetry
+  (the seed of the dualism)**; clustered/hierarchical solvers compressed to **~1.5 pp** (why
+  clustering speeds *classical* TSP: search shrinks N! → ~K·(N/K)!·K!; taught **neutrally**, no
+  hint yet that ZK refuses it). *Consumers:* §5.1 `<sec:dualism>` harvests *both* — the
+  finder/checker asymmetry **is** the dualism's pivot, and the solver's region-decomposition is
+  the mirror ZK inverts. Generic solver detail → Appendix B. *Cite:* Karp (NP-completeness); a
+  clustered-TSP heuristic reference.
+- §2.5 **The TSP-ZKP problem statement** *(~3 pp — kept full, `<sec:prob-formulation>`)* —
+  Hamiltonian cycle, cost ≤ T against a committed matrix; public/private separation (flat-full
+  vs flat-Merkle); the five trust anchors for the Merkle commitment; **binding ≠ authenticity**
+  (the matrix-provenance fine print §4.3 forwards here); **threshold vs optimality** (why cost
+  ≤ T, not "minimum"; §4.4 "feasibility not optimality" cites this). *Boxed problem statement
+  (`STYLE_GUIDE §14.8`).*
+- §2.6 **Threat model** *(~2 pp — kept full, `<sec:threat-model>`)* — adversary (cheating
+  polynomial-bounded prover; honest verifier); guarantees (completeness, knowledge soundness,
+  ZK); non-guarantees (input validity needs an external anchor); side-channels out of scope.
+  **Defined once, here.** *Consumer:* §5.8.2 `<sub:soundness-reductions>` reads each variant's
+  trust base and is only legible if this fixed the vocabulary. The per-circuit group↔cheat
+  argument lives in each soundness subsection (§5.6.x …); the formal proofs in §5.11; the
+  negative-test results in §6.7 — three artifacts, three homes, never conflated.
+
+*(`<sec:metrics>` now lives inside §2.2; `<sec:fiat-shamir>` inside §2.1; `<sec:prob-formulation>`
+stays §2.5. New labels `<sec:zk>`, `<sec:primitives>`, `<sec:tsp>`, `<sec:threat-model>` registered
+in `CROSSREFS.md`. Update that ledger's status as Ch 2 is drafted.)*
 
 # Chapter 3 — Related Work *(~8 pp)*
 

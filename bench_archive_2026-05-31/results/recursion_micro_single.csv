@@ -1,0 +1,9 @@
+exp,n,k,m,depth,run,role,circuit,gates,acir,compile_s,witness_s,prove_s,verify_s,proof_bytes,peak_mb
+1,48,2,24,12,1,inner_segment,sub_0,28480,3168,0.2856,0.1867,0.4482,,,61.81
+1,48,2,24,12,1,outer_recursive,rec_exp1_single_segment,704363,2,0.1163,0.1095,7.5978,0.0115,14656,1007.93
+1,96,2,48,14,1,inner_segment,sub_0,63132,7490,0.4183,0.2147,0.8961,,,106.34
+1,96,2,48,14,1,outer_recursive,rec_exp1_single_segment,704363,2,0.1238,0.1078,7.7913,0.0113,14656,995.49
+1,192,2,96,16,1,inner_segment,sub_0,140841,17212,0.7671,0.3005,2.1303,,,236.89
+1,192,2,96,16,1,outer_recursive,rec_exp1_single_segment,704363,2,0.1169,0.1086,7.8216,0.0113,14656,985.57
+1,480,2,240,18,1,inner_segment,sub_0,390773,48534,2.0392,0.4807,5.8143,,,555.75
+1,480,2,240,18,1,outer_recursive,rec_exp1_single_segment,704363,2,0.1834,0.117,11.0054,0.0172,14656,986.83

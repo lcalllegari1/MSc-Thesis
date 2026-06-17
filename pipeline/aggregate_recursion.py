@@ -61,25 +61,35 @@ Modes
 
 Variant naming
 --------------
-  exp 1 -> "recursion_1seg"   (single-segment recursion cost; a DIAGNOSTIC --
-                               its verify_s/proof_bytes describe verifying one
-                               segment proof, not a complete TSP statement)
-  exp 2 -> "recursion_k{K}"   (the complete recursive proof of the K=2 cycle; the
-                               row to overlay with flat_merkle / hier_fs_k2)
-Pass --mode-in-name to append _<mode> (e.g. recursion_k2_parallel).
+  exp 1 -> "{label}_1seg"   (single-segment recursion cost; a DIAGNOSTIC --
+                             its verify_s/proof_bytes describe verifying one
+                             segment proof, not a complete TSP statement)
+  exp 2 -> "{label}_k{K}"   (the complete recursive proof of the K-cycle; the
+                             row to overlay with flat_merkle / hier_fs_k{K})
+`label` defaults to "recursion".  The raw recursion CSV has no `variant` column
+(only `exp`), so --label is how the inner MECHANISM is recorded: aggregate the
+sort-inner and product-inner sweeps with DIFFERENT labels (e.g. recursion_sort,
+recursion_gp) or they collide on the same recursion_k{K} name when plotted
+together.  Pass --mode-in-name to also append _<mode> (e.g. recursion_k2_parallel).
 
 Component split (--split-components)
 ------------------------------------
-With --split-components the combined row is still emitted, plus two extra rows
-per cell:
+With --split-components the combined row is still emitted, plus THREE extra rows
+per cell so the inner cost and the outer cost draw as separate lines (never one
+collapsed max):
 
-  recursion_k{K}_seg     the K inner A++ SEGMENT proofs only (circuit_size =
-                         sum(inner); prove/witness = max over the segments in
-                         parallel mode / sum in total mode; peak = max).  Inner
-                         proofs are consumed by the outer, not delivered to the
-                         verifier, so this row has no verify_s / proof_bytes.
-  recursion_k{K}_outer   the OUTER recursive proof alone (its own gates, prove,
-                         verify, proof_bytes, peak).
+  {label}_k{K}_seg_node   PER-NODE / WORST CASE: one inner segment -- gates = one
+                          inner, prove/witness = MAX over the K inners (worst
+                          node), peak = max.  Mode-independent; does NOT sum to
+                          combined.
+  {label}_k{K}_seg_total  DECOMPOSITION: the inner phase -- gates = sum(inner),
+                          prove/witness = max (parallel) / sum (total), peak =
+                          max.  Sums to combined with _outer.
+  {label}_k{K}_outer      the OUTER recursive proof alone (its own gates, prove,
+                          verify, proof_bytes, peak).
+
+Inner proofs are consumed by the outer, not delivered to the verifier, so the
+two segment rows carry no verify_s / proof_bytes.
 
 Honesty note: there is deliberately NO "_glue" row.  Recursion fuses the glue
 logic into the outer circuit together with the K in-circuit verifications, which
@@ -152,7 +162,8 @@ def _rrow(variant, n, run, csize, acir, compile_s,
     }
 
 
-def aggregate(rows, mode, include_mode_in_name, split_components=False):
+def aggregate(rows, mode, include_mode_in_name, split_components=False,
+              label="recursion"):
     grouped = defaultdict(list)
     for row in rows:
         key = (int(row["exp"]), int(row["n"]), int(row["k"]), int(row["run"]))
@@ -203,7 +214,7 @@ def aggregate(rows, mode, include_mode_in_name, split_components=False):
         peaks = [x for x in inner_peak + [outer_peak] if x is not None]
         peak_mb = max(peaks) if peaks else None
 
-        base = "recursion_1seg" if exp == 1 else f"recursion_k{k}"
+        base = f"{label}_1seg" if exp == 1 else f"{label}_k{k}"
 
         def _name(suffix):
             v = base + suffix
@@ -229,8 +240,22 @@ def aggregate(rows, mode, include_mode_in_name, split_components=False):
             iv_w = [x for x in inner_witness if x is not None]
             iv_p = [x for x in inner_prove   if x is not None]
             ip   = [x for x in inner_peak    if x is not None]
+            # Single inner segment (the K inners are identical M-sized circuits).
+            one_inner_size = int(inners[0]["gates"])
+            one_inner_acir = int(inners[0]["acir"])
+            # _seg_node: PER-NODE / WORST CASE -- one inner segment.  gates = one
+            # inner, time = MAX over the K inners (worst node), peak = max.  Inner
+            # proofs are consumed by the outer (never delivered), so no verify/bytes.
             out.append(_rrow(
-                _name("_seg"), n, run,
+                _name("_seg_node"), n, run,
+                one_inner_size, one_inner_acir, inner_compile,
+                max(iv_w) if iv_w else None,
+                max(iv_p) if iv_p else None,
+                None, "", max(ip) if ip else None))
+            # _seg_total: DECOMPOSITION -- the inner phase (gates = sum(inner),
+            # time = max (parallel) / sum (total)).  Sums to combined with _outer.
+            out.append(_rrow(
+                _name("_seg_total"), n, run,
                 inner_size, inner_acir, inner_compile,
                 innerstep(iv_w) if iv_w else None,
                 innerstep(iv_p) if iv_p else None,
@@ -254,6 +279,11 @@ def main():
                     help="Inner-proof aggregation: max (parallel) or sum (total) (default: parallel)")
     ap.add_argument("--mode-in-name", action="store_true",
                     help="Append _<mode> to the variant column so both modes can share a figure")
+    ap.add_argument("--label", default="recursion",
+                    help="Variant-name base (default: 'recursion' -> recursion_k{K}). "
+                         "Set per inner mechanism so sort- and product-inner recursion "
+                         "do NOT collide when plotted together, e.g. --label recursion_sort "
+                         "-> recursion_sort_k{K}, --label recursion_gp -> recursion_gp_k{K}.")
     ap.add_argument("--split-components", action="store_true",
                     help="Additionally emit per-cell SEGMENT and OUTER rows "
                          "(recursion_k{K}_seg and _outer) alongside the combined "
@@ -269,7 +299,8 @@ def main():
         print(f"No rows in {args.inp}")
         return
 
-    aggregated = aggregate(rows, args.mode, args.mode_in_name, args.split_components)
+    aggregated = aggregate(rows, args.mode, args.mode_in_name, args.split_components,
+                           label=args.label)
     if not aggregated:
         print("No cells survived aggregation (see warnings above).")
         return

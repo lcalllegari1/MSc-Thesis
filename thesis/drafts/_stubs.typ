@@ -39,6 +39,7 @@
   [#stub("§2.1 — Fiat–Shamir transform / random-oracle challenge (+ Schwartz–Zippel)")<sec:fiat-shamir>]
   [#stub("§4.3 — matrix representation: flat-full vs Merkle")<sec:representation>]
   [#stub("§4.5 — the witness-time inversion")<sec:witness-inversion>]
+  [#stub("Ch 5 — Hierarchical and Recursive Constructions (chapter)")<chap:hierarchical>]
 
   // A @ref to a stub-only label renders as a visible TBD marker; everything else
   // (real targets) renders normally. A leftover stub alongside a real target makes

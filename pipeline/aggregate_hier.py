@@ -58,21 +58,27 @@ share variant names.  Pass --mode-in-name to disambiguate as
 
 Component split (--split-components)
 ------------------------------------
-With --split-components the combined row is still emitted, plus two extra rows
-per cell that break the cell into its measured pieces:
+With --split-components the combined row is still emitted, plus THREE extra rows
+per cell so a figure can draw the segment cost and the glue cost as separate
+lines (never collapsed into one max):
 
-  {base}_k{K}_seg   the K SEGMENT proofs only (circuit_size = K*sub, prove/witness
-                    = max over the K subs in parallel mode / sum in total mode,
-                    verify/proof_bytes summed, peak = max).  NO glue.
-  {base}_k{K}_glue  the GLUE proof alone (its own measured values).  The external
-                    cross-check time (verify_hier_s) rides with glue, since it is
-                    the verifier-side binding tax this proof embodies.
+  {base}_k{K}_seg_node   PER-NODE / WORST CASE: what ONE node does.  Every metric
+                         is a single segment -- gates = sub, prove/witness = MAX
+                         over the K subs (worst-running node), peak = max,
+                         verify/proof_bytes = one segment proof.  Mode-independent
+                         (one node is one node); does NOT sum to combined.
+  {base}_k{K}_seg_total  DECOMPOSITION: the segment phase's contribution to the
+                         cell -- gates = K*sub, prove/witness = max (parallel) /
+                         sum (total), verify/proof_bytes summed, peak = max.
+  {base}_k{K}_glue       the GLUE proof alone (its own measured values).  The
+                         external cross-check time (verify_hier_s) rides with
+                         glue: the verifier-side binding tax this proof embodies.
 
-These sum back to the combined row (gates/verify/proof_bytes add; peak and the
-parallel prove/witness are the max), so the split is a faithful decomposition.
-plot.py needs no change: each is a distinct `variant`, drawn as its own line
-(select with --variants '*_seg' '*_glue').  Useful for the write-up's
-"segments vs binding" reasoning.
+_seg_total + _glue sum back to the combined row (gates/verify/proof_bytes add;
+peak and the parallel prove/witness are the max), so that pair is a faithful
+decomposition; _seg_node is the orthogonal per-node reading.  plot.py needs no
+change: each is a distinct `variant` (select with --variants '*_seg_node'
+'*_glue', etc.).
 
 Schema written
 --------------
@@ -200,17 +206,41 @@ def aggregate(rows, mode, include_mode_in_name, split_components=False):
             witness_s, prove_s, verify_s, proof_bytes, peak_mb))
 
         # Optional component rows: segments and glue as SEPARATE data points, so
-        # a figure can show "what the K segments cost" vs "what the binding glue
-        # costs" (the glue is the binding tax made visible; the external
-        # verify_hier_s cross-check time rides with it).  These sum back to the
-        # combined row by construction (gates/verify/proof_bytes add; peak is the
-        # max of the two; the parallel prove/witness time is the max).
+        # a figure can show the segment cost and the binding-glue cost side by
+        # side (never collapsed into a single max).  TWO segment conventions are
+        # emitted, because "what a segment costs" has two honest readings:
+        #
+        #   _seg_node   PER-NODE / WORST CASE -- what ONE node experiences.  Every
+        #               metric describes a single segment: gates = sub (one), time
+        #               = MAX over the K subs (the worst-running node), peak = max,
+        #               verify/bytes = one segment proof.  MODE-INDEPENDENT (one
+        #               node is one node regardless of how the K combine); time is
+        #               always the worst single segment.  Does NOT sum to combined.
+        #
+        #   _seg_total  DECOMPOSITION -- the segment PHASE'S contribution to the
+        #               whole cell: gates = K*sub, time = max (parallel) / sum
+        #               (total), verify/bytes = sum over K, peak = max.  Together
+        #               with _glue this sums back to the combined row, so it feeds
+        #               "where the total work goes" stacked views.
+        #
+        # The glue is a single proof either way (one binding circuit); the external
+        # verify_hier_s cross-check rides with it (the verifier-side binding tax).
         if split_components:
             agg = max if mode == "parallel" else sum
             sub_w = [float(r["witness_s"]) for r in subs]
             sub_p = [float(r["prove_s"])   for r in subs]
+            # _seg_node: one worst-case segment (gates/verify/bytes are per-node;
+            # time/peak are the max over the K near-identical segments).
             out.append(_mkrow(
-                _name("_seg"), n, run,
+                _name("_seg_node"), n, run,
+                sub_size, sub_acir, sub_compile_s,
+                max(sub_w), max(sub_p),
+                max(float(r["verify_s"])  for r in subs),
+                max(int(r["proof_bytes"]) for r in subs),
+                max(float(r["peak_mb"])   for r in subs)))
+            # _seg_total: the segment phase (sums back to combined with _glue).
+            out.append(_mkrow(
+                _name("_seg_total"), n, run,
                 k * sub_size, k * sub_acir, sub_compile_s,
                 agg(sub_w), agg(sub_p),
                 sum(float(r["verify_s"])  for r in subs),

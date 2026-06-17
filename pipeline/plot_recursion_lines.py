@@ -74,14 +74,17 @@ K_COLORS = [
 ]
 # component -> (marker, linestyle)
 COMPONENT_STYLE = {
-    "combined": ("o", "-"),
-    "seg":      ("s", "--"),
-    "outer":    ("^", ":"),
-    "glue":     ("D", "-."),
+    "combined":  ("o", "-"),
+    "seg_node":  ("s", "--"),
+    "seg_total": ("v", (0, (3, 1, 1, 1))),  # dash-dot-dot
+    "seg":       ("s", "--"),               # legacy alias
+    "outer":     ("^", ":"),
+    "glue":      ("D", "-."),
 }
 
 _MODE_RE = re.compile(r"_(parallel|total)$")
-_COMP_RE = re.compile(r"_(seg|outer|glue)$")
+# Longer component suffixes first so "_seg_node"/"_seg_total" win over "_seg".
+_COMP_RE = re.compile(r"_(seg_node|seg_total|seg|outer|glue)$")
 
 
 def parse_variant(variant: str):
