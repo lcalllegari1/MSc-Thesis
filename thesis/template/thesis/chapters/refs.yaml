@@ -1,0 +1,239 @@
+risczero:
+  author: RISC Zero
+  date: 2022
+  title: "RISC Zero: Scalable Zero-Knowledge for General Computing"
+  type: web
+  url: "https://www.risczero.com/docs"
+
+zerocash:
+  author:
+    - Ben-Sasson, Eli
+    - Chiesa, Alessandro
+    - Garman, Christina
+    - Green, Matthew
+    - Miers, Ian
+    - Tromer, Eran
+    - Virza, Madars
+  date: 2014
+  note: |
+    Conference paper: http://zerocash-project.org/media/pdf/zerocash-oakland2014.pdf
+    Extended paper: http://zerocash-project.org/media/pdf/zerocash-extended-20140518.pdf
+    Protocol specification: https://zips.z.cash/protocol/protocol.pdf
+  page-range: 459-474
+  parent:
+    publisher: "IEEE"
+    title: "Proceedings of the IEEE Symposium on Security & Privacy (Oakland)"
+    type: proceedings
+  title: "Zerocash: Decentralized Anonymous Payments from Bitcoin"
+  type: article
+  url: "https://z.cash"
+
+goldwasser1989:
+  author:
+    - Goldwasser, Shafi
+    - Micali, Silvio
+    - Rackoff, Charles
+  date: 1989
+  doi: "10.1137/0218012"
+  page-range: 186-208
+  parent:
+    issue: 1
+    title: "SIAM Journal on Computing"
+    type: periodical
+    volume: 18
+  title: "The Knowledge Complexity of Interactive Proof Systems"
+  type: article
+  url: "https://doi.org/10.1137/0218012"
+
+bitansky2012:
+  author:
+    - Bitansky, Nir
+    - Canetti, Ran
+    - Chiesa, Alessandro
+    - Tromer, Eran
+  date: 2012
+  doi: "10.1145/2090236.2090263"
+  page-range: 326-349
+  parent:
+    publisher: "ACM"
+    title: "Proceedings of the 3rd Innovations in Theoretical Computer Science Conference (ITCS)"
+    type: proceedings
+  title: "From Extractable Collision Resistance to Succinct Non-Interactive Arguments of Knowledge, and Back Again"
+  type: article
+  url: "https://doi.org/10.1145/2090236.2090263"
+
+babel2023:
+  author:
+    - Babel, Matthias
+    - Sedlmeir, Johannes
+  date: 2023
+  doi: "10.48550/arxiv.2301.00823"
+  parent:
+    title: "arXiv"
+    type: repository
+  title: "Bringing data minimization to digital wallets at scale with general-purpose zero-knowledge proofs"
+  type: article
+  url: "https://doi.org/10.48550/arxiv.2301.00823"
+
+brands2000:
+  author: Brands, Stefan
+  date: 2000
+  doi: "10.7551/mitpress/5931.001.0001"
+  publisher: "The MIT Press"
+  title: "Rethinking Public Key Infrastructures and Digital Certificates"
+  type: book
+  url: "https://doi.org/10.7551/mitpress/5931.001.0001"
+
+camenisch2001:
+  author:
+    - Camenisch, Jan
+    - Lysyanskaya, Anna
+  date: 2001
+  doi: "10.1007/3-540-44987-6_7"
+  page-range: 93-118
+  parent:
+    publisher: "Springer Berlin Heidelberg"
+    title: "Lecture Notes in Computer Science"
+    type: proceedings
+  title: "An Efficient System for Non-transferable Anonymous Credentials with Optional Anonymity Revocation"
+  type: article
+  url: "https://doi.org/10.1007/3-540-44987-6_7"
+
+gradwohl2009:
+  author:
+    - Gradwohl, Ronen
+    - Naor, Moni
+    - Pinkas, Benny
+    - Rothblum, Guy N.
+  date: 2009
+  doi: "10.1007/s00224-008-9119-9"
+  page-range: 245-268
+  parent:
+    issue: 2
+    title: "Theory of Computing Systems"
+    type: periodical
+    volume: 44
+  title: "Cryptographic and Physical Zero-Knowledge Proof Systems for Solutions of Sudoku Puzzles"
+  type: article
+  url: "https://doi.org/10.1007/s00224-008-9119-9"
+
+parno2013pinocchio:
+  author:
+    - Parno, Bryan
+    - Howell, Jon
+    - Gentry, Craig
+    - Raykova, Mariana
+  date: 2013
+  doi: "10.1109/SP.2013.47"
+  page-range: 238-252
+  parent:
+    publisher: "IEEE"
+    title: "Proceedings of the 2013 IEEE Symposium on Security and Privacy (S&P)"
+    type: proceedings
+  title: "Pinocchio: Nearly Practical Verifiable Computation"
+  type: article
+  url: "https://doi.org/10.1109/SP.2013.47"
+
+brassard1988:
+  author:
+    - Brassard, Gilles
+    - Chaum, David
+    - Crépeau, Claude
+  date: 1988
+  doi: "10.1016/0022-0000(88)90005-0"
+  page-range: 156-189
+  parent:
+    issue: 2
+    title: "Journal of Computer and System Sciences"
+    type: periodical
+    volume: 37
+  title: "Minimum Disclosure Proofs of Knowledge"
+  type: article
+  url: "https://doi.org/10.1016/0022-0000(88)90005-0"
+
+fiat1986:
+  author:
+    - Fiat, Amos
+    - Shamir, Adi
+  date: 1986
+  doi: "10.1007/3-540-47721-7_12"
+  page-range: 186-194
+  parent:
+    publisher: "Springer Berlin Heidelberg"
+    title: "Advances in Cryptology — CRYPTO '86"
+    type: proceedings
+  title: "How to Prove Yourself: Practical Solutions to Identification and Signature Problems"
+  type: article
+  url: "https://doi.org/10.1007/3-540-47721-7_12"
+
+dantzig1954:
+  author:
+    - Dantzig, George
+    - Fulkerson, Ray
+    - Johnson, Selmer
+  date: 1954
+  doi: "10.1287/opre.2.4.393"
+  page-range: 393-410
+  parent:
+    issue: 4
+    title: "Journal of the Operations Research Society of America"
+    type: periodical
+    volume: 2
+  title: "Solution of a Large-Scale Traveling-Salesman Problem"
+  type: article
+  url: "https://doi.org/10.1287/opre.2.4.393"
+
+applegate2006:
+  author:
+    - Applegate, David L.
+    - Bixby, Robert E.
+    - Chvátal, Vašek
+    - Cook, William J.
+  date: 2006
+  isbn: "978-0-691-12993-8"
+  publisher: "Princeton University Press"
+  title: "The Traveling Salesman Problem: A Computational Study"
+  type: book
+
+karp1972:
+  author: Karp, Richard M.
+  date: 1972
+  doi: "10.1007/978-1-4684-2001-2_9"
+  page-range: 85-103
+  parent:
+    publisher: "Springer US"
+    title: "Complexity of Computer Computations"
+    type: proceedings
+  title: "Reducibility Among Combinatorial Problems"
+  type: article
+  url: "https://doi.org/10.1007/978-1-4684-2001-2_9"
+
+lin1973:
+  author:
+    - Lin, Shen
+    - Kernighan, Brian W.
+  date: 1973
+  doi: "10.1287/opre.21.2.498"
+  page-range: 498-516
+  parent:
+    issue: 2
+    title: "Operations Research"
+    type: periodical
+    volume: 21
+  title: "An Effective Heuristic Algorithm for the Traveling-Salesman Problem"
+  type: article
+  url: "https://doi.org/10.1287/opre.21.2.498"
+
+karp1977:
+  author: Karp, Richard M.
+  date: 1977
+  doi: "10.1287/moor.2.3.209"
+  page-range: 209-224
+  parent:
+    issue: 3
+    title: "Mathematics of Operations Research"
+    type: periodical
+    volume: 2
+  title: "Probabilistic Analysis of Partitioning Algorithms for the Traveling-Salesman Problem in the Plane"
+  type: article
+  url: "https://doi.org/10.1287/moor.2.3.209"

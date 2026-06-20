@@ -3,7 +3,7 @@
 #import "/thesis/chapters/_pseudocode.typ": *
 #import "@preview/lovelace:0.3.0": *
 
-#chapter([Hierarchical and Recursive Constructions], label: <chap:hierarchical>)
+#chapter([Hierarchical Proofs], label: <chap:hierarchical>)
 
 This chapter takes the flat baseline of @chap:methodology and asks what happens when a proof too large for one machine is cut into independent pieces and stitched back together. The answer is a family of constructions, built one decision at a time, from the simplest and leakiest to one that gives the route away on no assumption at all, organized by two findings. The first is the _dualism_: decomposing a proof, unlike decomposing the problem beneath it, saves no work, so no hierarchical construction is ever cheaper than the flat proof it replaces. The second is the _frontier_ the family traces once it is mapped, on which low cost, full parallelism, and structural privacy cannot all be held at once. The chapter's goal is to build each construction soundly, read what it costs and what it leaks, and so chart that frontier.
 
