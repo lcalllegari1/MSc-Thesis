@@ -6,6 +6,10 @@
 > §4.5/§6.2 · old Ch 4 (problem formulation) → new §2.5–2.6 (see `Thesis_Outline.md`).
 > Also stale: any "projected, not measured" parallelism caveat — the isolation sweeps have
 > landed (~6.5× `plain-product`, ~4.7× `plain-sort` at N=3000 K=8; `ISOLATION_BENCHMARK.md`).
+> **Also stale (framing, 2026-06-22):** the **frontier** is now the pick-two of **cheap / parallel
+> / structurally private** — verification *rides with* privacy, not a separate axis — so the
+> "{P, V, C} at fixed privacy" tables here (§9.3.x) are superseded by `FRONTIER_REFRAME.md` F4 and
+> Ch 5 `sub:pick-two`.
 
 *Reference note locking in the "flat vs recursion, then hierarchical as the
 escape" framing for the framework + walk chapters. Captured 2026-05-31. This is a narrative /

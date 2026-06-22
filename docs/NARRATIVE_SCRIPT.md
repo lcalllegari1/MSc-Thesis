@@ -1,8 +1,14 @@
 # Narrative Script — The Thesis as a Three-Act Play
 
-> **Chapter remap (2026-06-10).** This script predates the linear 7-chapter outline; its
-> *staging* (scenes, characters, hinges, lines) is current, but its chapter numbers are the
-> old 12-chapter scheme. Translate on read:
+> **Chapter remap (2026-06-10) + framing update (2026-06-22).** This script predates the linear
+> 7-chapter outline; its *staging* (scenes, characters, hinges, lines) is mostly current, but two
+> things are stale beyond the chapter numbers: **(a)** the **frontier** is no longer "P/V/C at
+> fixed privacy" — it is the pick-two of **cheap / parallel / structurally private**, with
+> verification *riding with* privacy rather than being a separate axis (canonical:
+> `FRONTIER_REFRAME.md` F4, Ch 5 `sub:pick-two`, Ch 1 §1.4); **(b)** the Ch 1 "original question →
+> ~1.5%-pivot → reframe" staging (Scene 1, §1.2–1.3 below) is **not** used in the drafted Ch 1,
+> which formalizes the problem (§1.2 Problem Definition) and poses the RQs (§1.3) directly.
+> Chapter numbers here are the old 12-chapter scheme; translate on read:
 >
 > | Old (this doc) | New (`Thesis_Outline.md`) |
 > |---|---|

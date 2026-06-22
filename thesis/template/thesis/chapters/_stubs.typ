@@ -32,14 +32,9 @@
   // Ch 2 — Background sections (the chapter exists as a placeholder; its
   // sections are not written yet). The chapter label <chap:background> is
   // already defined by chapter2.typ, so it is NOT stubbed here.
-  [#stub("§2.x — zero-knowledge proofs: interactive protocols + completeness / soundness / zero-knowledge")<sec:zk-proofs>]
-  [#stub("§2.x — SNARKs / arithmetic circuits: fixed loop-free graph + offline memory checking (ROM)")<sec:snarks>]
-  [#stub("§2.x — Fiat–Shamir transform / random-oracle challenge (+ Schwartz–Zippel)")<sec:fiat-shamir>]
   [#stub("§2.x / §3.x — factorial oracle / brute-force baseline")<sec:factorial>]
-  [#stub("§2.x — threat model / binding is not authenticity (trusted matrix root)")<sec:threat-model>]
 
   // Ch 3 — Evaluation methodology / metrics (not yet migrated).
-  [#stub("§3.x — metrics: what we measure (gates, prove/verify time, witness time)")<sec:metrics>]
   [#stub("§3.x — fairness: privacy-equalized comparison conditions")<sec:fairness>]
 
   // Ch 6 — Evaluation / results (not yet migrated).
