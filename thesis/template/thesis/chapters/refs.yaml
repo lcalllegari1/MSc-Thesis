@@ -982,3 +982,47 @@ pedersen1991:
   title: "Non-Interactive and Information-Theoretic Secure Verifiable Secret Sharing"
   type: article
   url: "https://doi.org/10.1007/3-540-46766-1_9"
+bellare1992pok:
+  author:
+    - Bellare, Mihir
+    - Goldreich, Oded
+  date: 1992
+  doi: "10.1007/3-540-48071-4_28"
+  page-range: 390-420
+  parent:
+    publisher: "Springer"
+    title: "Advances in Cryptology — CRYPTO '92, Lecture Notes in Computer Science, vol. 740"
+    type: proceedings
+  title: "On Defining Proofs of Knowledge"
+  type: article
+  url: "https://doi.org/10.1007/3-540-48071-4_28"
+
+fuchsbauer2018agm:
+  author:
+    - Fuchsbauer, Georg
+    - Kiltz, Eike
+    - Loss, Julian
+  date: 2018
+  doi: "10.1007/978-3-319-96881-0_2"
+  page-range: 33-62
+  parent:
+    publisher: "Springer"
+    title: "Advances in Cryptology — CRYPTO 2018, Lecture Notes in Computer Science, vol. 10992"
+    type: proceedings
+  title: "The Algebraic Group Model and its Applications"
+  type: article
+  url: "https://doi.org/10.1007/978-3-319-96881-0_2"
+
+valiant2008ivc:
+  author:
+    - Valiant, Paul
+  date: 2008
+  doi: "10.1007/978-3-540-78524-8_1"
+  page-range: 1-18
+  parent:
+    publisher: "Springer"
+    title: "Theory of Cryptography Conference (TCC) 2008, Lecture Notes in Computer Science, vol. 4948"
+    type: proceedings
+  title: "Incrementally Verifiable Computation or Proofs of Knowledge Imply Time/Space Efficiency"
+  type: article
+  url: "https://doi.org/10.1007/978-3-540-78524-8_1"

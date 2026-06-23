@@ -109,6 +109,17 @@ Legend: ✅ defined · 🔲 stub (owed) · ⚠️ needs attention.
   solver build+sorts that access log at solve time ⇒ sort is slower to witness than
   grand-product *despite fewer constraints*.
 
+**Appendix A — Knowledge-Soundness Theorems (`<app:soundness>`, drafted ✅).** Formal companion
+to §5.8.2/§5.11 `<sub:soundness-reductions>`; the chapter paragraph now points to it (`@app:soundness`),
+and it points back. All labels **defined** (✅): sections `<app:soundness>` `<app:sound-target>`
+`<app:sound-reduction>` `<app:sound-lemmas>` `<app:sound-theorems>`; definition `<def:ks>`;
+assumptions `<asm:snark>` `<asm:hash>` `<asm:bind>` `<asm:rec>`; theorems `<thm:reduction>`
+`<thm:external>` `<thm:recursion>`; lemmas `<lem:range>` `<lem:sort>` `<lem:merkle>` `<lem:product>`
+`<lem:commit>`; equations `<eq:R-committed>` `<eq:ks>` `<eq:reduction>` `<eq:Q>` `<eq:external>`
+`<eq:recursion>`; table `<tab:soundness-bounds>`. Inbound `@`-refs from the appendix: `<sec:problem-definition>`
+(ch1), `<sub:soundness-reductions>` `<sub:challenge-binding>` `<sub:weighing>` (ch5). Numbered via
+`thesis/chapters/_theorems.typ` (ctheorems, plain style), shown in `include/appendices.typ`.
+
 ---
 
 ## 2. Intended cross-references (wire when both ends exist)
