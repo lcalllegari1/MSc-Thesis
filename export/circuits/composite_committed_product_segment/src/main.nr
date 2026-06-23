@@ -58,9 +58,9 @@
 //  G7 challenge-consistency is dropped -- see header.)
 // =============================================================================
 
-global N: u32 = 5000;
-global M: u32 = 625;
-global DEPTH: u32 = 25;
+global N: u32 = 8;
+global M: u32 = 4;
+global DEPTH: u32 = 6;
 
 use poseidon::poseidon2::Poseidon2;
 

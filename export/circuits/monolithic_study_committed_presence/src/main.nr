@@ -68,8 +68,8 @@
 //   and recompiles for each value of N.
 // =============================================================================
 
-global N: u32 = 500;
-global DEPTH: u32 = 18;
+global N: u32 = 8;
+global DEPTH: u32 = 6;
 
 use poseidon::poseidon2::Poseidon2;
 

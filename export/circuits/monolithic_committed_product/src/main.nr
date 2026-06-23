@@ -63,8 +63,8 @@
 // by the benchmark harness (pipeline/run.py) per N.
 // =============================================================================
 
-global N: u32 = 4000;
-global DEPTH: u32 = 24;
+global N: u32 = 8;
+global DEPTH: u32 = 6;
 
 use poseidon::poseidon2::Poseidon2;
 

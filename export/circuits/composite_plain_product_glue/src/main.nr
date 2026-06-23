@@ -55,9 +55,9 @@
 // The O(N) sort is gone; the G5 RHS loop is ~N cheap field mults.
 // =============================================================================
 
-global N: u32 = 5000;
-global K: u32 = 8;
-global DEPTH: u32 = 25;
+global N: u32 = 8;
+global K: u32 = 2;
+global DEPTH: u32 = 6;
 
 use poseidon::poseidon2::Poseidon2;
 

@@ -47,10 +47,10 @@
 //   G7 Threshold.     sum(partial_costs) + sum(boundary_costs) <= threshold.
 // =============================================================================
 
-global N: u32 = 5000;
-global K: u32 = 8;
-global M: u32 = 625;
-global DEPTH: u32 = 25;
+global N: u32 = 48;
+global K: u32 = 4;
+global M: u32 = 12;
+global DEPTH: u32 = 12;
 
 use poseidon::poseidon2::Poseidon2;
 
