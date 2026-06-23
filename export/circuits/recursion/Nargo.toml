@@ -1,0 +1,19 @@
+[package]
+name = "recursion"
+type = "bin"
+authors = []
+
+# Recursion variant -- outer circuit for arbitrary K (>= 2).  Recursively verifies
+# all K hierarchical_segment_fs (A++) proofs in-circuit AND folds in the full glue
+# logic (chain stitch, Fiat-Shamir bind, grand-product partition, K boundary Merkle
+# edges, threshold).  Exposes only (root, threshold) -- identical public surface to
+# flat_merkle, i.e. structural / perfect hiding.  This is the equal-ground recursive
+# counterpart of Variant A++ at the same K, and the perfect-hiding endpoint of the
+# frontier.  The K, N, DEPTH globals are patched per-config by the harness.
+# Inner = the *plain* A++ segment (NOT committed-A++): the outer already makes the
+# partition a witness, so an in-circuit commitment would be redundant.
+# See pipeline/run_recursion.py and HOWTO.md.
+
+[dependencies]
+bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages", tag = "v5.0.0-nightly.20260518", directory = "barretenberg/noir/bb_proof_verification" }
+poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }

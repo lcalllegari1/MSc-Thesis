@@ -1,0 +1,17 @@
+[package]
+name = "hierarchical_glue_c"
+type = "bin"
+authors = []
+
+# Glue circuit for Variant committed-A (hierarchical TSP, Merkle commitment,
+# partition HIDDEN behind blinded Poseidon2 commitments, sort-based partition
+# check).  Forked from hierarchical_glue: the public all_sorted_nodes, starts,
+# ends and partial_costs move to PRIVATE witness; the glue recomputes each
+# commitment C_i = fold(r_i, [segment_nodes..., partial_cost]) over the witness
+# and asserts it equals the public C_is[i] (cross-checked == sub_i.C_i).  It then
+# sorts the concatenated segment nodes (== [0..N-1]) for the partition, derives
+# endpoints from the witnessed nodes for the boundary Merkle, and checks the
+# threshold.  Public surface: {root, threshold, C_is}.
+
+[dependencies]
+poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }

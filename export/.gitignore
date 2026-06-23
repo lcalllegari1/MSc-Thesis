@@ -1,0 +1,27 @@
+# Noir build artifacts and generated witnesses
+circuits/*/target/
+circuits/*/.runs/
+circuits/*/Prover.toml
+
+# Rust build artifacts
+pipeline/merkle_builder/target/
+
+# Runtime data and generated outputs
+data/*.json
+data/*.dat
+data/instances/
+results/*.csv
+plots/*
+!plots/.gitkeep
+!results/.gitkeep
+!data/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Local/editor files
+.vscode/
+.DS_Store

@@ -1,0 +1,15 @@
+[package]
+name = "hierarchical_glue_fs"
+type = "bin"
+authors = []
+
+# Glue circuit for Variant A++ (hierarchical TSP, Merkle commitment, partition
+# HIDDEN).  Mirrors hierarchical_glue (Variant A) but replaces the O(N) sort
+# partition check with a grand-product multiset-equality check (G5), and adds
+# chain stitching (G1-G3) + in-circuit Fiat-Shamir binding (G4).  The
+# expected_product RHS is computed in-circuit (HIER_FS_IMPL D5 = Option B), so
+# there is no expected_product public input and the verifier does no field
+# arithmetic.
+
+[dependencies]
+poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }

@@ -1,0 +1,12 @@
+[package]
+name = "flat_full_sort"
+type = "bin"
+authors = []
+
+# No external dependencies.
+# The cost matrix is passed directly as public input (no Merkle commitment).
+# Permutation check uses sort_via: unconstrained quicksort + O(N) constrained
+# verification via check_shuffle.  Compare to flat_full_pairwise which uses
+# O(N^2) modular-inverse gates.
+
+[dependencies]
