@@ -7,11 +7,11 @@ structure.  Produces printed tables and comparison figures.
 
 Supported variants:
 
-  flat_full_*          (pairwise / sort / invperm / presence)
+  monolithic_study_*          (pairwise / sort / invperm / presence)
     Complexity class:  O(N^2) — dominated by the N^2 public cost-matrix inputs.
     Fit model:         a*N^2 + b*N + c   (quadratic, exact R^2=1.000)
 
-  flat_merkle_presence
+  monolithic_study_committed_presence
     Complexity class:  O(N*DEPTH) = O(N*log N) — no N^2 public inputs; instead
                        N*DEPTH Poseidon2 calls per proof where DEPTH=ceil(log2(N^2)).
     Fit model:         a*N*log2(N) + b*N + c   (log-linear)
@@ -22,17 +22,17 @@ Crossover analysis:
     At small N the N*log(N) Merkle cost is more expensive than the O(N^2) cost
     despite having a lower asymptotic class — because each Poseidon2 call costs
     ~264 UltraHonk gates while each public-input u64 costs only ~7.25 gates.
-    The crossover (where flat_merkle becomes cheaper than flat_full_presence) is
+    The crossover (where monolithic_committed becomes cheaper than monolithic_study_presence) is
     estimated at N ~700 for circuit_size and N ~30 for acir_opcodes.
 
 Usage:
     # Flat-full variants only (default)
-    python pipeline/analyze_complexity.py --csv results/flat_full.csv --out plots/flat_full_complexity
+    python pipeline/analyze_complexity.py --csv results/monolithic_study.csv --out plots/monolithic_study_complexity
 
-    # Include flat_merkle_presence (pass a merged CSV or the merkle CSV separately)
+    # Include monolithic_study_committed_presence (pass a merged CSV or the merkle CSV separately)
     python pipeline/analyze_complexity.py \\
-        --csv results/flat_full.csv \\
-        --merkle-csv results/flat_merkle_presence.csv \\
+        --csv results/monolithic_study.csv \\
+        --merkle-csv results/monolithic_study_committed_presence.csv \\
         --out plots/all_complexity
 """
 
@@ -45,42 +45,42 @@ from pathlib import Path
 
 # ── Colour palette (consistent with plot.py) ─────────────────────────────────
 PALETTE = {
-    "flat_full_pairwise":   "#e41a1c",
-    "flat_full_sort":       "#377eb8",
-    "flat_full_invperm":    "#4daf4a",
-    "flat_full_presence":   "#ff7f00",
-    "flat_merkle_presence": "#984ea3",  # purple — distinct from all flat_full colours
+    "monolithic_study_pairwise":   "#e41a1c",
+    "monolithic_study_sort":       "#377eb8",
+    "monolithic_study_invperm":    "#4daf4a",
+    "monolithic_study_presence":   "#ff7f00",
+    "monolithic_study_committed_presence": "#984ea3",  # purple — distinct from all monolithic_study colours
 }
 MARKERS = {
-    "flat_full_pairwise":   "o",
-    "flat_full_sort":       "s",
-    "flat_full_invperm":    "^",
-    "flat_full_presence":   "D",
-    "flat_merkle_presence": "P",        # plus-filled marker, visually distinct
+    "monolithic_study_pairwise":   "o",
+    "monolithic_study_sort":       "s",
+    "monolithic_study_invperm":    "^",
+    "monolithic_study_presence":   "D",
+    "monolithic_study_committed_presence": "P",        # plus-filled marker, visually distinct
 }
 LABELS = {
-    "flat_full_pairwise":   "pairwise  (O(N^2) perm)",
-    "flat_full_sort":       "sort      (~3N perm)",
-    "flat_full_invperm":    "invperm   (2N perm, extra witness)",
-    "flat_full_presence":   "presence  (~4N perm, RAM)",
-    "flat_merkle_presence": "merkle    (O(N*DEPTH) = O(N*log N))",
+    "monolithic_study_pairwise":   "pairwise  (O(N^2) perm)",
+    "monolithic_study_sort":       "sort      (~3N perm)",
+    "monolithic_study_invperm":    "invperm   (2N perm, extra witness)",
+    "monolithic_study_presence":   "presence  (~4N perm, RAM)",
+    "monolithic_study_committed_presence": "merkle    (O(N*DEPTH) = O(N*log N))",
 }
 
 # Variants that use the full N^2 public cost matrix.
 FLAT_FULL_VARIANTS = [
-    "flat_full_pairwise",
-    "flat_full_sort",
-    "flat_full_invperm",
-    "flat_full_presence",
+    "monolithic_study_pairwise",
+    "monolithic_study_sort",
+    "monolithic_study_invperm",
+    "monolithic_study_presence",
 ]
 
 # ── Theoretical model ─────────────────────────────────────────────────────────
 # For each variant we explain the N², N, and constant terms separately.
-# The public cost_matrix (N² u64 entries) dominates the N² term in all flat_full_*
-# variants.  flat_merkle_presence has NO N² public inputs -- instead N*DEPTH
+# The public cost_matrix (N² u64 entries) dominates the N² term in all monolithic_study_*
+# variants.  monolithic_study_committed_presence has NO N² public inputs -- instead N*DEPTH
 # Poseidon2 calls dominate, where DEPTH = ceil(log2(N²)).
 #
-# ACIR opcodes breakdown (flat_full_*):
+# ACIR opcodes breakdown (monolithic_study_*):
 #   All share a base of N² (public inputs) + N (GROUP 3 cost lookups) + smaller terms.
 #   The permutation check adds:
 #     pairwise:  N*(N-1) ~ N² extra opcodes  → a_total = 2
@@ -88,7 +88,7 @@ FLAT_FULL_VARIANTS = [
 #     invperm:   2N extra (range + ROM lookup)
 #     presence:  3N extra (range + RAM read + RAM write) + N init
 #
-# ACIR opcodes breakdown (flat_merkle_presence):
+# ACIR opcodes breakdown (monolithic_study_committed_presence):
 #   PUBLIC inputs: root (1 Field) + threshold (1 u64)  -- constant, no N² term.
 #   GROUP 3 per edge: 1 Poseidon2 blackbox per level + ~2 arith per level
 #     = ~3*DEPTH opcodes per edge  →  ~3*N*DEPTH total
@@ -96,7 +96,7 @@ FLAT_FULL_VARIANTS = [
 #   The N² coefficient is expected to be ~0 in a quadratic fit.
 #   Correct fit: a*N*log2(N) + b*N + c  (log-linear)
 #
-# UltraHonk gates breakdown (flat_merkle_presence):
+# UltraHonk gates breakdown (monolithic_study_committed_presence):
 #   Each Poseidon2 call (hash([l,r], 2)) costs ~264 gates.
 #   Each leaf-index reconstruction step costs ~3 gates.
 #   GROUP 3 dominant term: N*DEPTH * ~267 gates/level ≈ 267*N*DEPTH gates.
@@ -104,15 +104,15 @@ FLAT_FULL_VARIANTS = [
 #   No N² term (no public matrix inputs -- root is 1 Field).
 #
 # Crossover analysis (circuit_size):
-#   flat_full_presence:    7.25*N²  gates (grows quadratically)
-#   flat_merkle_presence: ~267*N*DEPTH  gates (grows as N*log N)
+#   monolithic_study_presence:    7.25*N²  gates (grows quadratically)
+#   monolithic_study_committed_presence: ~267*N*DEPTH  gates (grows as N*log N)
 #   Crossover condition:  7.25*N ≈ 267*DEPTH = 267*ceil(log2(N²)) ≈ 534*log2(N)
 #   Numerical solution:   N/log2(N) ≈ 73.7  →  N_crossover ≈ 695 gates
 #   ACIR opcode crossover: much earlier, N ≈ 28-30  (Poseidon2 costs only 1
 #   ACIR opcode per call, but ~264 gates → opcodes mislead at the Merkle case).
 
 THEORY = {
-    "flat_full_pairwise": dict(
+    "monolithic_study_pairwise": dict(
         acir_formula="2N^2 + 10N + 4",
         cs_formula="8.25N^2 + 14N + 2829",
         complexity_class="O(N^2)",
@@ -120,7 +120,7 @@ THEORY = {
         group1="explicit (N range checks)",
         extra_witness="none",
     ),
-    "flat_full_sort": dict(
+    "monolithic_study_sort": dict(
         acir_formula="N^2 + 17N + 4",
         cs_formula="7.25N^2 + 26N + 2829",
         complexity_class="O(N^2)",
@@ -128,7 +128,7 @@ THEORY = {
         group1="subsumed by GROUP 2",
         extra_witness="none",
     ),
-    "flat_full_invperm": dict(
+    "monolithic_study_invperm": dict(
         acir_formula="N^2 + 13N + 5",
         cs_formula="7.25N^2 + 20N + 2831",
         complexity_class="O(N^2)",
@@ -136,7 +136,7 @@ THEORY = {
         group1="subsumed by GROUP 2",
         extra_witness="inv_perm array (O(N) prover scan)",
     ),
-    "flat_full_presence": dict(
+    "monolithic_study_presence": dict(
         acir_formula="N^2 + 13N + 10",
         cs_formula="7.25N^2 + 25N + 2837",
         complexity_class="O(N^2)",
@@ -144,11 +144,11 @@ THEORY = {
         group1="explicit (N range checks)",
         extra_witness="none  (RAM table, no extra witness field)",
     ),
-    "flat_merkle_presence": dict(
+    "monolithic_study_committed_presence": dict(
         acir_formula="~3*N*DEPTH + 4N + c   [DEPTH=ceil(log2(N^2))]",
         cs_formula="~267*N*DEPTH + 5N + c  [~264 gates per Poseidon2 call]",
         complexity_class="O(N*log N)",
-        perm_ops="same as flat_full_presence (RAM presence check, ~4N)",
+        perm_ops="same as monolithic_study_presence (RAM presence check, ~4N)",
         group1="explicit (N range checks)",
         extra_witness="edge_costs (N u64) + siblings (N*DEPTH Field) + path_bits (N*DEPTH bool)",
     ),
@@ -178,10 +178,10 @@ def fit_nlogn(ns, ys):
     """
     Fit y = a*N*log2(N) + b*N + c via least squares; return (a, b, c, r2).
 
-    Used for flat_merkle_presence where the dominant term is N*DEPTH and
+    Used for monolithic_study_committed_presence where the dominant term is N*DEPTH and
     DEPTH = ceil(log2(N^2)) ~ 2*log2(N).  The quadratic fit degenerates (a~=0)
     for this variant, while the log-linear fit characterises the scaling and
-    enables extrapolation to the crossover point with flat_full_*.
+    enables extrapolation to the crossover point with monolithic_study_*.
     """
     X = np.column_stack([ns * np.log2(ns), ns, np.ones_like(ns)])
     coeffs, _, _, _ = np.linalg.lstsq(X, ys, rcond=None)
@@ -197,7 +197,7 @@ def crossover_n(a_quad, b_quad, c_quad, a_nlogn, b_nlogn, c_nlogn):
     Numerically find the N where the N*log2(N) curve crosses the N^2 curve.
 
     Returns the crossover N (float), or None if no crossing in [10, 10000].
-    Used to estimate where flat_merkle_presence becomes cheaper than flat_full_*.
+    Used to estimate where monolithic_study_committed_presence becomes cheaper than monolithic_study_*.
     """
     def diff(n):
         quad  = a_quad  * n**2 + b_quad  * n + c_quad
@@ -255,8 +255,8 @@ def print_theory_table():
     col_widths = [20, 14, 50, 12, 38]
     print("\n" + "=" * 142)
     print("THEORETICAL COMPLEXITY — constraint structure per variant")
-    print("  flat_full_*:         scaling driven by N^2 public cost-matrix inputs (7.25 gates/element)")
-    print("  flat_merkle_presence: NO N^2 public inputs; scaling driven by N*DEPTH Poseidon2 calls")
+    print("  monolithic_study_*:         scaling driven by N^2 public cost-matrix inputs (7.25 gates/element)")
+    print("  monolithic_study_committed_presence: NO N^2 public inputs; scaling driven by N*DEPTH Poseidon2 calls")
     print("                        DEPTH = ceil(log2(N^2));  each call ~264 UltraHonk gates")
     print("=" * 142)
     for row in rows:
@@ -268,90 +268,90 @@ def print_theory_table():
 def print_fit_table(df, variants):
     """Print fitted polynomial coefficients and compare to theoretical predictions.
 
-    For flat_full_* variants the quadratic model a*N^2 + b*N + c is exact (R^2=1.000).
-    For flat_merkle_presence the quadratic fit returns a≈0 (correct — no N^2 inputs),
+    For monolithic_study_* variants the quadratic model a*N^2 + b*N + c is exact (R^2=1.000).
+    For monolithic_study_committed_presence the quadratic fit returns a≈0 (correct — no N^2 inputs),
     but the dominant term is N*log(N); see print_nlogn_fit_table() for that fit.
     """
-    flat_full = [v for v in variants if v in FLAT_FULL_VARIANTS]
-    merkle    = [v for v in variants if v == "flat_merkle_presence"]
+    monolithic_study = [v for v in variants if v in FLAT_FULL_VARIANTS]
+    merkle    = [v for v in variants if v == "monolithic_study_committed_presence"]
 
     header = f"  {'Variant':<20}  {'a (N^2)':>10}  {'b (N)':>8}  {'c':>8}  {'R^2':>10}  Interpretation"
 
     # ── acir_opcodes ──────────────────────────────────────────────────────────
     print("=" * 130)
     print("EMPIRICAL FIT — acir_opcodes = a*N^2 + b*N + c")
-    print("  For flat_full_*: N^2 term is structural (cost_matrix public inputs).")
-    print("  For flat_merkle_presence: a≈0 is EXPECTED — no N^2 public inputs.")
+    print("  For monolithic_study_*: N^2 term is structural (cost_matrix public inputs).")
+    print("  For monolithic_study_committed_presence: a≈0 is EXPECTED — no N^2 public inputs.")
     print("    The true scaling is N*log(N); see the log-linear fit table below.")
     print("=" * 130)
     print(header)
     print("  " + "─" * 88)
 
-    for v in flat_full + merkle:
+    for v in monolithic_study + merkle:
         sub = df[df.variant == v]
         ns  = sub["n"].values.astype(float)
         ys  = sub["acir_opcodes"].values.astype(float)
         a, b, c, r2 = fit_quadratic(ns, ys)
-        if v == "flat_merkle_presence":
+        if v == "monolithic_study_committed_presence":
             interp = "a≈0 as expected (O(N*log N), not O(N^2)) — see log-linear fit below"
         elif a > 1.5:
             interp = "a≈2: N^2 inputs (1 ea.) + N*(N-1) pairwise ops (1 ea.) → pairwise O(N^2)"
         else:
             interp = "a≈1: dominated by N^2 public cost_matrix inputs (1 opcode ea.)"
-        vname = v.replace("flat_full_", "").replace("flat_", "")
+        vname = v.replace("monolithic_study_", "").replace("flat_", "")
         print(f"  {vname:<20}  {a:>10.4f}  {b:>8.4f}  {c:>8.1f}  {r2:>10.6f}  {interp}")
 
     print()
-    print("  NOTE: flat_full_* have R^2=1.000 (quadratic is exact for these variants).")
+    print("  NOTE: monolithic_study_* have R^2=1.000 (quadratic is exact for these variants).")
     print("  Pairwise a≈2 = 1 (public inputs) + 1 (pairwise multiply ops).")
     print()
 
     # ── circuit_size ──────────────────────────────────────────────────────────
     print("=" * 130)
     print("EMPIRICAL FIT — circuit_size = a*N^2 + b*N + c  (UltraHonk gates)")
-    print("  For flat_full_*: a≈7.25 = cost per public u64 input (field plumbing gates).")
-    print("  For flat_merkle_presence: a≈0 (no N^2 inputs) — Poseidon2 gates scale as N*log(N).")
+    print("  For monolithic_study_*: a≈7.25 = cost per public u64 input (field plumbing gates).")
+    print("  For monolithic_study_committed_presence: a≈0 (no N^2 inputs) — Poseidon2 gates scale as N*log(N).")
     print("=" * 130)
     print(header)
     print("  " + "─" * 88)
 
-    for v in flat_full + merkle:
+    for v in monolithic_study + merkle:
         sub = df[df.variant == v]
         ns  = sub["n"].values.astype(float)
         ys  = sub["circuit_size"].values.astype(float)
         a, b, c, r2 = fit_quadratic(ns, ys)
-        if v == "flat_merkle_presence":
+        if v == "monolithic_study_committed_presence":
             interp = "a≈0: no N^2 inputs; ~264 gates/Poseidon2 call → dominant term is N*DEPTH*264"
         elif a > 7.8:
             interp = "a≈8.25: N^2 inputs (7.25 gates) + N^2/2 multiply gates (1 gate ea.)"
         else:
             interp = "a≈7.25: N^2 public inputs cost ~7.25 UltraHonk gates each"
-        vname = v.replace("flat_full_", "").replace("flat_", "")
+        vname = v.replace("monolithic_study_", "").replace("flat_", "")
         print(f"  {vname:<20}  {a:>10.4f}  {b:>8.4f}  {c:>8.1f}  {r2:>10.6f}  {interp}")
 
     print()
     print("  KEY: pairwise a/invperm a = 8.25/7.25 ≈ 1.14  (pairwise multiply gates add 1 gate")
-    print("  each, but public input plumbing dominates at large N in ALL flat_full_* variants).")
+    print("  each, but public input plumbing dominates at large N in ALL monolithic_study_* variants).")
     print()
 
 
 def print_nlogn_fit_table(df, variants):
     """
-    Fit the log-linear model  y = a*N*log2(N) + b*N + c  to flat_merkle_presence,
-    and compute the crossover N where flat_merkle_presence becomes cheaper than
-    flat_full_presence (the most comparable flat_full_* variant).
+    Fit the log-linear model  y = a*N*log2(N) + b*N + c  to monolithic_study_committed_presence,
+    and compute the crossover N where monolithic_study_committed_presence becomes cheaper than
+    monolithic_study_presence (the most comparable monolithic_study_* variant).
 
     Also highlights the ACIR vs gate-count crossover discrepancy:
       - ACIR opcode crossover at N≈28-30  (Poseidon2 = 1 opcode, cheap to count)
       - circuit_size crossover at N≈695   (Poseidon2 = ~264 gates, expensive to execute)
     """
-    if "flat_merkle_presence" not in df["variant"].unique():
+    if "monolithic_study_committed_presence" not in df["variant"].unique():
         return  # No merkle data available yet
-    if "flat_full_presence" not in df["variant"].unique():
+    if "monolithic_study_presence" not in df["variant"].unique():
         return
 
     print("=" * 110)
-    print("LOG-LINEAR FIT — flat_merkle_presence: y = a*N*log2(N) + b*N + c")
+    print("LOG-LINEAR FIT — monolithic_study_committed_presence: y = a*N*log2(N) + b*N + c")
     print("  DEPTH = ceil(log2(N^2)) ≈ 2*log2(N); each Poseidon2 call = ~264 UltraHonk gates.")
     print("=" * 110)
 
@@ -359,7 +359,7 @@ def print_nlogn_fit_table(df, variants):
     print(header)
     print("  " + "─" * 64)
 
-    sub_m = df[df.variant == "flat_merkle_presence"]
+    sub_m = df[df.variant == "monolithic_study_committed_presence"]
     ns_m  = sub_m["n"].values.astype(float)
 
     fits = {}
@@ -371,11 +371,11 @@ def print_nlogn_fit_table(df, variants):
 
     print()
 
-    # Crossover analysis vs flat_full_presence
-    sub_p = df[df.variant == "flat_full_presence"]
+    # Crossover analysis vs monolithic_study_presence
+    sub_p = df[df.variant == "monolithic_study_presence"]
     ns_p  = sub_p["n"].values.astype(float)
 
-    print("  CROSSOVER ANALYSIS: flat_merkle_presence vs flat_full_presence")
+    print("  CROSSOVER ANALYSIS: monolithic_study_committed_presence vs monolithic_study_presence")
     print("  ─" * 40)
 
     for col, label in [("acir_opcodes", "ACIR opcodes"), ("circuit_size", "circuit_size (gates)")]:
@@ -407,29 +407,29 @@ def print_nlogn_fit_table(df, variants):
 def print_linear_overhead_table(df, variants):
     """Show the permutation check overhead as circuit_size(variant) - circuit_size(invperm).
 
-    Only flat_full_* variants are included.  flat_merkle_presence is excluded because
+    Only monolithic_study_* variants are included.  monolithic_study_committed_presence is excluded because
     its dominant cost (N*DEPTH Poseidon2 calls) is in GROUP 3 -- the Merkle proof step --
     not in the permutation check.  Its permutation check (GROUP 2) is identical to
-    flat_full_presence, so it would show the same linear overhead as presence but the
+    monolithic_study_presence, so it would show the same linear overhead as presence but the
     GROUP 3 cost would dwarf it, making the comparison misleading.
     """
-    # Restrict to flat_full_* variants only
+    # Restrict to monolithic_study_* variants only
     variants = [v for v in variants if v in FLAT_FULL_VARIANTS]
-    if not variants or "flat_full_invperm" not in variants:
+    if not variants or "monolithic_study_invperm" not in variants:
         return
 
     print("=" * 100)
     print("PERMUTATION CHECK OVERHEAD — (variant circuit_size) − (invperm circuit_size)")
-    print("Isolates the marginal cost of each permutation strategy (flat_full_* only).")
-    print("flat_merkle_presence excluded: its GROUP 3 Poseidon2 cost dominates and is")
+    print("Isolates the marginal cost of each permutation strategy (monolithic_study_* only).")
+    print("monolithic_study_committed_presence excluded: its GROUP 3 Poseidon2 cost dominates and is")
     print("not a permutation-check overhead -- see the crossover analysis above.")
     print("=" * 100)
 
     pivot = df.pivot_table(index="n", columns="variant", values="circuit_size", aggfunc="mean")
-    base = pivot["flat_full_invperm"]
+    base = pivot["monolithic_study_invperm"]
     ns = pivot.index.values.astype(float)
 
-    header = f"  {'N':>4}" + "".join(f"  {v.replace('flat_full_',''):>12}" for v in variants)
+    header = f"  {'N':>4}" + "".join(f"  {v.replace('monolithic_study_',''):>12}" for v in variants)
     print(header)
     print("  " + "─" * 70)
     for n, row in pivot.iterrows():
@@ -444,7 +444,7 @@ def print_linear_overhead_table(df, variants):
     for v in variants:
         diffs = (pivot[v] - base).values
         slope, intercept = np.polyfit(ns, diffs, 1)
-        vname = v.replace("flat_full_", "")
+        vname = v.replace("monolithic_study_", "")
         print(f"    {vname:<12}  overhead ≈ {slope:.2f}·N + {intercept:.1f}")
     print()
     print("  Expected ordering (cheapest → most expensive permutation check):")
@@ -462,15 +462,15 @@ def make_comparison_figure(df, variants, out_stem, dpi=150):
     """
     Four-panel figure:
       (a) acir_opcodes vs N  — data + fitted curves
-          flat_full_*: quadratic fit (solid line)
-          flat_merkle_presence: N*log2(N) fit (dashed line)
+          monolithic_study_*: quadratic fit (solid line)
+          monolithic_study_committed_presence: N*log2(N) fit (dashed line)
       (b) circuit_size vs N  — same as (a) but gates
       (c) acir_opcodes on log-log with slope annotations
       (d) permutation overhead (variant - invperm) for circuit_size
-          flat_full_* only — flat_merkle_presence excluded (GROUP 3 Poseidon2 cost dominates)
+          monolithic_study_* only — monolithic_study_committed_presence excluded (GROUP 3 Poseidon2 cost dominates)
     """
-    flat_full = [v for v in variants if v in FLAT_FULL_VARIANTS]
-    merkle    = [v for v in variants if v == "flat_merkle_presence"]
+    monolithic_study = [v for v in variants if v in FLAT_FULL_VARIANTS]
+    merkle    = [v for v in variants if v == "monolithic_study_committed_presence"]
 
     n_min    = df["n"].min()
     n_max    = df["n"].max()
@@ -484,7 +484,7 @@ def make_comparison_figure(df, variants, out_stem, dpi=150):
         ns  = sub["n"].values.astype(float)
         ys  = sub[col].values.astype(float)
         ax.scatter(ns, ys, color=PALETTE[v], marker=MARKERS[v], s=40, zorder=3)
-        if v == "flat_merkle_presence":
+        if v == "monolithic_study_committed_presence":
             a, b, c, _ = fit_nlogn(ns, ys)
             y_fit = a * ns_dense * np.log2(ns_dense) + b * ns_dense + c
             ax.plot(ns_dense, y_fit, color=PALETTE[v], lw=1.5, linestyle="--", label=LABELS[v])
@@ -495,7 +495,7 @@ def make_comparison_figure(df, variants, out_stem, dpi=150):
 
     # ── (a) acir_opcodes linear ───────────────────────────────────────────────
     ax = axes[0, 0]
-    for v in flat_full + merkle:
+    for v in monolithic_study + merkle:
         _plot_variant(ax, v, "acir_opcodes")
     ax.set_title("(a) ACIR opcodes — linear axes\n(merkle dashed = N*log2(N) fit)")
     ax.set_xlabel("N (nodes)")
@@ -505,7 +505,7 @@ def make_comparison_figure(df, variants, out_stem, dpi=150):
 
     # ── (b) circuit_size linear ───────────────────────────────────────────────
     ax = axes[0, 1]
-    for v in flat_full + merkle:
+    for v in monolithic_study + merkle:
         _plot_variant(ax, v, "circuit_size")
     ax.set_title("(b) UltraHonk circuit_size — linear axes\n(merkle dashed = N*log2(N) fit)")
     ax.set_xlabel("N (nodes)")
@@ -515,12 +515,12 @@ def make_comparison_figure(df, variants, out_stem, dpi=150):
 
     # ── (c) acir_opcodes log-log with empirical slope ─────────────────────────
     ax = axes[1, 0]
-    for v in flat_full + merkle:
+    for v in monolithic_study + merkle:
         sub = df[df.variant == v]
         ns  = sub["n"].values.astype(float)
         ys  = sub["acir_opcodes"].values.astype(float)
         ax.scatter(ns, ys, color=PALETTE[v], marker=MARKERS[v], s=40, zorder=3)
-        if v == "flat_merkle_presence":
+        if v == "monolithic_study_committed_presence":
             a, b, c, _ = fit_nlogn(ns, ys)
             y_fit = a * ns_dense * np.log2(ns_dense) + b * ns_dense + c
             ax.plot(ns_dense, y_fit, color=PALETTE[v], lw=1.5, linestyle="--", label=LABELS[v])
@@ -541,16 +541,16 @@ def make_comparison_figure(df, variants, out_stem, dpi=150):
     ax.legend(fontsize=7.5, loc="upper left")
 
     # ── (d) permutation overhead: (variant - invperm) for circuit_size ────────
-    # flat_full_* only; merkle excluded (Poseidon2 GROUP 3 cost dominates overhead)
+    # monolithic_study_* only; merkle excluded (Poseidon2 GROUP 3 cost dominates overhead)
     ax = axes[1, 1]
-    if "flat_full_invperm" in flat_full:
-        pivot = df[df.variant.isin(flat_full)].pivot_table(
+    if "monolithic_study_invperm" in monolithic_study:
+        pivot = df[df.variant.isin(monolithic_study)].pivot_table(
             index="n", columns="variant", values="circuit_size", aggfunc="mean"
         )
-        base   = pivot["flat_full_invperm"]
+        base   = pivot["monolithic_study_invperm"]
         ns_arr = pivot.index.values.astype(float)
 
-        for v in [x for x in flat_full if x != "flat_full_invperm"]:
+        for v in [x for x in monolithic_study if x != "monolithic_study_invperm"]:
             if v not in pivot.columns:
                 continue
             diffs = (pivot[v] - base).values
@@ -558,10 +558,10 @@ def make_comparison_figure(df, variants, out_stem, dpi=150):
             ax.scatter(ns_arr, diffs, color=PALETTE[v], marker=MARKERS[v], s=40, zorder=3)
             ax.plot(ns_dense, slope * ns_dense + intercept,
                     color=PALETTE[v], lw=1.5,
-                    label=f"{v.replace('flat_full_','')}  (slope≈{slope:.1f}*N)")
-        ax.axhline(0, color=PALETTE["flat_full_invperm"], lw=1.5, linestyle="--",
+                    label=f"{v.replace('monolithic_study_','')}  (slope≈{slope:.1f}*N)")
+        ax.axhline(0, color=PALETTE["monolithic_study_invperm"], lw=1.5, linestyle="--",
                    label="invperm (baseline = 0)")
-    ax.set_title("(d) Permutation-check overhead  (vs invperm, flat_full_* only)")
+    ax.set_title("(d) Permutation-check overhead  (vs invperm, monolithic_study_* only)")
     ax.set_xlabel("N (nodes)")
     ax.set_ylabel("circuit_size − invperm circuit_size")
     ax.legend(fontsize=7.5, loc="upper left")
@@ -577,19 +577,19 @@ def make_comparison_figure(df, variants, out_stem, dpi=150):
 
 def make_crossover_figure(df, variants, out_stem, dpi=150):
     """
-    Two-panel crossover figure (only produced when flat_merkle_presence data is present):
-      (a) Benchmark range: flat_full_presence vs flat_merkle_presence for circuit_size,
+    Two-panel crossover figure (only produced when monolithic_study_committed_presence data is present):
+      (a) Benchmark range: monolithic_study_presence vs monolithic_study_committed_presence for circuit_size,
           showing where the curves visually approach using the actual data + fitted models.
       (b) Extrapolation to N=1000 on a log-Y axis, showing both circuit_size and
           ACIR opcode crossover points annotated with vertical dashed lines.
     """
-    if "flat_merkle_presence" not in df["variant"].unique():
+    if "monolithic_study_committed_presence" not in df["variant"].unique():
         return
-    if "flat_full_presence" not in df["variant"].unique():
+    if "monolithic_study_presence" not in df["variant"].unique():
         return
 
-    sub_p  = df[df.variant == "flat_full_presence"]
-    sub_m  = df[df.variant == "flat_merkle_presence"]
+    sub_p  = df[df.variant == "monolithic_study_presence"]
+    sub_m  = df[df.variant == "monolithic_study_committed_presence"]
     ns_p   = sub_p["n"].values.astype(float)
     ns_m   = sub_m["n"].values.astype(float)
 
@@ -609,12 +609,12 @@ def make_crossover_figure(df, variants, out_stem, dpi=150):
             "merkle":   fit_nlogn(ns_m, ys_m),
         }
 
-    colour_p = PALETTE["flat_full_presence"]
-    colour_m = PALETTE["flat_merkle_presence"]
+    colour_p = PALETTE["monolithic_study_presence"]
+    colour_m = PALETTE["monolithic_study_committed_presence"]
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
     fig.suptitle(
-        "flat_merkle_presence vs flat_full_presence: Benchmark Range and Crossover Extrapolation",
+        "monolithic_study_committed_presence vs monolithic_study_presence: Benchmark Range and Crossover Extrapolation",
         fontsize=11, y=1.02,
     )
 
@@ -623,14 +623,14 @@ def make_crossover_figure(df, variants, out_stem, dpi=150):
     aq, bq, cq, _ = fits["circuit_size"]["presence"]
     am, bm, cm, _ = fits["circuit_size"]["merkle"]
     ax.scatter(ns_p, sub_p["circuit_size"].values,
-               color=colour_p, marker=MARKERS["flat_full_presence"], s=45, zorder=3)
+               color=colour_p, marker=MARKERS["monolithic_study_presence"], s=45, zorder=3)
     ax.scatter(ns_m, sub_m["circuit_size"].values,
-               color=colour_m, marker=MARKERS["flat_merkle_presence"], s=45, zorder=3)
+               color=colour_m, marker=MARKERS["monolithic_study_committed_presence"], s=45, zorder=3)
     ax.plot(ns_data, aq * ns_data**2 + bq * ns_data + cq,
-            color=colour_p, lw=2, label="flat_full_presence  (O(N^2) fit)")
+            color=colour_p, lw=2, label="monolithic_study_presence  (O(N^2) fit)")
     ax.plot(ns_data, am * ns_data * np.log2(ns_data) + bm * ns_data + cm,
             color=colour_m, lw=2, linestyle="--",
-            label="flat_merkle_presence  (O(N*log N) fit)")
+            label="monolithic_study_committed_presence  (O(N*log N) fit)")
     ax.set_title("(a) Benchmark range: circuit_size (gates)")
     ax.set_xlabel("N (nodes)")
     ax.set_ylabel("circuit_size (gates)")
@@ -680,22 +680,22 @@ def make_crossover_figure(df, variants, out_stem, dpi=150):
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 VARIANTS_ORDER = [
-    "flat_full_pairwise",
-    "flat_full_sort",
-    "flat_full_invperm",
-    "flat_full_presence",
-    "flat_merkle_presence",
+    "monolithic_study_pairwise",
+    "monolithic_study_sort",
+    "monolithic_study_invperm",
+    "monolithic_study_presence",
+    "monolithic_study_committed_presence",
 ]
 
 
 def main():
     parser = argparse.ArgumentParser(description="Complexity analysis: theory vs empirical.")
-    parser.add_argument("--csv", default="results/flat_full.csv",
-                        help="Combined benchmark CSV (default: results/flat_full.csv)")
+    parser.add_argument("--csv", default="results/monolithic_study.csv",
+                        help="Combined benchmark CSV (default: results/monolithic_study.csv)")
     parser.add_argument("--merkle-csv", default=None,
-                        help="Optional separate CSV for flat_merkle_presence results")
-    parser.add_argument("--out", default="plots/flat_full_complexity",
-                        help="Output PNG path stem (default: plots/flat_full_complexity)")
+                        help="Optional separate CSV for monolithic_study_committed_presence results")
+    parser.add_argument("--out", default="plots/monolithic_study_complexity",
+                        help="Output PNG path stem (default: plots/monolithic_study_complexity)")
     parser.add_argument("--dpi", type=int, default=150)
     args = parser.parse_args()
 
@@ -710,7 +710,7 @@ def main():
     print_nlogn_fit_table(df, present)
     print_linear_overhead_table(df, present)
     make_comparison_figure(df, present, args.out, dpi=args.dpi)
-    if "flat_merkle_presence" in present:
+    if "monolithic_study_committed_presence" in present:
         make_crossover_figure(df, present, args.out, dpi=args.dpi)
 
 

@@ -2,8 +2,8 @@
 pipeline/make_frontier.py  --  One-shot: aggregate raw hierarchical CSVs and plot
 the frontier in a single command.
 
-Chains pipeline/aggregate_hier.py (K+1-rows-per-cell -> one row per (N,K)) and
-pipeline/plot.py.  Raw hierarchical sweeps (hier_a / hier_fs / hier_c / hier_cfs)
+Chains pipeline/aggregate_composite.py (K+1-rows-per-cell -> one row per (N,K)) and
+pipeline/plot.py.  Raw hierarchical sweeps (composite_plain_sort / composite_plain_product / composite_committed_sort / composite_committed_product)
 are passed via --aggregate and run through the aggregator in the chosen mode(s);
 already-plot-ready CSVs (the flat baseline results/500.csv, recursion CSVs) are
 passed via --include and forwarded as-is.  Every plotting knob of plot.py is
@@ -16,23 +16,23 @@ Examples
 --------
     # Equal-privacy frontier panel: flat + committed-A/A++ + recursion, parallel.
     python pipeline/make_frontier.py \\
-        --aggregate results/hier_c.csv results/hier_cfs.csv \\
+        --aggregate results/composite_committed_sort.csv results/composite_committed_product.csv \\
         --include   results/500.csv results/recursion_full_tot.csv \\
         --out plots/frontier --mode parallel
 
     # Same data, windowed to N<=192, only the committed variants + flat, as PDFs
     # one-file-per-metric for the thesis:
     python pipeline/make_frontier.py \\
-        --aggregate results/hier_c.csv results/hier_cfs.csv \\
+        --aggregate results/composite_committed_sort.csv results/composite_committed_product.csv \\
         --include   results/500.csv \\
         --out plots/frontier_small --mode parallel --max-n 192 \\
-        --variants 'hier_c_k*' 'hier_cfs_k*' flat_merkle_presence \\
+        --variants 'composite_committed_sort_k*' 'composite_committed_product_k*' monolithic_study_committed_presence \\
         --separate --format pdf --no-title \\
         --metrics circuit_size prove_s peak_mb proof_bytes
 
     # Both aggregation modes in one figure (variant names get _parallel/_total).
     python pipeline/make_frontier.py \\
-        --aggregate results/hier_c.csv results/hier_cfs.csv \\
+        --aggregate results/composite_committed_sort.csv results/composite_committed_product.csv \\
         --include results/500.csv --out plots/frontier_both --mode both
 """
 
@@ -42,7 +42,7 @@ import sys
 from pathlib import Path
 
 PIPELINE = Path(__file__).resolve().parent
-AGGREGATE = PIPELINE / "aggregate_hier.py"
+AGGREGATE = PIPELINE / "aggregate_composite.py"
 PLOT      = PIPELINE / "plot.py"
 
 # plot.py pass-through flags this wrapper forwards verbatim.
@@ -63,7 +63,7 @@ def main():
     ap = argparse.ArgumentParser(
         description="Aggregate raw hierarchical CSVs and plot the frontier in one step.")
     ap.add_argument("--aggregate", nargs="*", default=[], type=Path,
-                    help="Raw hierarchical CSVs (K+1 rows/cell) to run through aggregate_hier.py")
+                    help="Raw hierarchical CSVs (K+1 rows/cell) to run through aggregate_composite.py")
     ap.add_argument("--include", nargs="*", default=[], type=Path,
                     help="Already-plot-ready CSVs to include as-is (flat baseline, recursion)")
     ap.add_argument("--out", required=True, help="Output path prefix for plot.py (no extension)")

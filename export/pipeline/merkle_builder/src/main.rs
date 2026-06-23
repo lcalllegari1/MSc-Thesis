@@ -1,10 +1,10 @@
 /// pipeline/merkle_builder/src/main.rs
 ///
 /// Builds a Poseidon2 Merkle tree over the N^2 cost matrix and writes Prover.toml
-/// for the flat_merkle circuits.  The same witness layout (cycle, edge_costs,
-/// siblings, path_bits, root, threshold) serves both flat_merkle_sort (now the
+/// for the monolithic_committed circuits.  The same witness layout (cycle, edge_costs,
+/// siblings, path_bits, root, threshold) serves both monolithic_committed_sort (now the
 /// default flat-merkle baseline -- sort matches the permutation check used in the
-/// hierarchical variants) and flat_merkle_presence: the permutation method is
+/// hierarchical variants) and monolithic_study_committed_presence: the permutation method is
 /// internal to the circuit and does not change the Prover.toml inputs.
 ///
 /// ## Interface
@@ -286,7 +286,7 @@ fn get_tree(args: &[String], flat_matrix: &[u64]) -> MerkleTree {
 
 // ── Prover.toml writer ────────────────────────────────────────────────────────
 
-/// Write Prover.toml for the flat_merkle circuits (sort/presence) in Noir's expected format.
+/// Write Prover.toml for the monolithic_committed circuits (sort/presence) in Noir's expected format.
 ///
 /// Follows the same commenting style as pipeline/format_inputs.py.
 /// Field values (siblings, root) are written as "0x<64-hex-char>" strings.
@@ -366,12 +366,12 @@ fn write_prover_toml(
 
 // ── Hierarchical Prover.toml writers (Variant A) ──────────────────────────────
 
-/// Write Prover.toml for circuits/hierarchical_segment for one segment.
+/// Write Prover.toml for circuits/composite_plain_sort_segment for one segment.
 ///
 /// Field order matches the function signature in
-/// circuits/hierarchical_segment/src/main.nr (private first, then public).
+/// circuits/composite_plain_sort_segment/src/main.nr (private first, then public).
 /// Noir matches by name not position, but consistent ordering keeps the file
-/// readable and matches the public-input dump order used by verify_hier.py.
+/// readable and matches the public-input dump order used by verify_composite_plain_sort.py.
 fn write_sub_prover_toml(
     out_path: &PathBuf,
     seg_idx: usize,
@@ -388,7 +388,7 @@ fn write_sub_prover_toml(
     use std::fmt::Write as FmtWrite;
     let mut out = String::new();
 
-    writeln!(out, "# hierarchical_segment Prover.toml -- segment {}", seg_idx).unwrap();
+    writeln!(out, "# composite_plain_sort_segment Prover.toml -- segment {}", seg_idx).unwrap();
     writeln!(out, "# Variant A sub-circuit. Public: sorted_nodes, start_node, end_node, partial_cost, root.").unwrap();
     writeln!(out).unwrap();
 
@@ -438,7 +438,7 @@ fn write_sub_prover_toml(
     Ok(())
 }
 
-/// Write Prover.toml for circuits/hierarchical_glue.
+/// Write Prover.toml for circuits/composite_plain_sort_glue.
 fn write_glue_prover_toml(
     out_path: &PathBuf,
     boundary_costs: &[u64],
@@ -455,7 +455,7 @@ fn write_glue_prover_toml(
     use std::fmt::Write as FmtWrite;
     let mut out = String::new();
 
-    writeln!(out, "# hierarchical_glue Prover.toml").unwrap();
+    writeln!(out, "# composite_plain_sort_glue Prover.toml").unwrap();
     writeln!(out, "# Variant A glue. Public: all_sorted_nodes, starts, ends, partial_costs, threshold, root.").unwrap();
     writeln!(out).unwrap();
 
@@ -514,10 +514,10 @@ fn write_glue_prover_toml(
 
 // ── Hierarchical-fs Prover.toml writers (Variant A++) ─────────────────────────
 
-/// Write Prover.toml for circuits/hierarchical_segment_fs for one segment.
+/// Write Prover.toml for circuits/composite_plain_product_segment for one segment.
 ///
 /// Field order matches the function signature in
-/// circuits/hierarchical_segment_fs/src/main.nr (private first, then public).
+/// circuits/composite_plain_product_segment/src/main.nr (private first, then public).
 /// Variant A++ drops the public sorted_nodes and adds the five Field scalars
 /// (P_i, h_in_i, h_out_i, c, X).
 fn write_sub_fs_prover_toml(
@@ -540,7 +540,7 @@ fn write_sub_fs_prover_toml(
     use std::fmt::Write as FmtWrite;
     let mut out = String::new();
 
-    writeln!(out, "# hierarchical_segment_fs Prover.toml -- segment {}", seg_idx).unwrap();
+    writeln!(out, "# composite_plain_product_segment Prover.toml -- segment {}", seg_idx).unwrap();
     writeln!(out, "# Variant A++ sub-circuit. Public: start_node, end_node, partial_cost,").unwrap();
     writeln!(out, "# root, P_i, h_in_i, h_out_i, c, X. (No sorted_nodes: partition is hidden.)").unwrap();
     writeln!(out).unwrap();
@@ -599,7 +599,7 @@ fn write_sub_fs_prover_toml(
     Ok(())
 }
 
-/// Write Prover.toml for circuits/hierarchical_glue_fs.
+/// Write Prover.toml for circuits/composite_plain_product_glue.
 fn write_glue_fs_prover_toml(
     out_path: &PathBuf,
     boundary_costs: &[u64],
@@ -622,7 +622,7 @@ fn write_glue_fs_prover_toml(
 
     let hexvec = |v: &[FieldElement]| v.iter().map(|f| format!("\"0x{}\"", f.to_hex())).collect::<Vec<_>>().join(", ");
 
-    writeln!(out, "# hierarchical_glue_fs Prover.toml").unwrap();
+    writeln!(out, "# composite_plain_product_glue Prover.toml").unwrap();
     writeln!(out, "# Variant A++ glue. Public: starts, ends, partial_costs, threshold, root,").unwrap();
     writeln!(out, "# P_is, h_ins, h_outs, c, X. (No all_sorted_nodes: grand product replaces sort.)").unwrap();
     writeln!(out).unwrap();
@@ -685,7 +685,7 @@ fn write_glue_fs_prover_toml(
     Ok(())
 }
 
-/// Write Prover.toml for circuits/hierarchical_segment_c for one segment.
+/// Write Prover.toml for circuits/composite_committed_sort_segment for one segment.
 /// Public: root, C_i.  Everything else is private witness.
 fn write_sub_c_prover_toml(
     out_path: &PathBuf,
@@ -701,7 +701,7 @@ fn write_sub_c_prover_toml(
     use std::fmt::Write as FmtWrite;
     let mut out = String::new();
 
-    writeln!(out, "# hierarchical_segment_c Prover.toml -- segment {}", seg_idx).unwrap();
+    writeln!(out, "# composite_committed_sort_segment Prover.toml -- segment {}", seg_idx).unwrap();
     writeln!(out, "# Variant committed-A sub-circuit. Public: root, C_i.").unwrap();
     writeln!(out, "# (cycle_segment + partial_cost are folded into the blinded C_i.)").unwrap();
     writeln!(out).unwrap();
@@ -738,7 +738,7 @@ fn write_sub_c_prover_toml(
     Ok(())
 }
 
-/// Write Prover.toml for circuits/hierarchical_glue_c.
+/// Write Prover.toml for circuits/composite_committed_sort_glue.
 /// Public: root, threshold, C_is.  Everything else is private witness.
 fn write_glue_c_prover_toml(
     out_path: &PathBuf,
@@ -758,7 +758,7 @@ fn write_glue_c_prover_toml(
 
     let hexvec = |v: &[FieldElement]| v.iter().map(|f| format!("\"0x{}\"", f.to_hex())).collect::<Vec<_>>().join(", ");
 
-    writeln!(out, "# hierarchical_glue_c Prover.toml").unwrap();
+    writeln!(out, "# composite_committed_sort_glue Prover.toml").unwrap();
     writeln!(out, "# Variant committed-A glue. Public: root, threshold, C_is.").unwrap();
     writeln!(out, "# (all_nodes/partial_costs/r_is are private witness.)").unwrap();
     writeln!(out).unwrap();
@@ -802,15 +802,15 @@ fn write_glue_c_prover_toml(
     Ok(())
 }
 
-fn run_hierarchical_c(args: &[String], input: Input, k: usize) {
+fn run_composite_committed_sort(args: &[String], input: Input, k: usize) {
     let out_dir = PathBuf::from(parse_named_arg(args, "--out-dir").unwrap_or_else(|| {
-        eprintln!("Usage (hierarchical-c): merkle_builder --hierarchical-c K --out-dir <dir>");
+        eprintln!("Usage (hierarchical-c): merkle_builder --composite-committed-sort K --out-dir <dir>");
         std::process::exit(1);
     }));
 
     let n = input.n;
     if k < 2 {
-        eprintln!("Error: --hierarchical-c K requires K >= 2 (got {})", k);
+        eprintln!("Error: --composite-committed-sort K requires K >= 2 (got {})", k);
         std::process::exit(1);
     }
     if n % k != 0 {
@@ -907,15 +907,15 @@ fn run_hierarchical_c(args: &[String], input: Input, k: usize) {
     );
 }
 
-fn run_hierarchical_cfs(args: &[String], input: Input, k: usize) {
+fn run_composite_committed_product(args: &[String], input: Input, k: usize) {
     let out_dir = PathBuf::from(parse_named_arg(args, "--out-dir").unwrap_or_else(|| {
-        eprintln!("Usage (hierarchical-cfs): merkle_builder --hierarchical-cfs K --out-dir <dir>");
+        eprintln!("Usage (hierarchical-cfs): merkle_builder --composite-committed-product K --out-dir <dir>");
         std::process::exit(1);
     }));
 
     let n = input.n;
     if k < 2 {
-        eprintln!("Error: --hierarchical-cfs K requires K >= 2 (got {})", k);
+        eprintln!("Error: --composite-committed-product K requires K >= 2 (got {})", k);
         std::process::exit(1);
     }
     if n % k != 0 {
@@ -928,7 +928,7 @@ fn run_hierarchical_cfs(args: &[String], input: Input, k: usize) {
     let root = tree.root();
     let depth = tree.depth;
 
-    // Fiat-Shamir prelude (identical to run_hierarchical_fs): chain over the full
+    // Fiat-Shamir prelude (identical to run_composite_plain_product): chain over the full
     // cycle, then X = Poseidon2([c],1).  c is now PRIVATE (folded into the glue).
     let mut h = vec![FieldElement::zero(); n + 1];
     for j in 0..n {
@@ -1066,7 +1066,7 @@ fn random_field() -> FieldElement {
     FieldElement::from(u128::from_le_bytes(buf))
 }
 
-/// Write Prover.toml for circuits/hierarchical_segment_cfs for one segment.
+/// Write Prover.toml for circuits/composite_committed_product_segment for one segment.
 /// Public: root, X, C_i.  Everything else is private witness.
 fn write_sub_cfs_prover_toml(
     out_path: &PathBuf,
@@ -1084,7 +1084,7 @@ fn write_sub_cfs_prover_toml(
     use std::fmt::Write as FmtWrite;
     let mut out = String::new();
 
-    writeln!(out, "# hierarchical_segment_cfs Prover.toml -- segment {}", seg_idx).unwrap();
+    writeln!(out, "# composite_committed_product_segment Prover.toml -- segment {}", seg_idx).unwrap();
     writeln!(out, "# Variant committed-A++ sub-circuit. Public: root, X, C_i.").unwrap();
     writeln!(out, "# (start/end/partial_cost/P_i/h_in/h_out are folded into the blinded C_i.)").unwrap();
     writeln!(out).unwrap();
@@ -1127,7 +1127,7 @@ fn write_sub_cfs_prover_toml(
     Ok(())
 }
 
-/// Write Prover.toml for circuits/hierarchical_glue_cfs.
+/// Write Prover.toml for circuits/composite_committed_product_glue.
 /// Public: root, threshold, X, C_is.  Everything else is private witness.
 fn write_glue_cfs_prover_toml(
     out_path: &PathBuf,
@@ -1155,7 +1155,7 @@ fn write_glue_cfs_prover_toml(
     let decvec = |v: &[usize]| v.iter().map(|x| format!("\"{}\"", x)).collect::<Vec<_>>().join(", ");
     let decvec64 = |v: &[u64]| v.iter().map(|x| format!("\"{}\"", x)).collect::<Vec<_>>().join(", ");
 
-    writeln!(out, "# hierarchical_glue_cfs Prover.toml").unwrap();
+    writeln!(out, "# composite_committed_product_glue Prover.toml").unwrap();
     writeln!(out, "# Variant committed-A++ glue. Public: root, threshold, X, C_is.").unwrap();
     writeln!(out, "# (starts/ends/partial_costs/P_is/h_ins/h_outs/c are private witness.)").unwrap();
     writeln!(out).unwrap();
@@ -1259,15 +1259,15 @@ fn run_flat(args: &[String], input: Input) {
     );
 }
 
-fn run_hierarchical(args: &[String], input: Input, k: usize) {
+fn run_composite_plain_sort(args: &[String], input: Input, k: usize) {
     let out_dir = PathBuf::from(parse_named_arg(args, "--out-dir").unwrap_or_else(|| {
-        eprintln!("Usage (hierarchical): merkle_builder --hierarchical K --out-dir <dir>");
+        eprintln!("Usage (hierarchical): merkle_builder --composite-plain-sort K --out-dir <dir>");
         std::process::exit(1);
     }));
 
     let n = input.n;
     if k < 2 {
-        eprintln!("Error: --hierarchical K requires K >= 2 (got {})", k);
+        eprintln!("Error: --composite-plain-sort K requires K >= 2 (got {})", k);
         std::process::exit(1);
     }
     if n % k != 0 {
@@ -1362,15 +1362,15 @@ fn run_hierarchical(args: &[String], input: Input, k: usize) {
     );
 }
 
-fn run_hierarchical_fs(args: &[String], input: Input, k: usize) {
+fn run_composite_plain_product(args: &[String], input: Input, k: usize) {
     let out_dir = PathBuf::from(parse_named_arg(args, "--out-dir").unwrap_or_else(|| {
-        eprintln!("Usage (hierarchical-fs): merkle_builder --hierarchical-fs K --out-dir <dir>");
+        eprintln!("Usage (hierarchical-fs): merkle_builder --composite-plain-product K --out-dir <dir>");
         std::process::exit(1);
     }));
 
     let n = input.n;
     if k < 2 {
-        eprintln!("Error: --hierarchical-fs K requires K >= 2 (got {})", k);
+        eprintln!("Error: --composite-plain-product K requires K >= 2 (got {})", k);
         std::process::exit(1);
     }
     if n % k != 0 {
@@ -1392,7 +1392,7 @@ fn run_hierarchical_fs(args: &[String], input: Input, k: usize) {
     let c = h[n];
     let x = poseidon2_hash_single(c);
 
-    // Per-segment outputs (mirrors run_hierarchical; adds P_i, h_in, h_out).
+    // Per-segment outputs (mirrors run_composite_plain_sort; adds P_i, h_in, h_out).
     let mut starts: Vec<usize>            = Vec::with_capacity(k);
     let mut ends: Vec<usize>              = Vec::with_capacity(k);
     let mut partial_costs: Vec<u64>       = Vec::with_capacity(k);
@@ -1405,7 +1405,7 @@ fn run_hierarchical_fs(args: &[String], input: Input, k: usize) {
         let start_node = cycle_segment[0];
         let end_node   = cycle_segment[m - 1];
 
-        // Internal edges: M-1 per segment (identical to run_hierarchical).
+        // Internal edges: M-1 per segment (identical to run_composite_plain_sort).
         let mut seg_edge_costs: Vec<u64> = Vec::with_capacity(m - 1);
         let mut seg_sibs: Vec<FieldElement> = Vec::with_capacity((m - 1) * depth as usize);
         let mut seg_bits: Vec<bool>         = Vec::with_capacity((m - 1) * depth as usize);
@@ -1450,7 +1450,7 @@ fn run_hierarchical_fs(args: &[String], input: Input, k: usize) {
         });
     }
 
-    // Glue: K boundary edges ends[i] -> starts[(i+1) % K] (identical to run_hierarchical).
+    // Glue: K boundary edges ends[i] -> starts[(i+1) % K] (identical to run_composite_plain_sort).
     let mut boundary_costs: Vec<u64>          = Vec::with_capacity(k);
     let mut boundary_sibs:  Vec<FieldElement> = Vec::with_capacity(k * depth as usize);
     let mut boundary_bits:  Vec<bool>         = Vec::with_capacity(k * depth as usize);
@@ -1514,31 +1514,31 @@ fn main() {
         }
     }
 
-    // ── Dispatch on --hierarchical-fs K / --hierarchical K / flat ────────────
-    if let Some(k_str) = parse_named_arg(&args, "--hierarchical-cfs") {
+    // ── Dispatch on --composite-plain-product K / --composite-plain-sort K / flat ────────────
+    if let Some(k_str) = parse_named_arg(&args, "--composite-committed-product") {
         let k: usize = k_str.parse().unwrap_or_else(|_| {
-            eprintln!("Error: --hierarchical-cfs expects a positive integer K (got {:?})", k_str);
+            eprintln!("Error: --composite-committed-product expects a positive integer K (got {:?})", k_str);
             std::process::exit(1);
         });
-        run_hierarchical_cfs(&args, input, k);
-    } else if let Some(k_str) = parse_named_arg(&args, "--hierarchical-c") {
+        run_composite_committed_product(&args, input, k);
+    } else if let Some(k_str) = parse_named_arg(&args, "--composite-committed-sort") {
         let k: usize = k_str.parse().unwrap_or_else(|_| {
-            eprintln!("Error: --hierarchical-c expects a positive integer K (got {:?})", k_str);
+            eprintln!("Error: --composite-committed-sort expects a positive integer K (got {:?})", k_str);
             std::process::exit(1);
         });
-        run_hierarchical_c(&args, input, k);
-    } else if let Some(k_str) = parse_named_arg(&args, "--hierarchical-fs") {
+        run_composite_committed_sort(&args, input, k);
+    } else if let Some(k_str) = parse_named_arg(&args, "--composite-plain-product") {
         let k: usize = k_str.parse().unwrap_or_else(|_| {
-            eprintln!("Error: --hierarchical-fs expects a positive integer K (got {:?})", k_str);
+            eprintln!("Error: --composite-plain-product expects a positive integer K (got {:?})", k_str);
             std::process::exit(1);
         });
-        run_hierarchical_fs(&args, input, k);
-    } else if let Some(k_str) = parse_named_arg(&args, "--hierarchical") {
+        run_composite_plain_product(&args, input, k);
+    } else if let Some(k_str) = parse_named_arg(&args, "--composite-plain-sort") {
         let k: usize = k_str.parse().unwrap_or_else(|_| {
-            eprintln!("Error: --hierarchical expects a positive integer K (got {:?})", k_str);
+            eprintln!("Error: --composite-plain-sort expects a positive integer K (got {:?})", k_str);
             std::process::exit(1);
         });
-        run_hierarchical(&args, input, k);
+        run_composite_plain_sort(&args, input, k);
     } else {
         run_flat(&args, input);
     }

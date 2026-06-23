@@ -1,6 +1,6 @@
 """
-pipeline/plot.py  --  Plot benchmarking results from a CSV produced by run.py
-(or pipeline/aggregate_hier.py / aggregate_recursion.py).
+pipeline/plot.py  --  Plot benchmarking results from a CSV produced by run_monolithic.py
+(or pipeline/aggregate_composite.py / aggregate_composite_recursive.py).
 
 Reads one or more CSVs, groups rows by (variant, N), computes mean +/- std across
 runs, and produces a metric-per-panel figure -- one line per variant.  By default
@@ -9,19 +9,19 @@ panel to its own file.  Two scales are always produced: linear and log-log.
 
 Usage:
     # Single variant (one line):
-    python pipeline/plot.py --csv results/flat_full_pairwise.csv \\
-                            --out plots/flat_full_pairwise
+    python pipeline/plot.py --csv results/monolithic_study_pairwise.csv \\
+                            --out plots/monolithic_study_pairwise
 
     # Several CSVs merged (flat baseline + aggregated hierarchical runs):
-    python pipeline/plot.py --csv results/500.csv results/hier_a_parallel.csv \\
-                            --out plots/flat_vs_hier_a
+    python pipeline/plot.py --csv results/500.csv results/composite_plain_sort_parallel.csv \\
+                            --out plots/flat_vs_composite_plain_sort
 
     # Restrict the plotted size range (use a big CSV, plot only up to N=192):
     python pipeline/plot.py --csv results/all.csv --out plots/small --max-n 192
 
     # Only some variants (exact names or fnmatch globs):
     python pipeline/plot.py --csv results/all.csv --out plots/committed \\
-                            --variants 'hier_c_k*' 'hier_cfs_k*' flat_merkle_presence
+                            --variants 'composite_committed_sort_k*' 'composite_committed_product_k*' monolithic_study_committed_presence
 
     # One file per metric (thesis figures), as vector PDFs without a suptitle:
     python pipeline/plot.py --csv results/all.csv --out plots/frontier \\
@@ -53,7 +53,7 @@ Per-variant colours/markers are STABLE across figures (keyed by variant name), s
 a variant looks the same in every plot regardless of which others are shown.  To
 curate the final thesis figures, edit two module-level dicts near the top:
   STYLE_OVERRIDES  -- pin a variant to a colour slot, e.g. {"recursion_k4": 6}
-  DISPLAY_NAMES    -- relabel a variant in legends, e.g. {"hier_cfs_k4": "committed-A++ (K=4)"}
+  DISPLAY_NAMES    -- relabel a variant in legends, e.g. {"composite_committed_product_k4": "committed-A++ (K=4)"}
 Both are empty (identity) by default.
 """
 
@@ -106,14 +106,14 @@ _LINESTYLES = ["-", "--", "-.", ":"]
 # hash below.  For the thesis, pin the families you compare so colours never clash,
 # e.g.:
 #   STYLE_OVERRIDES = {
-#       "flat_merkle_presence": 0, "hier_a_k4": 2, "hier_fs_k4": 3,
-#       "hier_c_k4": 4, "hier_cfs_k4": 5, "recursion_k4": 6,
+#       "monolithic_study_committed_presence": 0, "composite_plain_sort_k4": 2, "composite_plain_product_k4": 3,
+#       "composite_committed_sort_k4": 4, "composite_committed_product_k4": 5, "recursion_k4": 6,
 #   }
 STYLE_OVERRIDES: dict[str, int] = {}
 
 # Map raw variant names (as they appear in the CSV 'variant' column) to the label
 # shown in legends.  Identity for now (legend shows the raw name); fill in for the
-# thesis, e.g. {"hier_cfs_k4": "committed-A++ (K=4)"}.
+# thesis, e.g. {"composite_committed_product_k4": "committed-A++ (K=4)"}.
 DISPLAY_NAMES: dict[str, str] = {}
 
 
@@ -335,7 +335,7 @@ def make_panel_figure(summaries, col, title, loglog=False, show_title=True,
 def main():
     parser = argparse.ArgumentParser(description="Plot ZKP benchmark results.")
     parser.add_argument("--csv", nargs="+", required=True,
-                        help="One or more CSV files (run.py / aggregate_*.py)")
+                        help="One or more CSV files (run_monolithic.py / aggregate_*.py)")
     parser.add_argument("--out", required=True, help="Output path prefix (no extension)")
     parser.add_argument("--metrics", nargs="+", default=DEFAULT_METRICS,
                         choices=list(METRICS.keys()), metavar="METRIC",

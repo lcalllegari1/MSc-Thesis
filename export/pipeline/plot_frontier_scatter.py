@@ -19,8 +19,8 @@ Most informative with the **full family** present (flat + hier_* + recursion); f
 just flat+recursion the verifier axis collapses (both O(1)), so pick axes that both
 vary (e.g. --x prove_s --y peak_mb).
 
-Input is **aggregated** CSVs (the combined `variant` rows: `flat_merkle_sort`,
-`recursion_k{K}`, `hier_fs_k{K}`, `hier_cfs_k{K}`, ...). Colour = K (shared with
+Input is **aggregated** CSVs (the combined `variant` rows: `monolithic_committed_sort`,
+`recursion_k{K}`, `composite_plain_product_k{K}`, `composite_committed_product_k{K}`, ...). Colour = K (shared with
 the other recursion plots; flat black); marker = family. Same-family points are
 joined by a faint line (the K-trajectory). `--pareto` draws the non-dominated
 lower-left front (assumes lower = better on both axes).
@@ -28,7 +28,7 @@ lower-left front (assumes lower = better on both axes).
 Usage:
     PY=/home/callexyz/anaconda3/envs/zk-tsp/bin/python
     $PY pipeline/plot_frontier_scatter.py \\
-        --csv results/flat.csv results/recursive_par.csv results/hier_fs_par.csv \\
+        --csv results/flat.csv results/recursive_par.csv results/composite_plain_product_par.csv \\
         --n 96 --out plots/frontier_scatter --pareto
 
     # flat vs recursion only -> use two varying axes:
@@ -46,7 +46,7 @@ from matplotlib.lines import Line2D
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import plot as P                                          # noqa: E402
-from plot_recursion_lines import parse_variant, _color_for_k  # noqa: E402
+from plot_composite_recursive_lines import parse_variant, _color_for_k  # noqa: E402
 
 METRIC_LABELS = {
     "proof_bytes":  "Proof size (bytes)",
@@ -58,13 +58,12 @@ METRIC_LABELS = {
 }
 # family detection (longest prefixes first) -> (short label, marker)
 FAMILY = [
-    ("flat",      "flat",          "o"),
-    ("recursion", "rec",           "^"),
-    ("hier_cfs",  "committed-A++", "D"),
-    ("hier_cf",   "committed-A",   "P"),  # (hier_cf* before hier_c*)
-    ("hier_fs",   "A++",           "s"),
-    ("hier_c",    "committed-A",   "P"),
-    ("hier_a",    "A",             "v"),
+    ("monolithic",                   "monolithic",        "o"),
+    ("composite_recursive",          "recursive",         "^"),
+    ("composite_committed_product",  "committed-product", "D"),
+    ("composite_committed_sort",     "committed-sort",    "P"),
+    ("composite_plain_product",      "plain-product",     "s"),
+    ("composite_plain_sort",         "plain-sort",        "v"),
 ]
 
 
@@ -81,8 +80,8 @@ def main():
     ap.add_argument("--out", required=True, help="Output path prefix (no extension).")
     ap.add_argument("--n", type=int, default=None,
                     help="Fixed N (default: max N common to the recursion variants).")
-    ap.add_argument("--flat-variant", default="flat_merkle_sort",
-                    help="Which flat variant to plot (default: flat_merkle_sort).")
+    ap.add_argument("--flat-variant", default="monolithic_committed_sort",
+                    help="Which flat variant to plot (default: monolithic_committed_sort).")
     ap.add_argument("--x", default="proof_bytes", choices=list(METRIC_LABELS), help="x-axis metric.")
     ap.add_argument("--y", default="peak_mb", choices=list(METRIC_LABELS), help="y-axis metric.")
     ap.add_argument("--loglog", dest="loglog", action="store_true", default=True)
@@ -103,13 +102,13 @@ def main():
     # keep only the chosen baseline so the other flat_* variants don't clutter.
     variants = [v for v in raw
                 if (v == args.flat_variant) or
-                   (not v.startswith("flat") and parse_variant(v)[1] == "combined")]
+                   (not v.startswith("monolithic") and parse_variant(v)[1] == "combined")]
 
     # choose N: default = max N present among recursion variants
     if args.n is not None:
         n = args.n
     else:
-        rec_ns = [nn for v in variants if v.startswith("recursion") for nn in raw[v]]
+        rec_ns = [nn for v in variants if v.startswith("composite_recursive") for nn in raw[v]]
         n = max(rec_ns) if rec_ns else max(nn for v in variants for nn in raw[v])
 
     def val(v, metric):

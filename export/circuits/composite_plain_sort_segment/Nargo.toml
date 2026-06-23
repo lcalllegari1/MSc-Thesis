@@ -1,0 +1,13 @@
+[package]
+name = "composite_plain_sort_segment"
+type = "bin"
+authors = []
+
+# Sub-circuit for Variant A (hierarchical TSP, Merkle commitment, partition public).
+# Same poseidon dependency as monolithic_study_committed_presence: the Merkle hash chain in G4
+# uses Poseidon2::hash([left, right], 2), and the tree is built off-circuit by
+# pipeline/merkle_builder/ using the matching bn254 implementation
+# (cross-validated by tests/hash_compat/).
+
+[dependencies]
+poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }

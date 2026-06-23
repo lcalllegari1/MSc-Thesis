@@ -4,13 +4,13 @@ format_inputs.py — Generate Prover.toml for the flat TSP ZKP circuits.
 Takes an instance JSON (from instance_gen.py) and a path JSON (from solver.py)
 and writes the Prover.toml that nargo expects as witness input.
 
-Prover.toml layout (flat_full variants):
+Prover.toml layout (monolithic_study variants):
   cycle        = ["v0", ..., "v_{N-1}"]              # private: node visit order
-  [inv_perm    = ["p0", ..., "p_{N-1}"]  ]           # private: only for flat_full_invperm
+  [inv_perm    = ["p0", ..., "p_{N-1}"]  ]           # private: only for monolithic_study_invperm
   cost_matrix  = ["c00", ..., "c_{N-1,N-1}"]         # public: flat N×N costs
   threshold    = "T"                                  # public: cost upper bound
 
-Prover.toml layout (flat_merkle_presence):
+Prover.toml layout (monolithic_study_committed_presence):
   Written by the Rust merkle_builder binary (see pipeline/merkle_builder/).
   Contains: cycle, edge_costs, siblings, path_bits (private),
             root, threshold (public).
@@ -25,7 +25,7 @@ The verifier's public_inputs file is extracted automatically by bb prove.
 Variant detection:
   If "invperm" appears in the --out path (or the variant parameter), the
   inverse permutation is computed and written as an additional private witness.
-  If "merkle" appears in the variant name, write_merkle_prover_toml() must be
+  If "committed" appears in the variant name, write_merkle_prover_toml() must be
   used instead; it delegates to the Rust merkle_builder binary.
 """
 
@@ -113,7 +113,7 @@ def write_prover_toml(inputs, out_path):
     lines.append(f"cycle = [{cycle_str}]")
     lines.append("")
 
-    # Private: inv_perm (array of u32) — only for flat_full_invperm
+    # Private: inv_perm (array of u32) — only for monolithic_study_invperm
     if "inv_perm" in inputs:
         inv_str = ", ".join(f'"{v}"' for v in inputs["inv_perm"])
         lines.append(f"# Private witness: inverse permutation  (inv_perm[v] = position of node v in cycle)")
@@ -157,7 +157,7 @@ def merkle_depth(n):
 
 def write_merkle_prover_toml(inputs, out_path, builder_bin, tree_cache=None):
     """
-    Write Prover.toml for flat_merkle_presence by calling the Rust merkle_builder.
+    Write Prover.toml for monolithic_study_committed_presence by calling the Rust merkle_builder.
 
     The binary reads a JSON payload from stdin:
       { n, flat_matrix, cycle, threshold, cost }
@@ -203,7 +203,7 @@ def main():
     args = parser.parse_args()
 
     # Detect variant from the output path so callers don't need an extra flag.
-    # e.g. --out circuits/flat_full_invperm/Prover.toml  →  variant contains "invperm"
+    # e.g. --out circuits/monolithic_study_invperm/Prover.toml  →  variant contains "invperm"
     variant = args.out
     inputs = format_inputs(args.instance, args.path, args.multiplier, variant=variant)
     write_prover_toml(inputs, args.out)

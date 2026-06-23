@@ -28,7 +28,7 @@ DEPLOYMENT.  Time metrics use the PARALLEL / distributed projection (max-segment
 + outer): pass a recursion CSV aggregated with --mode parallel.  Memory and gates
 are deployment-independent here (peak is per-process, gates are structural).
 
-INPUT (aggregated CSVs, run.py schema):
+INPUT (aggregated CSVs, run_monolithic.py schema):
   * the flat baseline CSV (e.g. results/flat.csv), and
   * recursion CSV(s) aggregated with `--split-components` (e.g. results/recursive_par.csv),
     which carry the recursion_k{K}, _seg and _outer variant rows.
@@ -36,7 +36,7 @@ Pass them all to --csv (they are concatenated, like plot.py).
 
 PALETTE.  Colour keyed by K (so flat sits apart in black, and a K's series share a
 hue); marker/linestyle keyed by component (aggregate o-solid, seg s-dashed, outer
-^-dotted) -- the same scheme as plot_recursion_lines.py.
+^-dotted) -- the same scheme as plot_composite_recursive_lines.py.
 
 Usage:
     PY=/home/callexyz/anaconda3/envs/zk-tsp/bin/python
@@ -67,7 +67,7 @@ import matplotlib.colors as mcolors
 # plot.py + the recursion palette live alongside; reuse their machinery.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import plot as P                                   # noqa: E402
-from plot_recursion_lines import parse_variant, COMPONENT_STYLE, _color_for_k  # noqa: E402
+from plot_composite_recursive_lines import parse_variant, COMPONENT_STYLE, _color_for_k  # noqa: E402
 
 # ── Curated series per metric ─────────────────────────────────────────────────
 # role -> recursion component (parse_variant's component field)
@@ -88,7 +88,7 @@ _COMP_RANK = {"combined": 0, "seg_node": 1, "seg_total": 1, "seg": 1, "outer": 2
 
 # ── Combined palette: flat in black, recursion keyed by K + component ──────────
 def combined_style(variant: str) -> dict:
-    if variant.startswith("flat"):
+    if variant.startswith("monolithic"):
         return {"color": "#111111", "marker": "o", "ls": "-", "ecolor": "#9ca3af"}
     k, component, _mode = parse_variant(variant)
     color = _color_for_k(k)
@@ -101,8 +101,8 @@ def combined_style(variant: str) -> dict:
 
 
 def combined_display(variant: str) -> str:
-    if variant.startswith("flat"):
-        return P.DISPLAY_NAMES.get(variant, "flat (" + variant.replace("flat_", "") + ")")
+    if variant.startswith("monolithic"):
+        return P.DISPLAY_NAMES.get(variant, "monolithic (" + variant.replace("monolithic_", "") + ")")
     k, component, mode = parse_variant(variant)
     if k is None:
         return P.DISPLAY_NAMES.get(variant, variant)
@@ -120,7 +120,7 @@ def select_variants(metric, all_variants, flat_variant, ks):
     if flat_variant and flat_variant in all_variants:
         chosen.append((-1, -1, flat_variant))
     for v in all_variants:
-        if v.startswith("flat"):
+        if v.startswith("monolithic"):
             continue
         k, component, _mode = parse_variant(v)
         if k is None or component not in comps:
@@ -148,8 +148,8 @@ def main():
     ap.add_argument("--metrics", nargs="+", default=DEFAULT_METRICS,
                     choices=list(METRIC_ROLES.keys()), metavar="METRIC",
                     help=f"Metrics to plot (default: {' '.join(DEFAULT_METRICS)}).")
-    ap.add_argument("--flat-variant", default="flat_merkle_sort",
-                    help="Which flat variant is the baseline line (default: flat_merkle_sort).")
+    ap.add_argument("--flat-variant", default="monolithic_committed_sort",
+                    help="Which flat variant is the baseline line (default: monolithic_committed_sort).")
     ap.add_argument("--k", type=int, nargs="+", default=None,
                     help="Restrict to these recursion K values (default: all present).")
     ap.add_argument("--match-n", action="store_true",
@@ -180,7 +180,7 @@ def main():
     all_variants = list(raw.keys())
     flat_variant = args.flat_variant
     if flat_variant not in raw:
-        fallback = next((v for v in all_variants if v.startswith("flat")), None)
+        fallback = next((v for v in all_variants if v.startswith("monolithic")), None)
         print(f"[warn] flat baseline '{flat_variant}' not in data; "
               f"{'using ' + fallback if fallback else 'no flat line'}.")
         flat_variant = fallback

@@ -1,0 +1,15 @@
+[package]
+name = "composite_plain_product_segment"
+type = "bin"
+authors = []
+
+# Sub-circuit for Variant A++ (hierarchical TSP, Merkle commitment, partition
+# HIDDEN via grand-product multiset equality + in-circuit Fiat-Shamir).
+# Mirrors composite_plain_sort_segment (Variant A) but drops the public sorted_nodes and
+# adds three constraint groups: G5 hash-chain link, G6 grand product, G7 challenge
+# consistency.  Same poseidon dependency: the Merkle hash chain and the A++ chain
+# step both use Poseidon2::hash([l, r], 2); the FS challenge uses
+# Poseidon2::hash([c], 1) (cross-validated by tests/hash_compat/).
+
+[dependencies]
+poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }

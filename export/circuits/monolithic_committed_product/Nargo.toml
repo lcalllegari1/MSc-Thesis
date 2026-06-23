@@ -1,0 +1,13 @@
+[package]
+name = "monolithic_committed_product"
+type = "bin"
+authors = []
+
+# Depends on the Noir poseidon library for Poseidon2::hash.
+# The same library is used in tests/hash_compat/noir/ and is cross-validated
+# against the Rust bn254_blackbox_solver in that test (confirmed identical).
+# Internal Merkle nodes use Poseidon2::hash([left, right], 2); the Fiat-Shamir
+# hash chain over the cycle uses the same 2-input hash, and X = Poseidon2([c], 1).
+
+[dependencies]
+poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }

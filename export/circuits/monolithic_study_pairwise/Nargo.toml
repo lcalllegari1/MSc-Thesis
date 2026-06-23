@@ -1,0 +1,10 @@
+[package]
+name = "monolithic_study_pairwise"
+type = "bin"
+authors = []
+
+# No external dependencies.
+# The cost matrix is passed directly as public input (no Merkle commitment).
+# Permutation check uses the pairwise O(N²) approach.
+
+[dependencies]

@@ -39,7 +39,7 @@ from matplotlib.patches import Patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import plot as P                                          # noqa: E402
-from plot_recursion_lines import parse_variant, _color_for_k  # noqa: E402
+from plot_composite_recursive_lines import parse_variant, _color_for_k  # noqa: E402
 
 FLAT_COLOR = "#111111"
 METRICS = ["prove_s", "witness_s"]
@@ -51,7 +51,7 @@ def select_variants(raw, flat_variant, ks):
     if flat_variant and flat_variant in raw:
         out.append((-1, flat_variant, "flat", FLAT_COLOR))
     for v in raw:
-        if v.startswith("flat"):
+        if v.startswith("monolithic"):
             continue
         k, component, _mode = parse_variant(v)
         if k is None or component != "combined":
@@ -68,7 +68,7 @@ def main():
     ap.add_argument("--csv", nargs="+", required=True,
                     help="Aggregated CSVs: flat baseline + recursion (aggregate_recursion) output.")
     ap.add_argument("--out", required=True, help="Output path prefix (no extension).")
-    ap.add_argument("--flat-variant", default="flat_merkle_sort")
+    ap.add_argument("--flat-variant", default="monolithic_committed_sort")
     ap.add_argument("--k", type=int, nargs="+", default=None,
                     help="Recursion K values to include (default: all present).")
     ap.add_argument("--n", type=int, nargs="+", default=None,

@@ -1,0 +1,12 @@
+[package]
+name = "monolithic_study_committed_presence"
+type = "bin"
+authors = []
+
+# Depends on the Noir poseidon library for Poseidon2::hash.
+# The same library is used in tests/hash_compat/noir/ and is cross-validated
+# against the Rust bn254_blackbox_solver in that test (confirmed identical).
+# All internal Merkle nodes use Poseidon2::hash([left, right], 2).
+
+[dependencies]
+poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }

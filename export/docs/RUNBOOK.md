@@ -12,10 +12,10 @@ cargo build --release --manifest-path pipeline/merkle_builder/Cargo.toml
 Use the Python interpreter from your project environment if `python3` is not the desired one, for example:
 
 ```bash
-make smoke-flat PY=/path/to/python
+make smoke-monolithic PY=/path/to/python
 ```
 
-## Flat Circuit Smoke Test
+## Monolithic Circuit Smoke Test
 
 ```bash
 python3 pipeline/instance_gen.py -n 8 --out data/instance.json --dat data/matrix.dat
@@ -23,8 +23,8 @@ python3 pipeline/solver.py --json data/instance.json --out data/path.json
 python3 pipeline/format_inputs.py \
   --instance data/instance.json \
   --path data/path.json \
-  --out circuits/flat_full_pairwise/Prover.toml
-cd circuits/flat_full_pairwise
+  --out circuits/monolithic_study_pairwise/Prover.toml
+cd circuits/monolithic_study_pairwise
 nargo compile
 nargo execute
 cd ../..
@@ -33,55 +33,58 @@ cd ../..
 The same flow is available as:
 
 ```bash
-make smoke-flat N=8 CIRCUIT=circuits/flat_full_pairwise
+make smoke-monolithic N=8 CIRCUIT=circuits/monolithic_study_pairwise
 ```
 
 ## Benchmarks
 
-Flat benchmark:
+Monolithic benchmark (the crowned baseline is `monolithic_committed_sort`; the public-matrix
+`monolithic_study_*` circuits run the same way):
 
 ```bash
-python3 pipeline/run.py \
-  --circuit circuits/flat_full_pairwise \
+python3 pipeline/run_monolithic.py \
+  --circuit circuits/monolithic_committed_sort \
   --ns 8 16 32 \
   --runs 3 \
-  --out results/flat.csv
+  --out results/monolithic.csv
 ```
 
-Hierarchical A++ benchmark:
+Composite, external glue (plain-product shown; swap the harness for the other three —
+`run_composite_plain_sort.py`, `run_composite_committed_sort.py`,
+`run_composite_committed_product.py`):
 
 ```bash
-python3 pipeline/run_hier_fs.py \
+python3 pipeline/run_composite_plain_product.py \
   --ns 48 96 \
   --ks 2 4 \
   --runs 3 \
-  --out results/hier_fs.csv
+  --out results/composite_plain_product.csv
 ```
 
-Recursive benchmark:
+Composite, recursive:
 
 ```bash
-python3 pipeline/run_recursion.py \
+python3 pipeline/run_composite_recursive.py \
   --exp 2 \
   --n 8 \
   --k 2 \
   --runs 1 \
-  --out results/recursion.csv
+  --out results/composite_recursive.csv
 ```
 
 ## Aggregation And Plots
 
 ```bash
-python3 pipeline/aggregate_hier.py --in results/hier_fs.csv --out results/hier_fs_par.csv --mode parallel
-python3 pipeline/aggregate_recursion.py --in results/recursion.csv --out results/recursion_par.csv --mode parallel --split-components
-python3 pipeline/plot.py --csv results/flat.csv results/hier_fs_par.csv results/recursion_par.csv --out plots/frontier
+python3 pipeline/aggregate_composite.py --in results/composite_plain_product.csv --out results/composite_plain_product_par.csv --mode parallel
+python3 pipeline/aggregate_composite_recursive.py --in results/composite_recursive.csv --out results/composite_recursive_par.csv --mode parallel --split-components
+python3 pipeline/plot.py --csv results/monolithic.csv results/composite_plain_product_par.csv results/composite_recursive_par.csv --out plots/frontier
 ```
 
 ## Correctness Tests
 
-Each correctness file is an executable script. Start with the narrow flat baseline, then run the heavier recursive suite when `nargo`, `bb`, and `merkle_builder` are working.
+Each correctness file is an executable script. Start with the narrow monolithic baseline, then run the heavier composite suites when `nargo`, `bb`, and `merkle_builder` are working.
 
 ```bash
-python3 tests/correctness/test_flat_full_pairwise.py
-python3 tests/correctness/test_recursion.py
+python3 tests/correctness/test_monolithic_study_pairwise.py
+python3 tests/correctness/test_composite_recursive.py
 ```
