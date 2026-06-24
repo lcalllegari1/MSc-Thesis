@@ -25,25 +25,10 @@ plt.rcParams.update({
     "legend.frameon": False, "figure.autolayout": True,
 })
 
-# colour / marker conventions, reused across figures
-C = {
-    "flat-sort":          ("#1f77b4", "o"),
-    "flat-product":       ("#4c9be8", "s"),
-    "flat-pairwise":      ("#9ecae1", "^"),
-    "flat-full-sort":     ("#7f7f7f", "v"),
-    "plain-sort":         ("#2ca02c", "o"),
-    "plain-product":      ("#98df8a", "s"),
-    "committed-sort":     ("#d62728", "o"),
-    "committed-product":  ("#ff9896", "s"),
-    "recursive-product":  ("#9467bd", "D"),
-    "recursive-sort":     ("#c5b0d5", "d"),
-}
-PRIV = {  # privacy class -> colour (for frontier)
-    "structural":   "#9467bd",
-    "computational":"#d62728",
-    "oracle":       "#ff7f0e",
-    "disclosed":    "#2ca02c",
-}
+# Colour / marker conventions come from the single source of truth (style.py):
+# hue = stitching regime, marker = mechanism, shade+linestyle = K, fill = role.
+# C[name] -> (base_hue, marker); PRIV[class] -> colour (frontier only).
+from style import C, PRIV, color_for, role_style  # noqa: E402
 
 def load(f):
     p = os.path.join(RES, f)
@@ -235,14 +220,15 @@ def fig_dualism():
 def fig_lever():
     fig, ax = plt.subplots(figsize=(7.6, 5))
     ns = sorted({n for (n,k) in HIER["plain-sort"]})
-    for k,ls in zip((2,4,8),("-","--",":")):
-        xs=[n for n in ns if (n,k) in HIER["plain-sort"]]
-        ax.plot(xs,[HIER["plain-sort"][(n,k)]["glue"] for n in xs],ls,color=C["plain-sort"][0],
-                lw=1.5,label=f"plain-sort glue  K={k}  (O(N))")
-    for k,ls in zip((2,4,8),("-","--",":")):
-        xs=[n for n in ns if (n,k) in HIER["plain-product"]]
-        ax.plot(xs,[HIER["plain-product"][(n,k)]["glue"] for n in xs],ls,color=C["plain-product"][0],
-                lw=1.5,label=f"plain-product glue  K={k}  (O(K))")
+    # plain-sort and plain-product share the plain hue, so the mechanism rides the
+    # marker (sort circle / product square); K rides linestyle+shade.
+    for name in ("plain-sort","plain-product"):
+        col,mk=C[name]
+        for k,ls in zip((2,4,8),("-","--",":")):
+            xs=[n for n in ns if (n,k) in HIER[name]]
+            ax.plot(xs,[HIER[name][(n,k)]["glue"] for n in xs],ls,
+                    color=color_for(name,k),marker=mk,ms=4,markevery=3,lw=1.5,
+                    label=f"{name} glue  K={k}")
     ax.set_xscale("log"); ax.set_yscale("log")
     ax.set_xlabel("N"); ax.set_ylabel("glue circuit size (gates)")
     ax.set_title("The fingerprint lever — sort glue grows O(N), product glue O(K)")
@@ -297,24 +283,31 @@ def fig_speedup_vs_k():
 # --- FIG 8: recursion M-independence (the gem) -----------------------------
 def fig_recursion_m_independence():
     fig, axes = plt.subplots(1,2,figsize=(12,4.8))
+    # recursive-sort and recursive-product share the recursive hue, so mechanism
+    # rides the marker (sort circle / product square) and K rides linestyle+shade.
+    LAB={"recursive-product":"product inner (O(1) surface)",
+         "recursive-sort":"sort inner (O(M) surface)"}
+    klines=[plt.Line2D([0],[0],color="dimgray",ls=ls,lw=1.3,label=f"K={k}")
+            for k,ls in zip((2,4,8),("-","--",":"))]
     ax=axes[0]
-    for k,mk in zip((2,4,8),("o","s","^")):
-        for name,col,lab in [("recursive-product",C["recursive-product"][0],"product inner (O(1) surface)"),
-                             ("recursive-sort",C["recursive-sort"][0],"sort inner (O(M) surface)")]:
+    for name in ("recursive-product","recursive-sort"):
+        col,mk=C[name]
+        for k,ls in zip((2,4,8),("-","--",":")):
             xs=sorted({n for (n,kk) in REC[name] if kk==k})
             ys=[REC[name][(n,k)]["per_seg"]/1e3 for n in xs]
-            ax.plot(xs,ys,mk+"-",ms=4,color=col,lw=1.3,
-                    label=(f"{lab}" if k==2 else None))
+            ax.plot(xs,ys,ls,marker=mk,ms=4,markevery=2,color=color_for(name,k),lw=1.3,
+                    label=(LAB[name] if k==2 else None))
     ax.set_xscale("log"); ax.set_xlabel("N"); ax.set_ylabel("outer gates per segment (×10³)")
     ax.set_title("Outer gates per segment")
-    ax.legend(fontsize=9)
-    ax.text(0.03,0.05,"markers: K=2 ○  K=4 □  K=8 △",transform=ax.transAxes,fontsize=8,color="dimgray")
+    mleg=ax.legend(fontsize=9,loc="upper left")
+    ax.add_artist(mleg); ax.legend(handles=klines,fontsize=8,loc="lower right",title="segments")
     ax=axes[1]
-    for k,mk in zip((2,4,8),("o","s","^")):
-        for name,col in [("recursive-product",C["recursive-product"][0]),("recursive-sort",C["recursive-sort"][0])]:
+    for name in ("recursive-product","recursive-sort"):
+        col,mk=C[name]
+        for k,ls in zip((2,4,8),("-","--",":")):
             xs=sorted({n for (n,kk) in REC[name] if kk==k})
             ys=[REC[name][(n,k)]["outer_peak"]/1e3 for n in xs]
-            ax.plot(xs,ys,mk+"-",ms=4,color=col,lw=1.3,
+            ax.plot(xs,ys,ls,marker=mk,ms=4,markevery=2,color=color_for(name,k),lw=1.3,
                     label=(name if k==2 else None))
     ax.set_xscale("log"); ax.set_xlabel("N"); ax.set_ylabel("outer prover peak memory (GB)")
     ax.set_title("Outer prover peak memory")
@@ -331,8 +324,8 @@ def fig_verifier_tax():
     ax=axes[0]
     ax.axhline(PROOF/1024,color=C["flat-sort"][0],lw=2,label="flat  (1 proof, O(1))")
     for name,col in [("plain-product",C["plain-product"][0]),("committed-product",C["committed-product"][0])]:
-        ax.plot(Ks,[(k+1)*PROOF/1024 for k in Ks],"o-",color=col,label=f"{name}  (K+1 proofs, O(K))")
-    ax.plot(Ks,[PROOF/1024]*3,"D--",color=C["recursive-product"][0],label="recursion  (1 proof, O(1))")
+        ax.plot(Ks,[(k+1)*PROOF/1024 for k in Ks],"s-",color=col,label=f"{name}  (K+1 proofs, O(K))")
+    ax.plot(Ks,[PROOF/1024]*3,"s--",color=C["recursive-product"][0],label="recursion  (1 proof, O(1))")
     ax.set_xlabel("K"); ax.set_ylabel("verifier download (KB)"); ax.set_xticks(Ks)
     ax.set_title(f"Proof bytes the verifier must check (N={N})"); ax.legend(fontsize=9)
     # verify_s
@@ -341,9 +334,9 @@ def fig_verifier_tax():
     ax.axhline(fv,color=C["flat-sort"][0],lw=2,label="flat")
     for name,col in [("plain-product",C["plain-product"][0]),("committed-product",C["committed-product"][0])]:
         ys=[HIER[name][(N,k)]["vh"] for k in Ks if (N,k) in HIER[name] and "vh" in HIER[name][(N,k)]]
-        ax.plot(Ks[:len(ys)],ys,"o-",color=col,label=f"{name}  (O(K))")
+        ax.plot(Ks[:len(ys)],ys,"s-",color=col,label=f"{name}  (O(K))")
     rv=[REC["recursive-product"][(N,k)]["outer_verify"] for k in Ks if (N,k) in REC["recursive-product"]]
-    ax.plot(Ks[:len(rv)],rv,"D--",color=C["recursive-product"][0],label="recursion  (O(1))")
+    ax.plot(Ks[:len(rv)],rv,"s--",color=C["recursive-product"][0],label="recursion  (O(1))")
     ax.set_xlabel("K"); ax.set_ylabel("verification time (s)"); ax.set_xticks(Ks)
     ax.set_title("Verifier wall-clock"); ax.legend(fontsize=9)
     fig.suptitle("The verifier-side stitching tax — hierarchical pays O(K); recursion buys it back to O(1)", y=1.02)
@@ -370,19 +363,28 @@ def fig_frontier():
         d=REC[name].get((N,K))
         if not d: continue
         pts.append((short,"rec", d["total"], PROOF, d["crit"], d["outer_peak"],"structural"))
-    FAM={"flat":"o","hier":"s","rec":"D"}
-    # manual label offsets (points), keyed by short label, per panel
-    offA={"flat-prod":(8,-2),"flat-sort":(8,-12),"rec-prod":(8,2),"rec-sort":(8,-12),
-          "plain-sort":(6,6),"plain-prod":(6,-12),"comm-sort":(6,8),"comm-prod":(6,-13)}
-    offB={"flat-prod":(8,4),"flat-sort":(8,-12),"rec-prod":(-10,-14),"rec-sort":(-44,4),
-          "plain-sort":(6,8),"plain-prod":(6,-6),"comm-sort":(6,8),"comm-prod":(6,-13)}
+    # architecture family -> shape (well-separated even when points crowd);
+    # mechanism -> marker size (sort small, product large = "more gates");
+    # privacy class -> colour (PRIV).  Three orthogonal categoricals + position.
+    FAM={"flat":"h","hier":"P","rec":"X"}
+    MECH_SIZE={"sort":80,"product":165}
+    def msize(lab): return MECH_SIZE["sort" if "sort" in lab else "product"]
+    # manual label offsets (points), keyed by short label, per panel.  Crowded
+    # structural-purple corner (flat/rec) gets leader-line annotations below.
+    offA={"flat-prod":(9,5),"flat-sort":(9,-13),"rec-prod":(-30,10),"rec-sort":(9,-4),
+          "plain-sort":(7,6),"plain-prod":(7,-13),"comm-sort":(7,8),"comm-prod":(7,-14)}
+    offB={"flat-prod":(9,5),"flat-sort":(9,-13),"rec-prod":(-12,-16),"rec-sort":(-46,4),
+          "plain-sort":(7,8),"plain-prod":(7,-7),"comm-sort":(7,8),"comm-prod":(7,-14)}
+    lead={"flat-prod","flat-sort","rec-prod"}   # crowded -> draw a short leader line
 
     fig, axes = plt.subplots(1,2,figsize=(13.5,5.6))
     ax=axes[0]
     for lab,fam,tg,vb,wc,pk,priv in pts:
-        ax.scatter(vb/1024, tg/1e6, s=95, marker=FAM[fam], color=PRIV[priv], edgecolor="k", lw=.7, zorder=3)
+        ax.scatter(vb/1024, tg/1e6, s=msize(lab), marker=FAM[fam], color=PRIV[priv],
+                   edgecolor="k", lw=.8, zorder=3)
         dx,dy=offA.get(lab,(6,4))
-        ax.annotate(lab,(vb/1024,tg/1e6),xytext=(dx,dy),textcoords="offset points",fontsize=8.5)
+        ax.annotate(lab,(vb/1024,tg/1e6),xytext=(dx,dy),textcoords="offset points",fontsize=8.5,
+                    arrowprops=dict(arrowstyle="-",color="0.5",lw=.6) if lab in lead else None)
     ax.set_xlabel("verifier download (KB, log scale)"); ax.set_ylabel("total prover work (M gates)")
     ax.set_xscale("log"); ax.set_xlim(10,120); ax.set_ylim(1.4,5.2)
     ax.set_title("Verifier cost  vs  total prover work")
@@ -390,21 +392,26 @@ def fig_frontier():
             transform=ax.transAxes,ha="center",fontsize=8,color="dimgray")
     ax=axes[1]
     for lab,fam,tg,vb,wc,pk,priv in pts:
-        ax.scatter(tg/1e6, wc, s=95, marker=FAM[fam], color=PRIV[priv], edgecolor="k", lw=.7, zorder=3)
+        ax.scatter(tg/1e6, wc, s=msize(lab), marker=FAM[fam], color=PRIV[priv],
+                   edgecolor="k", lw=.8, zorder=3)
         dx,dy=offB.get(lab,(6,4))
-        ax.annotate(lab,(tg/1e6,wc),xytext=(dx,dy),textcoords="offset points",fontsize=8.5)
+        ax.annotate(lab,(tg/1e6,wc),xytext=(dx,dy),textcoords="offset points",fontsize=8.5,
+                    arrowprops=dict(arrowstyle="-",color="0.5",lw=.6) if lab in lead else None)
     ax.set_xlabel("total prover work (M gates)"); ax.set_ylabel("parallel wall-clock (s)")
     ax.set_xlim(1.4,5.2); ax.set_ylim(0,52)
     ax.set_title("Total work  vs  parallel wall-clock")
     ax.text(0.5,0.06,"hierarchical wins wall-clock; recursion's serial outer caps it",
             transform=ax.transAxes,ha="center",fontsize=8,color="dimgray")
-    # legends: privacy (colour) + family (shape)
+    # legends: privacy (colour) + architecture (shape) + mechanism (size)
     ph=[plt.Line2D([0],[0],marker="o",ls="",mfc=col,mec="k",label=p) for p,col in PRIV.items()]
-    fh=[plt.Line2D([0],[0],marker=m,ls="",mfc="0.7",mec="k",label=f) for f,m in
-        {"flat (K=1)":"o","hierarchical":"s","recursion":"D"}.items()]
-    leg1=fig.legend(handles=ph,title="partition privacy",loc="lower center",ncol=4,bbox_to_anchor=(0.32,-0.06))
-    fig.legend(handles=fh,title="architecture",loc="lower center",ncol=3,bbox_to_anchor=(0.80,-0.06))
-    fig.add_artist(leg1)
+    fh=[plt.Line2D([0],[0],marker=m,ls="",mfc="0.7",mec="k",ms=9,label=f) for f,m in
+        {"flat (K=1)":"h","hierarchical":"P","recursion":"X"}.items()]
+    mh=[plt.Line2D([0],[0],marker="o",ls="",mfc="0.7",mec="k",ms=ms,label=lab) for lab,ms in
+        (("sort",6),("product",11))]
+    leg1=fig.legend(handles=ph,title="partition privacy",loc="lower center",ncol=4,bbox_to_anchor=(0.27,-0.07))
+    leg2=fig.legend(handles=fh,title="architecture",loc="lower center",ncol=3,bbox_to_anchor=(0.66,-0.07))
+    fig.legend(handles=mh,title="mechanism (size)",loc="lower center",ncol=2,bbox_to_anchor=(0.90,-0.07))
+    fig.add_artist(leg1); fig.add_artist(leg2)
     fig.suptitle(f"The frontier — three non-dominated corners at N={N}, K={K}", y=1.0)
     save(fig, "10_frontier_pareto")
 
