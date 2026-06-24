@@ -220,13 +220,13 @@ def fig_dualism():
                 col=C[name][0]
                 ax.plot(xs,ys,ls,color=col,lw=1.4,label=f"{name} K={k}")
         ax.axhline(100,color="k",lw=1,ls="-",alpha=.7)
-        ax.set_xscale("log"); ax.set_xlabel("N")
+        ax.set_xscale("log"); ax.set_xlabel("n")
         ax.set_title(f"{mech} mechanism")
         ax.legend(fontsize=8,ncol=2)
     axes[0].set_ylabel("total hierarchical gates as % of flat")
     axes[0].text(0.02,0.97,"100% = flat (the conservation floor)\nall curves sit ABOVE → no total-work win",
                  transform=axes[0].transAxes,va="top",fontsize=8,color="dimgray")
-    fig.suptitle("The dualism — decomposition conserves (never reduces) total gates", y=1.02)
+    # No suptitle: the Typst #figure caption carries the figure-level description.
     save(fig, "04_dualism_total_work")
 
 # --- FIG 5: fingerprint lever — glue size sort vs product ------------------
@@ -243,8 +243,10 @@ def fig_lever():
                     color=color_for(name,k),marker=mk,ms=4,markevery=3,lw=1.5,
                     label=f"{name} glue  K={k}")
     ax.set_xscale("log"); ax.set_yscale("log")
-    ax.set_xlabel("N"); ax.set_ylabel("glue circuit size (gates)")
-    ax.set_title("The fingerprint lever — sort glue grows O(N), product glue O(K)")
+    ax.set_xlabel("n"); ax.set_ylabel("glue circuit size (gates)")
+    # No in-figure title: caption carries it. (Both glues are O(n); the lever cuts
+    # the per-node slope ~7x, sort ~19/node vs product ~2.8/node -- it does not turn
+    # the coverage check into O(K).)
     ax.legend(fontsize=8.5)
     save(fig, "05_fingerprint_lever_glue")
 

@@ -39,7 +39,6 @@
 
   // Ch 6 — Results sections not yet drafted (delete each when its section lands).
   // §6.1 (fairness controls) and §6.2 (flat baseline, <sec:flat-eval>) are drafted.
-  [#stub("§6.3 — per-variant gates vs the Ch5 predictions")<sec:gates-vs-prediction>]
   [#stub("§6.4 — parallel proving time and per-prover memory")<sec:parallel-proving>]
   [#stub("§6.6 — equal-privacy slices")<sec:equal-privacy-results>]
   [#stub("§6.7 — soundness validation")<sec:soundness-validation>]
