@@ -661,21 +661,37 @@ campanelli2019legosnark:
   type: article
   url: "https://eprint.iacr.org/2019/142"
 
+lycklama2025artemis:
+  author:
+    - Lycklama, Hidde
+    - Viand, Alexander
+    - Avramov, Nikolay
+    - Küchler, Nicolas
+    - Hithnawi, Anwar
+  date: 2025
+  doi: "10.48550/arXiv.2409.12055"
+  parent:
+    title: "arXiv"
+    type: repository
+  title: "Artemis: Efficient Commit-and-Prove SNARKs for zkML"
+  type: article
+  url: "https://arxiv.org/abs/2409.12055"
+
 # --- zkVM continuations -----------------------------------------------------
 
 risczero_continuations:
   author: RISC Zero
-  date: 2023
-  title: "A Guide to Continuations in RISC Zero"
+  date: 2026
+  title: "Recursive Proving"
   type: web
-  url: "https://risczero.com/blog/continuations"
+  url: "https://dev.risczero.com/api/recursion"
 
 sp1:
   author: Succinct Labs
-  date: 2024
-  title: "SP1: A Performant, 100% Open-Source, Contributor-Friendly zkVM"
+  date: 2026
+  title: "Proof Aggregation"
   type: web
-  url: "https://github.com/succinctlabs/sp1"
+  url: "https://docs.succinct.xyz/docs/sp1/writing-programs/proof-aggregation"
 
 jolt:
   author:
@@ -968,6 +984,23 @@ merkle1987:
   type: article
   url: "https://doi.org/10.1007/3-540-48184-2_32"
 
+zapico2022caulk:
+  author:
+    - Zapico, Arantxa
+    - Buterin, Vitalik
+    - Khovratovich, Dmitry
+    - Maller, Mary
+    - Nitulescu, Anca
+    - Simkin, Mark
+  date: 2022
+  parent:
+    title: "Cryptology ePrint Archive"
+    type: repository
+  serial-number: "2022/621"
+  title: "Caulk: Lookup Arguments in Sublinear Time"
+  type: article
+  url: "https://eprint.iacr.org/2022/621"
+
 # Pedersen commitment — cited in §2.3 (sub:commitments): the unconditional-hiding
 # / computational-binding (DLOG) alternative to the hash commitment.
 pedersen1991:
@@ -1026,3 +1059,45 @@ valiant2008ivc:
   title: "Incrementally Verifiable Computation or Proofs of Knowledge Imply Time/Space Efficiency"
   type: article
   url: "https://doi.org/10.1007/978-3-540-78524-8_1"
+
+# --- Permutation mechanisms considered but not built (Ch4 §sec:permcheck footnote):
+# the log-derivative argument (the grand product's modern cousin) and the
+# permutation/routing networks that fill the exact-and-static cell. -------------
+
+# LogUp — multiset/lookup equality via sums of inverses rather than a grand product.
+habock2022logup:
+  author:
+    - Haböck, Ulrich
+  date: 2022
+  parent:
+    title: "Cryptology ePrint Archive"
+    type: repository
+  serial-number: "2022/1530"
+  title: "Multivariate Lookups Based on Logarithmic Derivatives"
+  type: article
+  url: "https://eprint.iacr.org/2022/1530"
+
+# Waksman permutation network — O(n log n) conditional-swap routing of any permutation.
+waksman1968permutation:
+  author:
+    - Waksman, Abraham
+  date: 1968
+  doi: "10.1145/321439.321449"
+  page-range: 159-163
+  parent:
+    issue: 1
+    title: "Journal of the ACM"
+    type: periodical
+    volume: 15
+  title: "A Permutation Network"
+  type: article
+  url: "https://doi.org/10.1145/321439.321449"
+
+# Beneš network — the rearrangeable connecting network the routing approach builds on.
+benes1965networks:
+  author:
+    - Beneš, Václav E.
+  date: 1965
+  publisher: "Academic Press"
+  title: "Mathematical Theory of Connecting Networks and Telephone Traffic"
+  type: book

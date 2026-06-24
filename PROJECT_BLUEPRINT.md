@@ -7,6 +7,9 @@ settled. Anything here that conflicts with a stray older doc — trust this file
 
 ---
 
+Mapping the Performance-Privacy Frontier of Decomposed Zero-Knowledge Proofs
+     Flat, Hierarchical, and Recursive Architectures for the Travelling Salesman Problem
+
 ## 1. What this project is
 
 An MSc Cybersecurity thesis that **maps the performance/privacy trade-off space of

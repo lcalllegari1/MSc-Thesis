@@ -24,6 +24,7 @@ Map of the project's markdown docs — what each is for and a suggested read ord
 | `HOWTO.md` | All commands: build / prove / verify, benchmarking, aggregation, plotting, tests. The operational entry point. |
 | `DESIGN.md` | Living design log: the naming convention, shared architecture, the variant family, the dualism + stitching-tax reframe, and the progress checklist (source of truth for what's implemented). |
 | `DESIGN_SPACE.md` | **The alternatives ledger (roads not taken).** Per-decision full alternative space — including options *stronger* than ours — with verdicts, the viva threats to rehearse, defense lines, and the smart things possibly missed. The defensive companion to `DESIGN.md`. |
+| `CLEAN_REIMPLEMENTATION_GUIDE.md` | **The clean-repo rebuild contract.** How to reproduce the project from the current experimental workspace into a source-only, documented export: target layout, module boundaries, old-to-new migration map, phased rebuild order, and release gates. |
 
 ## Theory & framing (detail behind the outline's framing)
 | Doc | What it is |
