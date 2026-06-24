@@ -363,7 +363,7 @@ def fig_verifier_tax():
 
 # --- FIG 10: three-corner frontier (Pareto) at fixed N ---------------------
 def fig_frontier():
-    N, K = 1000, 4
+    N, K = 1000, 8
     # (label, family, total_gates, verifier_bytes, parallel_wallclock, per_prover_peak, privacy)
     pts=[]
     fg=fb("flat_merkle_grand_product",N,"circuit_size")
@@ -391,10 +391,11 @@ def fig_frontier():
     # manual label offsets (points), keyed by short label, per panel.  Crowded
     # structural-purple corner (flat/rec) gets leader-line annotations below.
     offA={"flat-prod":(9,5),"flat-sort":(9,-13),"rec-prod":(-30,10),"rec-sort":(9,-4),
-          "plain-sort":(7,6),"plain-prod":(7,-13),"comm-sort":(7,8),"comm-prod":(7,-14)}
+          "comm-sort":(14,20),"comm-prod":(16,4),"plain-prod":(16,-12),"plain-sort":(14,-26)}
     offB={"flat-prod":(9,5),"flat-sort":(9,-13),"rec-prod":(-12,-16),"rec-sort":(-46,4),
-          "plain-sort":(7,8),"plain-prod":(7,-7),"comm-sort":(7,8),"comm-prod":(7,-14)}
-    lead={"flat-prod","flat-sort","rec-prod"}   # crowded -> draw a short leader line
+          "comm-sort":(12,16),"plain-sort":(-46,2),"comm-prod":(16,-6),"plain-prod":(14,-22)}
+    # the four hierarchical points are near-coincident (~1.8M) -> fan labels with leaders
+    lead={"flat-prod","flat-sort","rec-prod","comm-sort","comm-prod","plain-prod","plain-sort"}
 
     fig, axes = plt.subplots(1,2,figsize=(13.5,5.6))
     ax=axes[0]
@@ -405,8 +406,8 @@ def fig_frontier():
         ax.annotate(lab,(vb/1024,tg/1e6),xytext=(dx,dy),textcoords="offset points",fontsize=8.5,
                     arrowprops=dict(arrowstyle="-",color="0.5",lw=.6) if lab in lead else None)
     ax.set_xlabel("verifier download (KB, log scale)"); ax.set_ylabel("total prover work (M gates)")
-    ax.set_xscale("log"); ax.set_xlim(10,120); ax.set_ylim(1.4,5.2)
-    ax.set_title("Verifier cost  vs  total prover work")
+    ax.set_xscale("log"); ax.set_xlim(10,220); ax.set_ylim(1.2,8.7)
+    ax.set_title("verifier cost  vs  total prover work")
     ax.text(0.5,0.93,"← recursion & flat: O(1) verifier   |   hierarchical: O(K) →",
             transform=ax.transAxes,ha="center",fontsize=8,color="dimgray")
     ax=axes[1]
@@ -417,8 +418,8 @@ def fig_frontier():
         ax.annotate(lab,(tg/1e6,wc),xytext=(dx,dy),textcoords="offset points",fontsize=8.5,
                     arrowprops=dict(arrowstyle="-",color="0.5",lw=.6) if lab in lead else None)
     ax.set_xlabel("total prover work (M gates)"); ax.set_ylabel("parallel wall-clock (s)")
-    ax.set_xlim(1.4,5.2); ax.set_ylim(0,52)
-    ax.set_title("Total work  vs  parallel wall-clock")
+    ax.set_xlim(1.2,8.7); ax.set_ylim(0,92)
+    ax.set_title("total work  vs  parallel wall-clock")
     ax.text(0.5,0.06,"hierarchical wins wall-clock; recursion's serial outer caps it",
             transform=ax.transAxes,ha="center",fontsize=8,color="dimgray")
     # legends: privacy (colour) + architecture (shape) + mechanism (size)
@@ -431,7 +432,6 @@ def fig_frontier():
     leg2=fig.legend(handles=fh,title="architecture",loc="lower center",ncol=3,bbox_to_anchor=(0.66,-0.07))
     fig.legend(handles=mh,title="mechanism (size)",loc="lower center",ncol=2,bbox_to_anchor=(0.90,-0.07))
     fig.add_artist(leg1); fig.add_artist(leg2)
-    fig.suptitle(f"The frontier — three non-dominated corners at N={N}, K={K}", y=1.0)
     save(fig, "10_frontier_pareto")
 
 # --- FIG 11: pick-two triangle (radar) -------------------------------------
@@ -449,7 +449,6 @@ def fig_pick_two():
         ax.set_xticks(ang[:-1]); ax.set_xticklabels(axes_lab,fontsize=8)
         ax.set_yticks([0,1]); ax.set_yticklabels([]); ax.set_ylim(0,1)
         ax.set_title(fam,fontsize=11,pad=14)
-    fig.suptitle("The pick-two triangle — each architecture gets two corners (folding breaks it)", y=1.08)
     save(fig, "11_pick_two_triangle")
 
 # --- FIG 12: privacy ladder (slopegraph) -----------------------------------

@@ -39,7 +39,6 @@
 
   // Ch 6 — Results sections not yet drafted (delete each when its section lands).
   // §6.1 (fairness controls) and §6.2 (flat baseline, <sec:flat-eval>) are drafted.
-  [#stub("§6.8 — the frontier figure")<sec:frontier-figure>]
   [#stub("Fig — mechanism witness-time plot")<fig:mech-witness-plot>]
 
   // Appendix — full per-construction negative-test dump (not yet written).
