@@ -41,9 +41,6 @@
   // §6.1 (fairness controls) and §6.2 (flat baseline, <sec:flat-eval>) are drafted.
   [#stub("Fig — mechanism witness-time plot")<fig:mech-witness-plot>]
 
-  // Ch 7 — Conclusion (not yet migrated).
-  [#stub("§7.x — future work")<sec:future-work>]
-
   // A @ref to a stub-only label renders as a visible TBD marker; everything else
   // (real targets) renders normally. A leftover stub alongside a real target makes
   // the label ambiguous -> Typst errors, forcing you to delete the stub.
