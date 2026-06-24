@@ -259,9 +259,9 @@ def fig_f7():
         ratio=[100*(HIER["plain-product"][(n,k)]["total"]/HIER["plain-sort"][(n,k)]["total"]-1) for n in xs]
         ax.plot(xs,ratio,ls,color="#8c564b",lw=1.5,label=f"K={k}")
     ax.axhline(0,color="k",lw=1)
-    ax.set_xscale("log"); ax.set_xlabel("N")
+    ax.set_xscale("log"); ax.set_xlabel("n")
     ax.set_ylabel("plain-product total gates over plain-sort (%)")
-    ax.set_title("F7 — neither dominates: plain-sort is cheaper on TOTAL gates at every (N,K)")
+    # No in-figure title: caption carries it.
     ax.legend(title="segments")
     save(fig, "06_F7_sort_not_dominated")
 
