@@ -62,7 +62,8 @@
   h(1fr)
   if chapter != none {
     if chapter.numbering != none {
-      [CHAPTER ]
+      upper(chapter.supplement)
+      [ ]
       numbering(
         chapter.numbering,
         ..counter(heading).at(chapter.location())

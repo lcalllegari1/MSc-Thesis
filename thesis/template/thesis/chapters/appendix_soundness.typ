@@ -14,7 +14,7 @@ We write $FF$ for the scalar field, with $|FF| approx 2^254$, and keep the insta
 
 $ R = { chevron.l (italic("root"), T), pi chevron.r : pi "is a permutation of" ccal("V"), "each edge of" pi "opens to" italic("root") ", and" "cost"#h(1pt)\(pi) <= T }. $ <eq:R-committed>
 
-A construction $Pi_V$ is a prover paired with a verifier $"Verify"_V$; for the external constructions that verifier checks $K + 1$ proofs and one deterministic cross-check over their shared public inputs. What we ask of $Pi_V$ is that an accepting run should mean the prover _holds_ a witness for @eq:R-committed---not merely that one exists somewhere, but that this prover could produce it. That is knowledge soundness, and we state it through an emulator.
+A construction $Pi_V$ is a prover paired with a verifier $"Verify"_V$; for the external constructions that verifier checks $K + 1$ proofs and one deterministic cross-check over their shared public inputs. What we ask of $Pi_V$ is that an accepting run should mean the prover _holds_ a witness for @eq:R-committed: not merely that one exists somewhere, but that this prover could produce it. That is knowledge soundness, and we state it through an emulator.
 
 #section([The target and the assumptions], label: <app:sound-target>)
 

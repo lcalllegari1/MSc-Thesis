@@ -9,8 +9,11 @@
 
 #import "@preview/ctheorems:1.1.3": *
 
-#let theorem    = thmplain("theorem",    "Theorem",    base_level: 1)
-#let definition = thmplain("definition", "Definition", base_level: 1)
-#let lemma      = thmplain("lemma",      "Lemma",      base_level: 1)
-#let assumption = thmplain("assumption", "Assumption", base_level: 1)
+// numbering "A.1": the level-1 heading counter renders as the appendix letter
+// (these environments are currently used only in the appendix). `numbering` is a
+// parameter of the environment closure, so it is preset with `.with(...)`.
+#let theorem    = thmplain("theorem",    "Theorem",    base_level: 1).with(numbering: "A.1")
+#let definition = thmplain("definition", "Definition", base_level: 1).with(numbering: "A.1")
+#let lemma      = thmplain("lemma",      "Lemma",      base_level: 1).with(numbering: "A.1")
+#let assumption = thmplain("assumption", "Assumption", base_level: 1).with(numbering: "A.1")
 #let proof      = thmproof("proof",      "Proof")
