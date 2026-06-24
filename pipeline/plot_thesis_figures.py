@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
 Thesis figure generator — reads results/*.csv directly and emits the curated
-body figure set + key diagnostics into plots/figures/ (PDF + PNG).
+body figure set + key diagnostics. All styling comes from pipeline/style.py
+(the single source of truth: hue=regime, marker=mechanism, shade+linestyle=K),
+so every figure is consistent by construction.
+
+Outputs (so the thesis never embeds a stale hand copy):
+    plots/figures/<name>.png            quick raster preview / docs
+    plots/figures/<name>.pdf            vector copy for the gallery
+    thesis/template/assets/figures/<name>.pdf   the PDF the thesis embeds
 
 Self-contained: does its own aggregation (no dependence on aggregate_*.py
 intermediates). Run from repo root in the zk-tsp env:
@@ -15,8 +22,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 RES = "results"
-OUT = "plots/figures"
-os.makedirs(OUT, exist_ok=True)
+OUT = "plots/figures"                       # PNG gallery + PDF copies (preview / docs)
+ASSETS = "thesis/template/assets/figures"   # vector PDFs the thesis actually embeds
+for _d in (OUT, ASSETS):
+    os.makedirs(_d, exist_ok=True)
 PROOF = 14656  # bytes per ZK proof (pinned across all variants)
 
 plt.rcParams.update({
@@ -40,8 +49,12 @@ def fnum(x):
     except: return None
 
 def save(fig, name):
-    for ext in ("pdf", "png"):
-        fig.savefig(os.path.join(OUT, f"{name}.{ext}"), bbox_inches="tight")
+    # PNG for quick preview; vector PDF into BOTH the gallery and the thesis assets
+    # dir, so the embedded figures are always freshly generated from style.py and
+    # never a stale hand copy. Run from repo root in the zk-tsp env.
+    fig.savefig(os.path.join(OUT, f"{name}.png"), bbox_inches="tight")
+    for d in (OUT, ASSETS):
+        fig.savefig(os.path.join(d, f"{name}.pdf"), bbox_inches="tight")
     plt.close(fig)
     print("  wrote", name)
 
@@ -124,7 +137,7 @@ REC = {
 
 # --- FIG 1: flat scaling, circuit_size vs N (log-log + linear) -------------
 def fig_flat_scaling():
-    variants = [("flat_full_pairwise","flat-pairwise","flat-full pairwise  O(N²)"),
+    variants = [("flat_full_pairwise","flat-pairwise","flat-full pairwise  O(n²)"),
                 ("flat_full_sort","flat-full-sort","flat-full sort"),
                 ("flat_merkle_sort","flat-sort","flat-Merkle sort"),
                 ("flat_merkle_grand_product","flat-product","flat-Merkle product")]
@@ -139,9 +152,9 @@ def fig_flat_scaling():
             ax.set_xscale("log"); ax.set_yscale("log"); ax.set_title("log–log (slope = complexity exponent)")
         else:
             ax.set_title("linear (absolute magnitude)")
-        ax.set_xlabel("N (nodes)"); ax.set_ylabel("circuit size (UltraHonk gates)")
+        ax.set_xlabel("n (nodes)"); ax.set_ylabel("circuit size (UltraHonk gates)")
     axes[0].legend(loc="upper left", fontsize=9)
-    fig.suptitle("Flat baseline — gate scaling across permutation mechanism & matrix representation", y=1.02)
+    # No suptitle: the Typst #figure caption carries the figure-level description.
     save(fig, "01_flat_scaling")
 
 # --- FIG 2: flat-full vs flat-Merkle crossover (N≈176) ---------------------
@@ -150,8 +163,8 @@ def fig_flat_crossover():
     full = [fb("flat_full_sort", n, "circuit_size") for n in ns]
     mkl  = [fb("flat_merkle_sort", n, "circuit_size") for n in ns]
     fig, ax = plt.subplots(figsize=(7.2, 5))
-    ax.plot(ns, full, "v-", ms=4, color=C["flat-full-sort"][0], label="flat-full (matrix public, O(N²) inputs)")
-    ax.plot(ns, mkl,  "o-", ms=4, color=C["flat-sort"][0], label="flat-Merkle (committed, O(N·log N) hashing)")
+    ax.plot(ns, full, "v-", ms=4, color=C["flat-full-sort"][0], label="flat-full (matrix public, O(n²) inputs)")
+    ax.plot(ns, mkl,  "o-", ms=4, color=C["flat-sort"][0], label="flat-Merkle (committed, O(n·log n) hashing)")
     # crossover marker
     cx = None
     for i in range(1, len(ns)):
@@ -159,12 +172,12 @@ def fig_flat_crossover():
             cx = ns[i]; break
     if cx:
         ax.axvline(cx, ls=":", color="k", alpha=.6)
-        ax.annotate(f"crossover  N≈{cx}\n(full overtakes Merkle)", xy=(cx, mkl[ns.index(cx)]),
+        ax.annotate(f"crossover  n≈{cx}\n(full overtakes Merkle)", xy=(cx, mkl[ns.index(cx)]),
                     xytext=(cx*1.15, mkl[ns.index(cx)]*0.45), fontsize=9,
                     arrowprops=dict(arrowstyle="->", color="k", alpha=.6))
     ax.set_xscale("log"); ax.set_yscale("log")
-    ax.set_xlabel("N (nodes)"); ax.set_ylabel("circuit size (gates)")
-    ax.set_title("Matrix representation crossover — when committing beats publishing")
+    ax.set_xlabel("n (nodes)"); ax.set_ylabel("circuit size (gates)")
+    # No in-figure title: the Typst #figure caption carries the description.
     ax.legend(loc="upper left")
     save(fig, "02_flat_full_vs_merkle_crossover")
 

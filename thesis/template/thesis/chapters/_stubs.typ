@@ -37,8 +37,13 @@
   // Ch 3 — Evaluation methodology / metrics (not yet migrated).
   [#stub("§3.x — fairness: privacy-equalized comparison conditions")<sec:fairness>]
 
-  // Ch 6 — Evaluation / results (not yet migrated).
-  [#stub("§6.x — flat-baseline evaluation / measured results")<sec:flat-eval>]
+  // Ch 6 — Results sections not yet drafted (delete each when its section lands).
+  // §6.1 (fairness controls) and §6.2 (flat baseline, <sec:flat-eval>) are drafted.
+  [#stub("§6.3 — per-variant gates vs the Ch5 predictions")<sec:gates-vs-prediction>]
+  [#stub("§6.4 — parallel proving time and per-prover memory")<sec:parallel-proving>]
+  [#stub("§6.6 — equal-privacy slices")<sec:equal-privacy-results>]
+  [#stub("§6.7 — soundness validation")<sec:soundness-validation>]
+  [#stub("§6.8 — the frontier figure")<sec:frontier-figure>]
   [#stub("Fig — mechanism witness-time plot")<fig:mech-witness-plot>]
 
   // Ch 7 — Conclusion (not yet migrated).
