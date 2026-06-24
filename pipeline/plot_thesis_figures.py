@@ -267,32 +267,34 @@ def fig_f7():
 
 # --- FIG 7: speedup vs K (isolated, ideal-parallel) ------------------------
 def fig_speedup_vs_k():
+    # Mechanism split at fixed n: product glue is negligible so both speedup and
+    # per-prover memory approach K×; the sort glue is a serial, memory-heavy O(n)
+    # tail that caps both. hue = regime, marker = mechanism (style grammar).
+    N=3000
+    FLATREF={"plain-product":"flat_merkle_grand_product","committed-product":"flat_merkle_grand_product",
+             "plain-sort":"flat_merkle_sort","committed-sort":"flat_merkle_sort"}
+    variants=["plain-product","committed-product","plain-sort","committed-sort"]
     fig, axes = plt.subplots(1,2,figsize=(12,4.8))
-    Ns=[256,1000,3000]
     ax=axes[0]
-    for n,mk in zip(Ns,("o","s","^")):
-        sp=[]
-        for k in (2,4,8):
-            d=HIER["plain-product"].get((n,k)); fp=fb("flat_merkle_grand_product",n,"prove_s")
-            sp.append(fp/d["crit"] if d and fp else np.nan)
-        ax.plot((2,4,8),sp,mk+"-",ms=5,label=f"N={n}")
-    ax.plot((2,4,8),(2,4,8),"k:",label="ideal K×")
+    for name in variants:
+        col,mk=C[name]
+        sp=[(fb(FLATREF[name],N,"prove_s")/HIER[name][(N,k)]["crit"]) if (N,k) in HIER[name] else np.nan
+            for k in (2,4,8)]
+        ax.plot((2,4,8),sp,mk+"-",ms=6,color=col,lw=1.6,label=name)
+    ax.plot((2,4,8),(2,4,8),"k:",lw=1.2,label="ideal K×")
     ax.set_xlabel("K (segments)"); ax.set_ylabel("speedup vs flat (×)")
-    ax.set_title("Parallel speedup, plain-product (isolated per-prover)")
-    ax.set_xticks((2,4,8)); ax.legend()
-    # memory reduction
+    ax.set_title("Parallel speedup  (critical path = slowest segment + glue)")
+    ax.set_xticks((2,4,8)); ax.legend(fontsize=8.5)
     ax=axes[1]
-    for n,mk in zip(Ns,("o","s","^")):
-        red=[]
-        for k in (2,4,8):
-            d=HIER["plain-product"].get((n,k)); fpk=fb("flat_merkle_grand_product",n,"peak_mb")
-            red.append(fpk/d["peak"] if d and fpk else np.nan)
-        ax.plot((2,4,8),red,mk+"-",ms=5,label=f"N={n}")
-    ax.plot((2,4,8),(2,4,8),"k:",label="ideal K×")
-    ax.set_xlabel("K (segments)"); ax.set_ylabel("per-prover memory reduction (×)")
-    ax.set_title("Per-prover memory reduction (genuine, per-process)")
-    ax.set_xticks((2,4,8)); ax.legend()
-    fig.suptitle("Isolation benchmark — the K× win, measured (compute-only upper bound)", y=1.02)
+    for name in variants:
+        col,mk=C[name]
+        red=[(fb(FLATREF[name],N,"peak_mb")/HIER[name][(N,k)]["peak"]) if (N,k) in HIER[name] else np.nan
+             for k in (2,4,8)]
+        ax.plot((2,4,8),red,mk+"-",ms=6,color=col,lw=1.6,label=name)
+    ax.plot((2,4,8),(2,4,8),"k:",lw=1.2,label="ideal K×")
+    ax.set_xlabel("K (segments)"); ax.set_ylabel("per-prover peak memory reduction (×)")
+    ax.set_title("Per-prover peak memory reduction")
+    ax.set_xticks((2,4,8)); ax.legend(fontsize=8.5)
     save(fig, "07_speedup_and_memory_vs_K")
 
 # --- FIG 8: recursion M-independence (the gem) -----------------------------
