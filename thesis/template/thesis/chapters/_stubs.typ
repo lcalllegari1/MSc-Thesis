@@ -41,9 +41,6 @@
   // §6.1 (fairness controls) and §6.2 (flat baseline, <sec:flat-eval>) are drafted.
   [#stub("Fig — mechanism witness-time plot")<fig:mech-witness-plot>]
 
-  // Appendix — full per-construction negative-test dump (not yet written).
-  [#stub("Appendix — full negative-test battery")<app:negative-tests>]
-
   // Ch 7 — Conclusion (not yet migrated).
   [#stub("§7.x — future work")<sec:future-work>]
 

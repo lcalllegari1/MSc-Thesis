@@ -12,3 +12,4 @@
 })
 
 #include "/thesis/chapters/appendix_soundness.typ"
+#include "/thesis/chapters/appendix_negative_tests.typ"
