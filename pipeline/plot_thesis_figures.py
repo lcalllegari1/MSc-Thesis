@@ -314,7 +314,7 @@ def fig_recursion_m_independence():
             ys=[REC[name][(n,k)]["per_seg"]/1e3 for n in xs]
             ax.plot(xs,ys,ls,marker=mk,ms=4,markevery=2,color=color_for(name,k),lw=1.3,
                     label=(LAB[name] if k==2 else None))
-    ax.set_xscale("log"); ax.set_xlabel("N"); ax.set_ylabel("outer gates per segment (×10³)")
+    ax.set_xscale("log"); ax.set_xlabel("n"); ax.set_ylabel("outer gates per segment (×10³)")
     ax.set_title("Outer gates per segment")
     mleg=ax.legend(fontsize=9,loc="upper left")
     ax.add_artist(mleg); ax.legend(handles=klines,fontsize=8,loc="lower right",title="segments")
@@ -326,10 +326,12 @@ def fig_recursion_m_independence():
             ys=[REC[name][(n,k)]["outer_peak"]/1e3 for n in xs]
             ax.plot(xs,ys,ls,marker=mk,ms=4,markevery=2,color=color_for(name,k),lw=1.3,
                     label=(name if k==2 else None))
-    ax.set_xscale("log"); ax.set_xlabel("N"); ax.set_ylabel("outer prover peak memory (GB)")
+    ax.set_xscale("log"); ax.set_xlabel("n"); ax.set_ylabel("outer prover peak memory (GB)")
     ax.set_title("Outer prover peak memory")
     ax.legend(fontsize=9)
-    fig.suptitle("Why recursive-product ships — product inner keeps the outer flat; sort inner grows (gates ↑17%, memory ~6×)", y=1.03)
+    # No suptitle: caption carries it. (Measured: product inner keeps the outer
+    # flat in n; the sort inner makes it grow, modestly in gates (+4% by n=5000)
+    # and more in memory (~1.6x by n=5000, widening) -- NOT the ~6x once claimed.)
     save(fig, "08_recursion_M_independence")
 
 # --- FIG 9: verifier tax — J1, all three families vs K ---------------------
@@ -344,7 +346,7 @@ def fig_verifier_tax():
         ax.plot(Ks,[(k+1)*PROOF/1024 for k in Ks],"s-",color=col,label=f"{name}  (K+1 proofs, O(K))")
     ax.plot(Ks,[PROOF/1024]*3,"s--",color=C["recursive-product"][0],label="recursion  (1 proof, O(1))")
     ax.set_xlabel("K"); ax.set_ylabel("verifier download (KB)"); ax.set_xticks(Ks)
-    ax.set_title(f"Proof bytes the verifier must check (N={N})"); ax.legend(fontsize=9)
+    ax.set_title(f"Proof bytes the verifier must check (n={N})"); ax.legend(fontsize=9)
     # verify_s
     ax=axes[1]
     fv=fb("flat_merkle_grand_product",N,"verify_s")
@@ -356,7 +358,7 @@ def fig_verifier_tax():
     ax.plot(Ks[:len(rv)],rv,"s--",color=C["recursive-product"][0],label="recursion  (O(1))")
     ax.set_xlabel("K"); ax.set_ylabel("verification time (s)"); ax.set_xticks(Ks)
     ax.set_title("Verifier wall-clock"); ax.legend(fontsize=9)
-    fig.suptitle("The verifier-side stitching tax — hierarchical pays O(K); recursion buys it back to O(1)", y=1.02)
+    # No suptitle: caption carries it.
     save(fig, "09_verifier_tax_vs_K")
 
 # --- FIG 10: three-corner frontier (Pareto) at fixed N ---------------------
